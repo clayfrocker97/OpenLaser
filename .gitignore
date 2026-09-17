@@ -1,0 +1,48 @@
+# Build output
+/target/
+**/target/
+*.exe
+*.dll
+*.msi
+*.dmg
+*.zip
+*.download
+*.app/
+
+# Private material kept beside the public tree and never committed: the
+# reverse-engineering evidence archive, the retired prototype with its handoff
+# documents and tools, and the UI design mockup until it moves into ui/.
+/reference/
+/source/
+/docs/
+/tools/
+/ui-mockup/
+
+# Local state
+/data/
+*.local
+.DS_Store
+__pycache__/
+*.pyc
+
+# The material card artwork; the app ships the rendered thumbnails under ui/static/materials.
+/material-cards/
+.claude/
+
+# Keep public documentation and license provenance only.
+*.md
+!/README.md
+!/USAGE.md
+!/CONTRIBUTING.md
+!/CHANGELOG.md
+!/RELEASING.md
+!/THIRD-PARTY-NOTICES.md
+!/crates/openlaser/assets/README.md
+!/crates/openlaser-svg/fonts/SOURCES.md
+!/fixtures/fonts/SOURCES.md
+
+# Private capture-based validation material
+/fixtures/compiler/
+/fixtures/protocol/
+/crates/openlaser-compiler/tests/oracle.rs
+/crates/openlaser-protocol/tests/captures.rs

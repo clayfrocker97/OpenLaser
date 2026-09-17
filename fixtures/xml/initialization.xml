@@ -1,0 +1,42 @@
+<ParameterRoot>
+  <PMachineAxisConfig>
+    <MAC DoubleDevice="0" AllowableError="2000" AlarmTime="1000" CloseBreakTime="500" />
+  </PMachineAxisConfig>
+  <PMachineAxisConfig_0>
+    <MAC SoftLimitMaxLen="1371" WritePluse="8000" AxisReverse="1" EncoderReverse="0" GoOriginalDirection="0" SpeedRatio="31.039999999999999" IsRotatingShaft="0" ZoreType="0" OriginalInput="0" NegativeType="0" NegativeLimitInput="6" ForwardType="0" ForwardLimitInput="5" BrakeOutput="0" EnableZphaseSignal="0" SecondGoHome="0" SampleType="1" FastSpeed="80" SecondSpeed="20" ReturnLength="28" Acceleration="20000" AccelerationTime="125" />
+  </PMachineAxisConfig_0>
+  <PMachineAxisConfig_1>
+    <MAC_1 SoftLimitMaxLen="950" WritePluse="8000" AxisReverse="1" EncoderReverse="0" GoOriginalDirection="0" SpeedRatio="31.059999999999999" IsRotatingShaft="0" ZoreType="0" OriginalInput="0" NegativeType="0" NegativeLimitInput="8" ForwardType="0" ForwardLimitInput="7" BrakeOutput="0" EnableZphaseSignal="0" SecondGoHome="0" SampleType="1" FastSpeed="80" SecondSpeed="20" ReturnLength="15" Acceleration="20000" AccelerationTime="125" />
+  </PMachineAxisConfig_1>
+  <PMachineAxisConfig_2>
+    <MAC_2 SoftLimitMaxLen="1000" WritePluse="2000" AxisReverse="1" EncoderReverse="0" GoOriginalDirection="0" SpeedRatio="5" IsRotatingShaft="0" ZoreType="0" OriginalInput="0" NegativeType="0" NegativeLimitInput="0" ForwardType="0" ForwardLimitInput="0" BrakeOutput="0" EnableZphaseSignal="0" SecondGoHome="0" SampleType="1" FastSpeed="30" SecondSpeed="20" ReturnLength="5" Acceleration="20000" AccelerationTime="125" />
+  </PMachineAxisConfig_2>
+  <PMachineAxisConfig_3>
+    <MAC_3 SoftLimitMaxLen="1000" WritePluse="10000" AxisReverse="0" EncoderReverse="0" GoOriginalDirection="0" SpeedRatio="5" IsRotatingShaft="0" ZoreType="0" OriginalInput="0" NegativeType="0" NegativeLimitInput="9" ForwardType="0" ForwardLimitInput="10" BrakeOutput="0" EnableZphaseSignal="0" SecondGoHome="0" SampleType="1" FastSpeed="30" SecondSpeed="20" ReturnLength="10" Acceleration="20000" AccelerationTime="125" />
+  </PMachineAxisConfig_3>
+  <PMachineAxisConfig_4>
+    <MAC_4 SoftLimitMaxLen="1000" WritePluse="2000" AxisReverse="0" EncoderReverse="0" GoOriginalDirection="1" SpeedRatio="10" IsRotatingShaft="0" ZoreType="0" OriginalInput="0" NegativeType="0" NegativeLimitInput="2" ForwardType="0" ForwardLimitInput="3" BrakeOutput="0" EnableZphaseSignal="0" SecondGoHome="0" SampleType="1" FastSpeed="30" SecondSpeed="20" ReturnLength="5" Acceleration="20000" AccelerationTime="125" />
+  </PMachineAxisConfig_4>
+  <PFCParam>
+    <FCP FrogJumpMinHeight="10" MaxSpeed="3000" MaxAcc="20000" FlycutEncoderToleranceRatio="6" FlycutCircleVelRatio="1" FlycutCirclePwmDelayTime="0" FlycutLineOpenPwmForwardCycle="-3" FlycutLineColsePwmForwardCycle="-3" />
+  </PFCParam>
+  <PZFParam>
+    <ZF ZFType="1" SerialPort="0" SerialBaudRate="0" DOFollow="0" DODrill="0" DOJogUp="0" DOJogDown="0" DIWarning="0" DIFollowReady="0" DIDrillReady="0" ZFFollowSpeed="100" ZFJogSpeed="30" ZFFastJogSpeed="50" ZFDockHeight="20" ZFUpSpeed="100" ZFOriginSoftLimitIndex="0" ZFSignalCorrectionPeriod="30" />
+  </PZFParam>
+  <PECParam>
+    <EC ECStepLength="1" ECFastSpeed="30" ECJogIsStepMode="0" />
+    <ZF zfSoftLimitEnable="0" />
+  </PECParam>
+  <PLaserParam>
+    <LGP LaserType="0" LaserControlType="3" LaserDAPort="1" LaserDAType="0" DORemoteStart="0" DOLaserGate="5" DOLaser="0" DORedLight="6" LaserSerialPort="0" LaserSerialBaudRate="0" LaserMaxPower="0" CO2LaserControlType="2" CO2LaserDAPort="1" CO2LaserDAType="1" CO2DORemoteStart="0" CO2DOLaserGate="0" CO2DOLaser="9" CO2DORedLight="0" doCO2EnableOutput="0" />
+    <LPF LiftingPlatformType="1" />
+  </PLaserParam>
+  <PManuParam>
+    <MS EnableSoftLimit="1" />
+    <EC ECIOType="0" />
+    <AF AFType="0" />
+  </PManuParam>
+  <PSoftParam>
+    <SP LimitDeccFactor="1" />
+  </PSoftParam>
+</ParameterRoot>

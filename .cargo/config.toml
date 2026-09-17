@@ -1,0 +1,13 @@
+# Where `cargo test --all-features` writes the TypeScript bindings the UI
+# is typed against, so the two never drift apart.
+[env]
+TS_RS_EXPORT_DIR = { value = "ui/src/api/bindings", relative = true }
+TS_RS_LARGE_INT = "number"
+
+# Single-file Windows releases use the MSVC target: WebView2's loader and the
+# C runtime are linked into the executable instead of requiring adjacent DLLs.
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]
+
+[target.aarch64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]

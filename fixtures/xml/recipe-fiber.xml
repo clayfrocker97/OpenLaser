@@ -1,0 +1,7 @@
+<ParameterRoot>
+<PLayerParam11>
+<GP NoManu="0" ManuType="0" CutSpeed="60" CutPower="40" CutDuty="5" CutFreq="5000" CutPeakCurrent="100" CutGasType="5" CutAirPressure="0.85" CutHeight="0.5" UpHeight="15" NoFollow="0" LaserOnDelay="10" LaserOffBeforeDelay="0" LaserOffAfterDelay="0" PowerAdjustWithSpeed="1" PWMCurveNodes="0,10,100,100" FreqAdjustWithSpeed="0" SlowStart="0" SlowStartLength="1" SlowStartSpeed="10" Note="NOZZLE---SINGLE-2.0
+FOCAL LENGTH---(-1)
+" LayerFileName="stainless steel 2.0mm  single 2.0 F -1 air"/>
+</PLayerParam11>
+</ParameterRoot>

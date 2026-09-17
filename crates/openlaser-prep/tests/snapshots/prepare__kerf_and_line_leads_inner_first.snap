@@ -1,0 +1,32 @@
+---
+source: crates/openlaser-prep/tests/prepare.rs
+expression: "render(&openlaser_prep::prepare(&plate(), &features).unwrap())"
+---
+contour from [1]: layer "0", depth 1, closed, length 34.7876
+  line (23.4858, 28.5858) -> (24.9000, 30.0000)  [entry lead]
+  arc centre (20.0000, 30.0000) radius 4.9000 from 0.0000 rad sweep 3.1416 rad
+  arc centre (20.0000, 30.0000) radius 4.9000 from 3.1416 rad sweep 3.1416 rad
+  line (24.9000, 30.0000) -> (23.4858, 31.4142)  [exit lead]
+contour from [2]: layer "0", depth 1, closed, length 34.7876
+  line (83.4858, 28.5858) -> (84.9000, 30.0000)  [entry lead]
+  arc centre (80.0000, 30.0000) radius 4.9000 from 0.0000 rad sweep 3.1416 rad
+  arc centre (80.0000, 30.0000) radius 4.9000 from 3.1416 rad sweep 3.1416 rad
+  line (84.9000, 30.0000) -> (83.4858, 31.4142)  [exit lead]
+contour from [3]: layer "0", depth 1, closed, length 74.7876
+  line (38.5858, 26.5142) -> (40.0000, 25.1000)  [entry lead]
+  line (40.0000, 25.1000) -> (60.0000, 25.1000)
+  arc centre (60.0000, 30.0000) radius 4.9000 from -1.5708 rad sweep 3.1416 rad
+  line (60.0000, 34.9000) -> (40.0000, 34.9000)
+  arc centre (40.0000, 30.0000) radius 4.9000 from 1.5708 rad sweep 3.1416 rad
+  line (40.0000, 25.1000) -> (41.4142, 26.5142)  [exit lead]
+contour from [0]: layer "0", depth 0, closed, length 324.6283
+  line (101.4142, 61.5142) -> (100.0000, 60.1000)  [entry lead]
+  line (100.0000, 60.1000) -> (0.0000, 60.1000)
+  arc centre (0.0000, 60.0000) radius 0.1000 from 1.5708 rad sweep 1.5708 rad
+  line (-0.1000, 60.0000) -> (-0.1000, 0.0000)
+  arc centre (-0.0000, -0.0000) radius 0.1000 from 3.1416 rad sweep 1.5708 rad
+  line (0.0000, -0.1000) -> (100.0000, -0.1000)
+  arc centre (100.0000, -0.0000) radius 0.1000 from -1.5708 rad sweep 1.5708 rad
+  line (100.1000, 0.0000) -> (100.1000, 60.0000)
+  arc centre (100.0000, 60.0000) radius 0.1000 from 0.0000 rad sweep 1.5708 rad
+  line (100.0000, 60.1000) -> (98.5858, 61.5142)  [exit lead]

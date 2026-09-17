@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="170mm" height="65mm" viewBox="0 0 170 65">
+  <title>Small letter software and physical coupon — nominal 3, 5, 8 and 12 mm text</title>
+  <g font-family="Noto Sans" fill="black">
+    <text x="5" y="10" font-size="3">3 mm  Aa Bb O0 8 &amp; i.</text>
+    <text x="5" y="22" font-size="5">5 mm  Aa Bb O0 8 &amp; i.</text>
+    <text x="5" y="38" font-size="8">8 mm  Aa Bb O0 8 &amp; i.</text>
+    <text x="5" y="57" font-size="12">12 mm  Aa Bb O0 8 &amp; i.</text>
+  </g>
+</svg>

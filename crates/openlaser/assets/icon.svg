@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024"><rect x="48" y="48" width="928" height="928" rx="200" fill="#f5f6f2"/><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" x="128" y="128" width="768" height="768">
+  <defs>
+    <radialGradient id="mg" cx="14.70" cy="20" r="7.28" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#f06a1f" stop-opacity=".6"/><stop offset=".5" stop-color="#f06a1f" stop-opacity=".2"/><stop offset="1" stop-color="#f06a1f" stop-opacity="0"/></radialGradient>
+    <clipPath id="mc"><path d="M20 12.0A8.00 8.00 0 0 0 20 28.0Z"/></clipPath>
+  </defs>
+  <line x1="40" y1="20" x2="14.70" y2="20" stroke="#f06a1f" stroke-width="3" stroke-linecap="round"/>
+  <g clip-path="url(#mc)">
+    <circle cx="14.70" cy="20" r="7.28" fill="url(#mg)"/>
+    <line x1="16.15" y1="18.78" x2="17.96" y2="17.27" stroke="#f06a1f" stroke-width="1.06" stroke-linecap="round"/><line x1="16.15" y1="21.22" x2="17.96" y2="22.73" stroke="#f06a1f" stroke-width="1.06" stroke-linecap="round"/><line x1="15.23" y1="18.56" x2="15.83" y2="16.89" stroke="#f06a1f" stroke-width="0.95" stroke-linecap="round"/><line x1="15.23" y1="21.44" x2="15.83" y2="23.11" stroke="#f06a1f" stroke-width="0.95" stroke-linecap="round"/><line x1="17.44" y1="19.27" x2="19.95" y2="18.59" stroke="#f06a1f" stroke-width="0.83" stroke-linecap="round"/><line x1="17.44" y1="20.73" x2="19.95" y2="21.41" stroke="#f06a1f" stroke-width="0.83" stroke-linecap="round"/><line x1="14.49" y1="18.84" x2="14.29" y2="17.67" stroke="#f06a1f" stroke-width="0.71" stroke-linecap="round"/><line x1="14.49" y1="21.16" x2="14.29" y2="22.33" stroke="#f06a1f" stroke-width="0.71" stroke-linecap="round"/>
+    <circle cx="14.70" cy="20" r="2.6" fill="#f06a1f"/>
+    <circle cx="14.70" cy="20" r="1.17" fill="#fff"/>
+  </g>
+  <path d="M30.14 17.28A10.5 10.5 0 1 0 30.14 22.72" fill="none" stroke="#1c211b" stroke-width="4.6" stroke-linecap="round"/>
+  
+</svg></svg>

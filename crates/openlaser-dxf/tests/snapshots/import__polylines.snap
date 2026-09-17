@@ -1,0 +1,19 @@
+---
+source: crates/openlaser-dxf/tests/import.rs
+expression: render(&import)
+---
+units: Millimeters
+entities: 3
+contour 0: layer "0", open, length 21.5912
+  arc centre (5.0000, 3.7500) radius 6.2500 from -2.4981 rad sweep 1.8546 rad
+  line (10.0000, 0.0000) -> (10.0000, 10.0000)
+contour 1: layer "0", closed, length 40.0000
+  line (20.0000, 0.0000) -> (30.0000, 0.0000)
+  line (30.0000, 0.0000) -> (30.0000, 10.0000)
+  line (30.0000, 10.0000) -> (20.0000, 10.0000)
+  line (20.0000, 10.0000) -> (20.0000, 0.0000)
+contour 2: layer "0", closed, length 45.7080
+  line (40.0000, 0.0000) -> (50.0000, 0.0000)
+  arc centre (50.0000, 5.0000) radius 5.0000 from -1.5708 rad sweep 3.1416 rad
+  line (50.0000, 10.0000) -> (40.0000, 10.0000)
+  line (40.0000, 10.0000) -> (40.0000, 0.0000)

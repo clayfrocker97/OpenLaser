@@ -1,0 +1,19 @@
+[package]
+name = "openlaser-dxf"
+description = "DXF import into OpenLaser geometry"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+openlaser-core.workspace = true
+openlaser-svg.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+insta.workspace = true

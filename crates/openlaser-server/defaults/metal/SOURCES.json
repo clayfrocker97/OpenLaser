@@ -1,0 +1,809 @@
+{
+  "archive": "Mlaser-Clean-Metal-Library.zip",
+  "archive_sha256": "93353e5a9ed19e683cf228db4443e23def3e3de71a372ae7ad320fc3dac7de3d",
+  "xml_bytes_unchanged": true,
+  "pngs_bundled": false,
+  "artwork": "Existing OpenLaser material cards: aluminum, brass, mild-steel, galvanized-steel, stainless-steel.",
+  "sources": [
+    {
+      "name": "Aluminum - 1mm - AIR - 2.0S",
+      "source_file": "AL 1MM_Aluminium air.xml",
+      "source_sha256": "ed82eea7898a72fbd45dbfafb0ac48d1076d444a5a36179d5999860063275157",
+      "output_file": "Aluminum - 1mm - AIR - 2.0S.xml",
+      "output_sha256": "94dc88a16bbdaba617b37c8d6effc92ff234069628a6d78638635485a4e205fd",
+      "image": "Aluminum - 1mm - AIR - 2.0S.png",
+      "source_note": "NOZZLE  2.0 SINGLE FOCUS    -1 GAS        AIR PRESSURE     8 BAR",
+      "source_layer_name": "AL aluminium1.0mm  single 2.0 F -1  air",
+      "changed_fields": [
+        "RecentFile",
+        "Note",
+        "LayerFileName"
+      ],
+      "numeric_settings_unchanged": true
+    },
+    {
+      "name": "Aluminum - 2mm - AIR - 2.0S",
+      "source_file": "AL 2MM_Aluminium air.xml",
+      "source_sha256": "3b1ef1540c598c06567de1bde640d7e73d18fa684700f180305b2e9f0d27b32b",
+      "output_file": "Aluminum - 2mm - AIR - 2.0S.xml",
+      "output_sha256": "9398f02cfcf2382ee6abddc130b467e6c90906973e401e26815cc2a53107a254",
+      "image": "Aluminum - 2mm - AIR - 2.0S.png",
+      "source_note": "NOZZLE  2.0 SINGLE FOCUS    -1 GAS        AIR PRESSURE     8 BAR",
+      "source_layer_name": "AL aluminium2.0mm  single 2.0 F -1  air",
+      "changed_fields": [
+        "RecentFile",
+        "Note",
+        "LayerFileName"
+      ],
+      "numeric_settings_unchanged": true
+    },
+    {
+      "name": "Aluminum - 3mm - AIR - 2.0S",
+      "source_file": "AL 3mm_Aluminium air.xml",
+      "source_sha256": "ac61fa492c46293a0e7c36fe9e225dff890f52f91bcf8e9190baf7eacc9f0840",
+      "output_file": "Aluminum - 3mm - AIR - 2.0S.xml",
+      "output_sha256": "832a939c462b34d372754279a0c47347cbed47dfc2751b5fbfb0c9524d56911c",
+      "image": "Aluminum - 3mm - AIR - 2.0S.png",
+      "source_note": "NOZZLE  2.0 SINGLE FOCUS    -1 GAS        AIR PRESSURE     8 BAR",
+      "source_layer_name": "AL aluminium3.0mm  single 2.0 F -1  air",
+      "changed_fields": [
+        "RecentFile",
+        "Note",
+        "LayerFileName"
+      ],
+      "numeric_settings_unchanged": true
+    },
+    {
+      "name": "Aluminum - 4mm - AIR - 2.0S",
+      "source_file": "AL 4mm_Aluminium air.xml",
+      "source_sha256": "1105d1f4ac07757c033ccc9a4556cb87f58c131bcd81b0855a4dc950a1ecb40c",
+      "output_file": "Aluminum - 4mm - AIR - 2.0S.xml",
+      "output_sha256": "9b499d8720412123f5a9db2710e99e682f17c2750da12512134862744f8bd91d",
+      "image": "Aluminum - 4mm - AIR - 2.0S.png",
+      "source_note": "NOZZLE  2.0 SINGLE FOCUS    -1 GAS        AIR PRESSURE     8 BAR",
+      "source_layer_name": "AL aluminium4.0mm  single 2.0 F -1  air",
+      "changed_fields": [
+        "RecentFile",
+        "Note",
+        "LayerFileName"
+      ],
+      "numeric_settings_unchanged": true
+    },
+    {
+      "name": "Aluminum - 5mm - AIR - 2.0S",
+      "source_file": "AL 5mm_Aluminium air.xml",
+      "source_sha256": "2a2c6f3f7db7fae238a74fba1dccf101c0488b05637b4b9a24e169f4d5b807ce",
+      "output_file": "Aluminum - 5mm - AIR - 2.0S.xml",
+      "output_sha256": "0423e0e65707edc237c954fa31342e1988b9f9364266be38c77f4f3f993e328d",
+      "image": "Aluminum - 5mm - AIR - 2.0S.png",
+      "source_note": "NOZZLE  2.0 SINGLE FOCUS    -1 GAS        AIR PRESSURE     8 BAR",
+      "source_layer_name": "AL aluminium5.0mm  single 2.0 F -1  air",
+      "changed_fields": [
+        "RecentFile",
+        "Note",
+        "LayerFileName"
+      ],
+      "numeric_settings_unchanged": true
+    },
+    {
+      "name": "Aluminum - 6mm - AIR - 2.0S",
+      "source_file": "AL 6MM_Aluminium air.xml",
+      "source_sha256": "fd41d5d189a3051d0160f3de87c52538d4d9f9772e763898e4f656506a96e14b",
+      "output_file": "Aluminum - 6mm - AIR - 2.0S.xml",
+      "output_sha256": "372f85b334e23995cce5097ba58da0be4a817a881ac1e72e149ed5506f954e42",
+      "image": "Aluminum - 6mm - AIR - 2.0S.png",
+      "source_note": "NOZZLE  2.0 SINGLE FOCUS    -1 GAS        AIR PRESSURE     8 BAR",
+      "source_layer_name": "AL aluminium6.0mm  single 2.0 F -1  air",
+      "changed_fields": [
+        "RecentFile",
+        "Note",
+        "LayerFileName"
+      ],
+      "numeric_settings_unchanged": true
+    },
+    {
+      "name": "Aluminum - 1mm - N2 - 2.0S",
+      "source_file": "AL-1MM_N2 CUTTING.xml",
+      "source_sha256": "634870efdc60acbe08400a1e5e7437e57557ab30cadd1927f9866075655e3cde",
+      "output_file": "Aluminum - 1mm - N2 - 2.0S.xml",
+      "output_sha256": "8ed3bc385037d9a10346d0330f739d60f8aeb3e794102fcb4d882bb1fa4b3471",
+      "image": "Aluminum - 1mm - N2 - 2.0S.png",
+      "source_note": "NOZZLE---SINGLE-2.0   AIR PRESSURE---20BAR  FOCAL LENGTH---(-2)",
+      "source_layer_name": "AL 1MM_Aluminium air",
+      "changed_fields": [
+        "RecentFile",
+        "Note",
+        "LayerFileName"
+      ],
+      "numeric_settings_unchanged": true
+    },
+    {
+      "name": "Aluminum - 2mm - N2 - 2.0S",
+      "source_file": "AL-2MM_N2 CUTTING.xml",
+      "source_sha256": "22131c7296eb293b7c1a410e4c9fb11a85a4cb1ecac56124959ca5ddc72549dc",
+      "output_file": "Aluminum - 2mm - N2 - 2.0S.xml",
+      "output_sha256": "818c8d5c448112666691a4ea917d553b5693b16dbec558be406a1d28a3d8297b",
+      "image": "Aluminum - 2mm - N2 - 2.0S.png",
+      "source_note": "NOZZLE---SINGLE-2.0   AIR PRESSURE---20BAR  FOCAL LENGTH---(-4)",
+      "source_layer_name": "AL 2MM_Aluminium air",
+      "changed_fields": [
+        "RecentFile",
+        "Note",
+        "LayerFileName"
+      ],
+      "numeric_settings_unchanged": true
+    },
+    {
+      "name": "Aluminum - 3mm - N2 - 2.0S",
+      "source_file": "AL-3MM_N2 CUTTING.xml",
+      "source_sha256": "47e7603093418c4e8902914b5612f47c625eeca6ceb25a3aba4864fea402c7c0",
+      "output_file": "Aluminum - 3mm - N2 - 2.0S.xml",
+      "output_sha256": "62a41a4b120f5071027ba43a3c5811c762c373ec9500a54f3e5437bc6a1aaf87",
+      "image": "Aluminum - 3mm - N2 - 2.0S.png",
+      "source_note": "NOZZLE---SINGLE-2.0   AIR PRESSURE---20BAR  FOCAL LENGTH---(-6)",
+      "source_layer_name": "AL 3mm_Aluminium air",
+      "changed_fields": [
+        "RecentFile",
+        "Note",
+        "LayerFileName"
+      ],
+      "numeric_settings_unchanged": true
+    },
+    {
+      "name": "Aluminum - 4mm - N2 - 2.0S",
+      "source_file": "AL aluminium4.0mm  single 2.0 F -1 N2.xml",
+      "source_sha256": "8e1a85c92791da9b23e45ef9c5dcd28fd3fe6ac4f85d92b5e1e3c94f81b2c222",
+      "output_file": "Aluminum - 4mm - N2 - 2.0S.xml",
+      "output_sha256": "bb559d148558c722cafb8ec3fbedb04e7fa1f93477c18076aa42f6e7544f17d2",
+      "image": null,
+      "source_note": "",
+      "source_layer_name": "AL aluminium4.0mm  single 2.0 F -1  air",
+      "changed_fields": [
+        "RecentFile",
+        "Note",
+        "LayerFileName"
+      ],
+      "numeric_settings_unchanged": true
+    },
+    {
+      "name": "Brass - 1mm - AIR - 2.0S",
+      "source_file": "CU 1mm_Brass air.xml",
+      "source_sha256": "4e3cba483b94a051833494930cab9f06a3ab305318305f9718a29353afc10ba9",
+      "output_file": "Brass - 1mm - AIR - 2.0S.xml",
+      "output_sha256": "5e70cd21ec7cd703dd4eab467751814371f6350e8b5cb8c088769e3c0cfdbbaf",
+      "image": "Brass - 1mm - AIR - 2.0S.png",
+      "source_note": "NOZZLE  2.0 SINGLE FOCUS    -1 GAS        AIR PRESSURE     8 BAR",
+      "source_layer_name": "brass 1.0mm  single 2.0  F-1 air",
+      "changed_fields": [
+        "RecentFile",
+        "Note",
+        "LayerFileName"
+      ],
+      "numeric_settings_unchanged": true
+    },
+    {
+      "name": "Brass - 2mm - AIR - 2.0S",
+      "source_file": "CU 2mm_Brass air.xml",
+      "source_sha256": "d318be625782fb2c7e34f6745a163adb15d754053dd1960dee1096a27c5bbac5",
+      "output_file": "Brass - 2mm - AIR - 2.0S.xml",
+      "output_sha256": "95ccd5e9a389aa7f5596cbddea3a7639a1844d847139468727becbc41c6261c6",
+      "image": "Brass - 2mm - AIR - 2.0S.png",
+      "source_note": "NOZZLE  2.0 SINGLE FOCUS    -1 GAS        AIR PRESSURE     8 BAR",
+      "source_layer_name": "brass 2.0mm  single 2.0  F-1 air",
+      "changed_fields": [
+        "RecentFile",
+        "Note",
+        "LayerFileName"
+      ],
+      "numeric_settings_unchanged": true
+    },
+    {
+      "name": "Brass - 3mm - AIR - 2.0S",
+      "source_file": "CU 3MM_Brass air.xml",
+      "source_sha256": "85af18b11d371d1a8ee276eaf9926f19e967f144deb5f66dd864bcd28508cddb",
+      "output_file": "Brass - 3mm - AIR - 2.0S.xml",
+      "output_sha256": "4875e31dedc26031efa96b123bdc02642daf4034b0ba2fe1e68e3cb6e2aa8883",
+      "image": "Brass - 3mm - AIR - 2.0S.png",
+      "source_note": "NOZZLE  2.0 SINGLE FOCUS    -1 GAS        AIR PRESSURE     8 BAR",
+      "source_layer_name": "brass 3.0mm  single 2.0  F-1 air",
+      "changed_fields": [
+        "RecentFile",
+        "Note",
+        "LayerFileName"
+      ],
+      "numeric_settings_unchanged": true
+    },
+    {
+      "name": "Brass - 1mm - N2 - 2.0S",
+      "source_file": "CU-1MM_N2 CUTTING.xml",
+      "source_sha256": "1fd4a72424a49ce4f1fdc6e9768475e7429209d7ca6c1d08136f46cb01077feb",
+      "output_file": "Brass - 1mm - N2 - 2.0S.xml",
+      "output_sha256": "7225071bceefc9f9e381b11ae20683e5cc155030875f9e5ae7b19f4a1d1675ae",
+      "image": "Brass - 1mm - N2 - 2.0S.png",
+      "source_note": "NOZZLE---SINGLE-2.0     AIR PRESSURE---20BAR  FOCAL LENGTH---(-1)",
+      "source_layer_name": "CU 1mm_Brass air",
+      "changed_fields": [
+        "RecentFile",
+        "Note",
+        "LayerFileName"
+      ],
+      "numeric_settings_unchanged": true
+    },
+    {
+      "name": "Brass - 2mm - N2 - 2.0S",
+      "source_file": "CU-2MM_N2 CUTTING.xml",
+      "source_sha256": "b125745d24b0754e0537065b336b9c4304109b426979104a9c91f5ef0a588621",
+      "output_file": "Brass - 2mm - N2 - 2.0S.xml",
+      "output_sha256": "69aa4a0f7caf45de4003196619682b0e588b8037fc13a5e31e8e4e2b71b93e52",
+      "image": "Brass - 2mm - N2 - 2.0S.png",
+      "source_note": "NOZZLE---SINGLE-2.0     AIR PRESSURE---20BAR  FOCAL LENGTH---(-4)",
+      "source_layer_name": "brass 2.0mm  single 2.0  F-1 air",
+      "changed_fields": [
+        "RecentFile",
+        "Note",
+        "LayerFileName"
+      ],
+      "numeric_settings_unchanged": true
+    },
+    {
+      "name": "Brass - 3mm - N2 - 2.0S",
+      "source_file": "CU-3MM_N2 CUTTING.xml",
+      "source_sha256": "f19ab31ba72fba001e387f780dd394c2de64dd179384a716baff8b3ab730c305",
+      "output_file": "Brass - 3mm - N2 - 2.0S.xml",
+      "output_sha256": "5dd5967b8fb8e33ba57d4253dd056f11449d04b0ef4dcb9478520eb42124395f",
+      "image": "Brass - 3mm - N2 - 2.0S.png",
+      "source_note": "NOZZLE---SINGLE-2.0   AIR PRESSURE---20BAR  FOCAL LENGTH---(+5.5)",
+      "source_layer_name": "CU 3MM_Brass air",
+      "changed_fields": [
+        "RecentFile",
+        "Note",
+        "LayerFileName"
+      ],
+      "numeric_settings_unchanged": true
+    },
+    {
+      "name": "Carbon Steel - 1mm - AIR - 2.0S",
+      "source_file": "CS 1mm_Carbon steel air.xml",
+      "source_sha256": "205f75b7af0309ffa1c191dd7dc0f3bd3437f5d7a4a32031f075694e3b7018c1",
+      "output_file": "Carbon Steel - 1mm - AIR - 2.0S.xml",
+      "output_sha256": "685b84bfde1a10935890ebb5428559a782aaf0dc88d07cf038e586bfb39eebcf",
+      "image": "Carbon Steel - 1mm - AIR - 2.0S.png",
+      "source_note": "NOZZLE  2.0 SINGLE FOCUS    -1 GAS        AIR PRESSURE     8 BAR",
+      "source_layer_name": "carbon steel 1.0mm  single 2.0 F -1 air",
+      "changed_fields": [
+        "RecentFile",
+        "Note",
+        "LayerFileName"
+      ],
+      "numeric_settings_unchanged": true
+    },
+    {
+      "name": "Carbon Steel - 2mm - AIR - 2.0S",
+      "source_file": "CS   2MM_Carbon steel air.xml",
+      "source_sha256": "c518980f3128943ba22b5986fda76dc1bd4a2291f2970b7f386141ae10abea0c",
+      "output_file": "Carbon Steel - 2mm - AIR - 2.0S.xml",
+      "output_sha256": "90b1d25c6cd5f855c104d8293ec6b48e90b1bd16b996fbd4320516429c59901e",
+      "image": "Carbon Steel - 2mm - AIR - 2.0S.png",
+      "source_note": "NOZZLE  2.0 SINGLE FOCUS    -1 GAS        AIR PRESSURE     8 BAR",
+      "source_layer_name": "carbon steel 2.0mm  single 2.0 F -1 air",
+      "changed_fields": [
+        "RecentFile",
+        "Note",
+        "LayerFileName"
+      ],
+      "numeric_settings_unchanged": true
+    },
+    {
+      "name": "Carbon Steel - 3mm - AIR - 2.0S",
+      "source_file": "CS  3MM_Carbon steel air.xml",
+      "source_sha256": "313c9af4712d1b5751c3aaeac75adfa3c7b8511aa543448aa362b80b5ccd2b1e",
+      "output_file": "Carbon Steel - 3mm - AIR - 2.0S.xml",
+      "output_sha256": "e9e461cbe89006d09fc2795a6a96cf15e6a9911ffca35b680e1476173582ba0f",
+      "image": "Carbon Steel - 3mm - AIR - 2.0S.png",
+      "source_note": "NOZZLE  2.0 SINGLE FOCUS    -1 GAS        AIR PRESSURE     8 BAR",
+      "source_layer_name": "carbon steel 3.0mm  single 2.0 F -1 air",
+      "changed_fields": [
+        "RecentFile",
+        "Note",
+        "LayerFileName"
+      ],
+      "numeric_settings_unchanged": true
+    },
+    {
+      "name": "Carbon Steel - 4mm - AIR - 2.0S",
+      "source_file": "CS  4MM_Carbon steel air.xml",
+      "source_sha256": "993ec54d085b29d938b2567ec93ec415e7f8ed21a1eee946cf72e446a13ee31c",
+      "output_file": "Carbon Steel - 4mm - AIR - 2.0S.xml",
+      "output_sha256": "04ef6bd2cc94ec2a8d05a44cc5ae36a8ee8a1857b42db319a76d6508a946d512",
+      "image": "Carbon Steel - 4mm - AIR - 2.0S.png",
+      "source_note": "NOZZLE  2.0 SINGLE FOCUS    -1 GAS        AIR PRESSURE     8 BAR",
+      "source_layer_name": "carbon steel 4.0mm  single 2.0 F -1 air",
+      "changed_fields": [
+        "RecentFile",
+        "Note",
+        "LayerFileName"
+      ],
+      "numeric_settings_unchanged": true
+    },
+    {
+      "name": "Carbon Steel - 5mm - AIR - 2.0S",
+      "source_file": "CS  5MM_Carbon steel air.xml",
+      "source_sha256": "ab1f0de490e6c634f074a19cfc172e16f1bc9741498ca5666ed7e901796a2d75",
+      "output_file": "Carbon Steel - 5mm - AIR - 2.0S.xml",
+      "output_sha256": "782d7ef56a3e8eaace07227224d95f921c613c1f63bc3059081e935debc724aa",
+      "image": "Carbon Steel - 5mm - AIR - 2.0S.png",
+      "source_note": "NOZZLE  2.0 SINGLE FOCUS    -1 GAS        AIR PRESSURE     8 BAR",
+      "source_layer_name": "carbon steel 5.0mm  single 2.0 F -1 air",
+      "changed_fields": [
+        "RecentFile",
+        "Note",
+        "LayerFileName"
+      ],
+      "numeric_settings_unchanged": true
+    },
+    {
+      "name": "Carbon Steel - 6mm - AIR - 2.0S",
+      "source_file": "CS  6MM_Carbon steel air.xml",
+      "source_sha256": "5c130b70c3e2aa2a7b6af25ef9843f545ae56d0a411b0afad547c28275ec6aca",
+      "output_file": "Carbon Steel - 6mm - AIR - 2.0S.xml",
+      "output_sha256": "c138bf4b9c721199b587e4b38aa90002197f9d48feee5f9379857b8d6083c761",
+      "image": "Carbon Steel - 6mm - AIR - 2.0S.png",
+      "source_note": "NOZZLE  2.0 SINGLE FOCUS    -1 GAS        AIR PRESSURE     8 BAR",
+      "source_layer_name": "carbon steel 6.0mm  single 2.0 F -1 air",
+      "changed_fields": [
+        "RecentFile",
+        "Note",
+        "LayerFileName"
+      ],
+      "numeric_settings_unchanged": true
+    },
+    {
+      "name": "Carbon Steel - 3mm - O2 - 1.2D",
+      "source_file": "CS-3MM_O2 CUTTING.xml",
+      "source_sha256": "577796c35a3aa5869602595b8fabf008cf470ffc0baa19edde415004e0e17515",
+      "output_file": "Carbon Steel - 3mm - O2 - 1.2D.xml",
+      "output_sha256": "d14e7ffdb0ed5a42e997c02bca2f5246e0a821f1199975a3d192210592e419ce",
+      "image": "Carbon Steel - 3mm - O2 - 1.2D.png",
+      "source_note": "NOZZLE---DOUBLE-1.2   FOCAL LENGTH---(+13.5)",
+      "source_layer_name": "CS  3MM_Carbon steel O2",
+      "changed_fields": [
+        "RecentFile",
+        "Note",
+        "LayerFileName"
+      ],
+      "numeric_settings_unchanged": true
+    },
+    {
+      "name": "Carbon Steel - 4mm - O2 - 1.5D",
+      "source_file": "CS-4MM_O2 CUTTING.xml",
+      "source_sha256": "39697e2b159eae55decc2439e130b23b7cc7bf7cbe6fcf87367d615a5ae2784c",
+      "output_file": "Carbon Steel - 4mm - O2 - 1.5D.xml",
+      "output_sha256": "6d18048851186ed640ff4956fe985c6e12eeeef30b8aeb56954fe423c04c4b1f",
+      "image": "Carbon Steel - 4mm - O2 - 1.5D.png",
+      "source_note": "NOZZLE---DOUBLE-1.5    FOCAL LENGTH---(+13.5)",
+      "source_layer_name": "carbon steel 4.0mm  double 1.5 F +13 O2",
+      "changed_fields": [
+        "RecentFile",
+        "Note",
+        "LayerFileName"
+      ],
+      "numeric_settings_unchanged": true
+    },
+    {
+      "name": "Carbon Steel - 5mm - O2 - 1.5D",
+      "source_file": "CS-5MM_O2 CUTTING.xml",
+      "source_sha256": "e32d425c5be484b92fb8adef7c232e22637cc7229d8c1fde1a72ac4fc5664249",
+      "output_file": "Carbon Steel - 5mm - O2 - 1.5D.xml",
+      "output_sha256": "d7804088224cc63fb108490d36d3d46fe36597c832bc8927441f2b5ea4a6ed7a",
+      "image": "Carbon Steel - 5mm - O2 - 1.5D.png",
+      "source_note": "NOZZLE---DOUBLE-1.5    FOCAL LENGTH---(+13.5)",
+      "source_layer_name": "carbon steel 5.0mm  double 1.2 F +14 O2",
+      "changed_fields": [
+        "RecentFile",
+        "Note",
+        "LayerFileName"
+      ],
+      "numeric_settings_unchanged": true
+    },
+    {
+      "name": "Carbon Steel - 6mm - O2 - 1.5D",
+      "source_file": "CS-6MM_O2 CUTTING.xml",
+      "source_sha256": "9af5c1153c787146fd3a7b45831412a185c91c0c40f9eec04bd3457ed3717247",
+      "output_file": "Carbon Steel - 6mm - O2 - 1.5D.xml",
+      "output_sha256": "e893c12b52e553470554e338a8cbf054040526d86e7ec1b425d96e6ba70d273d",
+      "image": "Carbon Steel - 6mm - O2 - 1.5D.png",
+      "source_note": "NOZZLE---DOUBLE-1.5     FOCAL LENGTH---(+13.5)",
+      "source_layer_name": "carbon steel 6.0mm  double 1.5 F +14 O2",
+      "changed_fields": [
+        "RecentFile",
+        "Note",
+        "LayerFileName"
+      ],
+      "numeric_settings_unchanged": true
+    },
+    {
+      "name": "Carbon Steel - 7mm - O2 - 2.0D",
+      "source_file": "CS-7MM_O2 CUTTING.xml",
+      "source_sha256": "f6bbed3929748ca5abd1f72a8744f73f8a6872cefa3ef012a726d093a0bfc86a",
+      "output_file": "Carbon Steel - 7mm - O2 - 2.0D.xml",
+      "output_sha256": "45efbbe42e28d86755c634cd5c607c1f3d122a24848d1f4826d67d2e18a67a46",
+      "image": "Carbon Steel - 7mm - O2 - 2.0D.png",
+      "source_note": "NOZZLE---DOUBLE-2.0    FOCAL LENGTH---(+13.5)",
+      "source_layer_name": "carbon steel 8.0mm  double 2.0 F +14 O2",
+      "changed_fields": [
+        "RecentFile",
+        "Note",
+        "LayerFileName"
+      ],
+      "numeric_settings_unchanged": true
+    },
+    {
+      "name": "Carbon Steel - 8mm - O2 - 2.0D",
+      "source_file": "CS-8MM_O2 CUTTING.xml",
+      "source_sha256": "8da3ee495fe7c8b89ea21a7e64f8691a2620f402c146a95fc7dc9174fc54f48c",
+      "output_file": "Carbon Steel - 8mm - O2 - 2.0D.xml",
+      "output_sha256": "97b5eec8f36875a22a9b2f49b7f7c7c3f2edb67384cc5667b6cfd52ac7a29dc1",
+      "image": "Carbon Steel - 8mm - O2 - 2.0D.png",
+      "source_note": "NOZZLE---DOUBLE-2.0     FOCAL LENGTH---(+14)",
+      "source_layer_name": "carbon steel 8.0mm  double 2.0 F +14 O2",
+      "changed_fields": [
+        "RecentFile",
+        "Note",
+        "LayerFileName"
+      ],
+      "numeric_settings_unchanged": true
+    },
+    {
+      "name": "Carbon Steel - 10mm - O2 - 4.0D",
+      "source_file": "CS-10MM_O2 CUTTING.xml",
+      "source_sha256": "e46cbe209718a59d06170e653e51a186e9c62f1792cf40d1798ae70cd1e7155c",
+      "output_file": "Carbon Steel - 10mm - O2 - 4.0D.xml",
+      "output_sha256": "909bb9d4915a8d2523086d64cb24bcd3cecb9b6e790864651273fc8c1ca2407f",
+      "image": "Carbon Steel - 10mm - O2 - 4.0D.png",
+      "source_note": "NOZZLE---DOUBLE-4.0  FOCAL LENGTH---(+14)",
+      "source_layer_name": "carbon steel 10.0mm  double 4.0 F +14 O2",
+      "changed_fields": [
+        "RecentFile",
+        "Note",
+        "LayerFileName"
+      ],
+      "numeric_settings_unchanged": true
+    },
+    {
+      "name": "Galvanized Steel - 1mm - AIR - 2.0S",
+      "source_file": "GS 1MM_Galvanized sheet  air.xml",
+      "source_sha256": "205f75b7af0309ffa1c191dd7dc0f3bd3437f5d7a4a32031f075694e3b7018c1",
+      "output_file": "Galvanized Steel - 1mm - AIR - 2.0S.xml",
+      "output_sha256": "6084d445c77b5a1072ccb4b7e3f491f9b95d10386da0f2312708fbfee98a1aae",
+      "image": "Galvanized Steel - 1mm - AIR - 2.0S.png",
+      "source_note": "NOZZLE  2.0 SINGLE FOCUS    -1 GAS        AIR PRESSURE     8 BAR",
+      "source_layer_name": "carbon steel 1.0mm  single 2.0 F -1 air",
+      "changed_fields": [
+        "RecentFile",
+        "Note",
+        "LayerFileName"
+      ],
+      "numeric_settings_unchanged": true
+    },
+    {
+      "name": "Galvanized Steel - 2mm - AIR - 2.0S",
+      "source_file": "GS 2MM_Galvanized sheet  air.xml",
+      "source_sha256": "c518980f3128943ba22b5986fda76dc1bd4a2291f2970b7f386141ae10abea0c",
+      "output_file": "Galvanized Steel - 2mm - AIR - 2.0S.xml",
+      "output_sha256": "3432ab9b2ad640cf62e50a989272961d3acf1d202adcfef919dafea3b5c24e33",
+      "image": "Galvanized Steel - 2mm - AIR - 2.0S.png",
+      "source_note": "NOZZLE  2.0 SINGLE FOCUS    -1 GAS        AIR PRESSURE     8 BAR",
+      "source_layer_name": "carbon steel 2.0mm  single 2.0 F -1 air",
+      "changed_fields": [
+        "RecentFile",
+        "Note",
+        "LayerFileName"
+      ],
+      "numeric_settings_unchanged": true
+    },
+    {
+      "name": "Galvanized Steel - 3mm - AIR - 2.0S",
+      "source_file": "GS 3MM_Galvanized sheet  air.xml",
+      "source_sha256": "313c9af4712d1b5751c3aaeac75adfa3c7b8511aa543448aa362b80b5ccd2b1e",
+      "output_file": "Galvanized Steel - 3mm - AIR - 2.0S.xml",
+      "output_sha256": "67cad99f109a33f0c58cf36c1bcf294db49df5e5acc00ba8a70f5bdb5e2db6bf",
+      "image": "Galvanized Steel - 3mm - AIR - 2.0S.png",
+      "source_note": "NOZZLE  2.0 SINGLE FOCUS    -1 GAS        AIR PRESSURE     8 BAR",
+      "source_layer_name": "carbon steel 3.0mm  single 2.0 F -1 air",
+      "changed_fields": [
+        "RecentFile",
+        "Note",
+        "LayerFileName"
+      ],
+      "numeric_settings_unchanged": true
+    },
+    {
+      "name": "Galvanized Steel - 4mm - AIR - 2.0S",
+      "source_file": "GS 4MM_Galvanized sheet  air.xml",
+      "source_sha256": "993ec54d085b29d938b2567ec93ec415e7f8ed21a1eee946cf72e446a13ee31c",
+      "output_file": "Galvanized Steel - 4mm - AIR - 2.0S.xml",
+      "output_sha256": "fb860915b709de257f8358090a21fc7ffe05ce0833b0866aab4ef5b73f45f551",
+      "image": "Galvanized Steel - 4mm - AIR - 2.0S.png",
+      "source_note": "NOZZLE  2.0 SINGLE FOCUS    -1 GAS        AIR PRESSURE     8 BAR",
+      "source_layer_name": "carbon steel 4.0mm  single 2.0 F -1 air",
+      "changed_fields": [
+        "RecentFile",
+        "Note",
+        "LayerFileName"
+      ],
+      "numeric_settings_unchanged": true
+    },
+    {
+      "name": "Galvanized Steel - 5mm - AIR - 2.0S",
+      "source_file": "GS 5MM_Galvanized sheet  air.xml",
+      "source_sha256": "ab1f0de490e6c634f074a19cfc172e16f1bc9741498ca5666ed7e901796a2d75",
+      "output_file": "Galvanized Steel - 5mm - AIR - 2.0S.xml",
+      "output_sha256": "7838745fc636320b47934d5dcf603c91e1c515f64db9220942bc2bf3ce261b55",
+      "image": "Galvanized Steel - 5mm - AIR - 2.0S.png",
+      "source_note": "NOZZLE  2.0 SINGLE FOCUS    -1 GAS        AIR PRESSURE     8 BAR",
+      "source_layer_name": "carbon steel 5.0mm  single 2.0 F -1 air",
+      "changed_fields": [
+        "RecentFile",
+        "Note",
+        "LayerFileName"
+      ],
+      "numeric_settings_unchanged": true
+    },
+    {
+      "name": "Stainless Steel - 1mm - AIR - 2.0S",
+      "source_file": "SS-1MM_AIR CUTTING.xml",
+      "source_sha256": "be922827a92edb62a87b868113a3ef9b09258dde31c801e12e85ccb9e25972db",
+      "output_file": "Stainless Steel - 1mm - AIR - 2.0S.xml",
+      "output_sha256": "6f0b880709e02ba60256ac60e325a1a8581fde3d8e2ad540a5afd650aac61eb0",
+      "image": "Stainless Steel - 1mm - AIR - 2.0S.png",
+      "source_note": "NOZZLE---SINGLE-2.0    AIR PRESSURE---15BAR FOCAL LENGTH---(-1) ",
+      "source_layer_name": "stainless steel 1.0mm  single 2.0 F -1 air",
+      "changed_fields": [
+        "RecentFile",
+        "Note",
+        "LayerFileName"
+      ],
+      "numeric_settings_unchanged": true
+    },
+    {
+      "name": "Stainless Steel - 2mm - AIR - 2.0S",
+      "source_file": "SS-2MM_AIR CUTTING.xml",
+      "source_sha256": "2e54483302e2dce64a14dfb40062acd580581b6d3c21e073e7ff1d9ec7b40f88",
+      "output_file": "Stainless Steel - 2mm - AIR - 2.0S.xml",
+      "output_sha256": "921acd0894713115e2b23c1c61275be03c6aa4f744f1f6ad73b801277ba49f52",
+      "image": "Stainless Steel - 2mm - AIR - 2.0S.png",
+      "source_note": "NOZZLE---SINGLE-2.0    AIR PRESSURE---15BAR FOCAL LENGTH---(-3) ",
+      "source_layer_name": "stainless steel 2.0mm  single 2.0 F -1 air",
+      "changed_fields": [
+        "RecentFile",
+        "Note",
+        "LayerFileName"
+      ],
+      "numeric_settings_unchanged": true
+    },
+    {
+      "name": "Stainless Steel - 3mm - AIR - 2.0S",
+      "source_file": "SS-3MM_AIR CUTTING.xml",
+      "source_sha256": "9511a9662b465de3af84379725444657ca1ac642a29a45de00b5160a772a2aee",
+      "output_file": "Stainless Steel - 3mm - AIR - 2.0S.xml",
+      "output_sha256": "f45869275262402426edd6ae4379c4d8e4798454a147d09d1232891ad9c993cf",
+      "image": "Stainless Steel - 3mm - AIR - 2.0S.png",
+      "source_note": "NOZZLE---SINGLE-2.0    AIR PRESSURE---15BAR FOCAL LENGTH---(-5)",
+      "source_layer_name": "stainless steel 3.0mm  single 2.0 F -1 air",
+      "changed_fields": [
+        "RecentFile",
+        "Note",
+        "LayerFileName"
+      ],
+      "numeric_settings_unchanged": true
+    },
+    {
+      "name": "Stainless Steel - 4mm - AIR - 2.0S",
+      "source_file": "SS-4MM_AIR CUTTING.xml",
+      "source_sha256": "a1d3aa2451010beafeb3be6f73a4a90deb273516b70b6e8e74f9ddedc48c4a90",
+      "output_file": "Stainless Steel - 4mm - AIR - 2.0S.xml",
+      "output_sha256": "3e2bc49bb513bc79eed63572700d346846568c149d064294169bd9c9867a0a13",
+      "image": "Stainless Steel - 4mm - AIR - 2.0S.png",
+      "source_note": "NOZZLE---SINGLE-2.0    AIR PRESSURE---15BAR FOCAL LENGTH---(-7.5)",
+      "source_layer_name": "stainless steel 4.0mm  single 2.0 F -1 air",
+      "changed_fields": [
+        "RecentFile",
+        "Note",
+        "LayerFileName"
+      ],
+      "numeric_settings_unchanged": true
+    },
+    {
+      "name": "Stainless Steel - 5mm - AIR - 2.0S",
+      "source_file": "SS-5MM_AIR CUTTING.xml",
+      "source_sha256": "3964e9e00d26cac80965483a67582d481e93eae8635b37e1e102ab473ac72e3b",
+      "output_file": "Stainless Steel - 5mm - AIR - 2.0S.xml",
+      "output_sha256": "5f970d87cd53bf49df232601be06aca4e368ce2ea009229b45dd562e76bc7d13",
+      "image": "Stainless Steel - 5mm - AIR - 2.0S.png",
+      "source_note": "NOZZLE---SINGLE-2.0    AIR PRESSURE---15BAR FOCAL LENGTH---(-10)",
+      "source_layer_name": "stainless steel 5.0mm  single 2.0 F -1 air",
+      "changed_fields": [
+        "RecentFile",
+        "Note",
+        "LayerFileName"
+      ],
+      "numeric_settings_unchanged": true
+    },
+    {
+      "name": "Stainless Steel - 6mm - AIR - 2.0S",
+      "source_file": "SS 6MM_Stainless steel air.xml",
+      "source_sha256": "57563e3f73f638e6ecc42d37f358ee856309e4f6d15a93dd3ca7ebeecc3bf83e",
+      "output_file": "Stainless Steel - 6mm - AIR - 2.0S.xml",
+      "output_sha256": "06bd108794b4cb5c133a799588449939c7129b773a95e07f1d9db3498fe44c58",
+      "image": "Stainless Steel - 6mm - AIR - 2.0S.png",
+      "source_note": "NOZZLE  2.0 SINGLE FOCUS    -1 GAS        AIR PRESSURE     8 BAR",
+      "source_layer_name": "stainless steel 6.0mm  single 2.0 F -1 air",
+      "changed_fields": [
+        "RecentFile",
+        "Note",
+        "LayerFileName"
+      ],
+      "numeric_settings_unchanged": true
+    },
+    {
+      "name": "Stainless Steel - 1mm - N2 - 2.0S",
+      "source_file": "SS-1MM_N2 CUTTING.xml",
+      "source_sha256": "819db06f75a0f13d21928d5a8b4065c0bea2287e59326e42f7d1895ab4730754",
+      "output_file": "Stainless Steel - 1mm - N2 - 2.0S.xml",
+      "output_sha256": "b9e0853c249bd3da606f229713f898a6bd87bb5026c128a705ea05fc8beda1c5",
+      "image": "Stainless Steel - 1mm - N2 - 2.0S.png",
+      "source_note": "NOZZLE---SINGLE-2.0    AIR PRESSURE---15BAR  FOCAL LENGTH---(+0)",
+      "source_layer_name": "SS 1MM_Stainless steel N2",
+      "changed_fields": [
+        "RecentFile",
+        "Note",
+        "LayerFileName"
+      ],
+      "numeric_settings_unchanged": true
+    },
+    {
+      "name": "Stainless Steel - 1mm - N2 - 1.5S",
+      "source_file": "SS1.0mm 1.5S F-3 N2.xml",
+      "source_sha256": "e4d57eea17df9716c545c158efeea4f419c26191ac23602c7f9f41d3320bcd1d",
+      "output_file": "Stainless Steel - 1mm - N2 - 1.5S.xml",
+      "output_sha256": "bc086beedd723625b2291a76ce225508c5705bda084fb79ba616a6354340c80b",
+      "image": null,
+      "source_note": "",
+      "source_layer_name": "SS1.0mm 1.5S F-1 N2",
+      "changed_fields": [
+        "RecentFile",
+        "Note",
+        "LayerFileName"
+      ],
+      "numeric_settings_unchanged": true
+    },
+    {
+      "name": "Stainless Steel - 2mm - N2 - 2.0S",
+      "source_file": "SS-2MM_N2 CUTTING.xml",
+      "source_sha256": "12d9e881935bf550f4eed588cbb11d3d16e81f00826cf315fa9748a9d5a50a57",
+      "output_file": "Stainless Steel - 2mm - N2 - 2.0S.xml",
+      "output_sha256": "dd867ad2b80b31917e3bfadeeab0cf7c2a3b92240be3632f1ca646a97fd0e6de",
+      "image": "Stainless Steel - 2mm - N2 - 2.0S.png",
+      "source_note": "NOZZLE---SINGLE-2.0   AIR PRESSURE---20BAR  FOCAL LENGTH---(-3)",
+      "source_layer_name": "SS 2MM_Stainless steel N2",
+      "changed_fields": [
+        "RecentFile",
+        "Note",
+        "LayerFileName"
+      ],
+      "numeric_settings_unchanged": true
+    },
+    {
+      "name": "Stainless Steel - 2mm - N2 - 1.5S",
+      "source_file": "SS2.0mm 1.5S F-3N2.xml",
+      "source_sha256": "991401bc68cb6e166ba77880eb4802cf6ba236bf1a871c55fce8e0c422a9f79c",
+      "output_file": "Stainless Steel - 2mm - N2 - 1.5S.xml",
+      "output_sha256": "05bb41bcd9dde5df540fbc247007274fd8ac01104ef87742e8b8b5042678c3c3",
+      "image": null,
+      "source_note": "",
+      "source_layer_name": "\u4e0d\u9508\u94a22.0mm \u5355\u55b72.0 F -2",
+      "changed_fields": [
+        "RecentFile",
+        "Note",
+        "LayerFileName"
+      ],
+      "numeric_settings_unchanged": true
+    },
+    {
+      "name": "Stainless Steel - 3mm - N2 - 2.0S",
+      "source_file": "SS-3MM_N2 CUTTING.xml",
+      "source_sha256": "6afb64e3fddceb42b5cefde5ee24ffbd71b24c28bf29c7607c59c9b2c9a2f68c",
+      "output_file": "Stainless Steel - 3mm - N2 - 2.0S.xml",
+      "output_sha256": "9b52a319e061249c97e68c76a4cf0cd24207c9211a2342fb8f4895bff1e8f811",
+      "image": "Stainless Steel - 3mm - N2 - 2.0S.png",
+      "source_note": "NOZZLE---SINGLE-2.0    AIR PRESSURE---20BAR  FOCAL LENGTH---(-5)",
+      "source_layer_name": "SS   3MM_Stainless steel N2",
+      "changed_fields": [
+        "RecentFile",
+        "Note",
+        "LayerFileName"
+      ],
+      "numeric_settings_unchanged": true
+    },
+    {
+      "name": "Stainless Steel - 3mm - N2 - 1.5S",
+      "source_file": "SS3.0mm 1.5S F-4N2.xml",
+      "source_sha256": "74ec88303e23dfa830be7b3540f3972e1d6e5b3fd49d4e124079461917f3a1d6",
+      "output_file": "Stainless Steel - 3mm - N2 - 1.5S.xml",
+      "output_sha256": "615d63f3b13cadcc78595479b3cd54a52445c3ef8505cfc622c9bf396f209133",
+      "image": null,
+      "source_note": "",
+      "source_layer_name": "SS3.0mm 1.5S F-5 N2",
+      "changed_fields": [
+        "RecentFile",
+        "Note",
+        "LayerFileName"
+      ],
+      "numeric_settings_unchanged": true
+    },
+    {
+      "name": "Stainless Steel - 4mm - N2 - 2.0S",
+      "source_file": "SS-4MM_N2 CUTTING.xml",
+      "source_sha256": "9e5ebcbdcc289c876a576c220b406aac35c39ebce4778bac1604a04cf09928d2",
+      "output_file": "Stainless Steel - 4mm - N2 - 2.0S.xml",
+      "output_sha256": "642cde37a1ee3136ab3b5d6dd71d82b087afe444133d3dd96760ae92befbbdc9",
+      "image": "Stainless Steel - 4mm - N2 - 2.0S.png",
+      "source_note": "NOZZLE---SINGLE-2.0    AIR PRESSURE---20BAR  FOCAL LENGTH---(-7.5)",
+      "source_layer_name": "SS   4MM_Stainless steel N2",
+      "changed_fields": [
+        "RecentFile",
+        "Note",
+        "LayerFileName"
+      ],
+      "numeric_settings_unchanged": true
+    },
+    {
+      "name": "Stainless Steel - 4mm - N2 - 1.5S",
+      "source_file": "SS4.0mm 1.5S F-4N2.xml",
+      "source_sha256": "7425eef8dc737e2b7750c15a6353725a6d4960b98f7f181393ddbdeb9ddbcbb2",
+      "output_file": "Stainless Steel - 4mm - N2 - 1.5S.xml",
+      "output_sha256": "6a02a051b1ff4f24bd87d378a1aa2670fc3489fcb43b4ed95e8472abd0fbd919",
+      "image": null,
+      "source_note": "",
+      "source_layer_name": "SS4.0mm 1.5S F-6 N2",
+      "changed_fields": [
+        "RecentFile",
+        "Note",
+        "LayerFileName"
+      ],
+      "numeric_settings_unchanged": true
+    },
+    {
+      "name": "Stainless Steel - 5mm - N2 - 2.0D",
+      "source_file": "SS-5MM_N2 CUTTING.xml",
+      "source_sha256": "eafa6d902dbf76a96394e0f3fb77bdc3619b5b2c04be5cdb22d77405e6719558",
+      "output_file": "Stainless Steel - 5mm - N2 - 2.0D.xml",
+      "output_sha256": "dcfffc2891ca430892fdd5ab156ee6bccc1ff9dc9c870772a385baafbd8cc76d",
+      "image": "Stainless Steel - 5mm - N2 - 2.0D.png",
+      "source_note": "NOZZLE---DOUBLE-2.0    AIR PRESSURE---20BAR FOCAL LENGTH---(-10)",
+      "source_layer_name": "stainless steel 5.0mm  single 2.0 F -1 air",
+      "changed_fields": [
+        "RecentFile",
+        "Note",
+        "LayerFileName"
+      ],
+      "numeric_settings_unchanged": true
+    },
+    {
+      "name": "Stainless Steel - 5mm - N2 - 1.5S",
+      "source_file": "SS5.0mm 1.5S F-4N2.xml",
+      "source_sha256": "44c670926cd3bcf7c4df3416b8a4731ffe9cf46ec7c41a3e5fac4b3978223203",
+      "output_file": "Stainless Steel - 5mm - N2 - 1.5S.xml",
+      "output_sha256": "c1c9fdb77afe33c3ae3e52b0c7c91a83a32344fe0b556f1e4d75813743b7b4b8",
+      "image": null,
+      "source_note": "",
+      "source_layer_name": "SS5.0mm 1.5S F-4N2",
+      "changed_fields": [
+        "RecentFile",
+        "Note",
+        "LayerFileName"
+      ],
+      "numeric_settings_unchanged": true
+    }
+  ]
+}

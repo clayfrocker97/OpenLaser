@@ -1,0 +1,38 @@
+---
+source: crates/openlaser-prep/tests/prepare.rs
+expression: "render(&openlaser_prep::prepare(&plate(), &features).unwrap())"
+---
+contour from [0]: layer "0", depth 0, closed, length 321.1781
+  arc centre (100.0000, 61.5000) radius 1.5000 from -0.7854 rad sweep -0.7854 rad  [entry lead]
+  line (100.0000, 60.0000) -> (0.0000, 60.0000)  [cool 300 ms]
+  line (0.0000, 60.0000) -> (0.0000, 53.5833)  [cool 300 ms]
+  line (0.0000, 53.5833) -> (0.0000, 53.0833)  [joint power 20.0 speed Some(3.0)]
+  line (0.0000, 53.0833) -> (0.0000, 0.0000)  [re-pierce]
+  line (0.0000, 0.0000) -> (53.0833, 0.0000)  [cool 300 ms]
+  line (53.0833, 0.0000) -> (53.5833, 0.0000)  [joint power 20.0 speed Some(3.0)]
+  line (53.5833, 0.0000) -> (100.0000, 0.0000)  [re-pierce]
+  line (100.0000, 0.0000) -> (100.0000, 60.0000)  [cool 300 ms]
+contour from [1]: layer "0", depth 1, closed, length 32.5940
+  arc centre (23.5000, 30.0000) radius 1.5000 from -0.7854 rad sweep 0.7854 rad  [entry lead]
+  arc centre (20.0000, 30.0000) radius 5.0000 from 0.0000 rad sweep 2.0444 rad  [cool 300 ms]
+  arc centre (20.0000, 30.0000) radius 5.0000 from 2.0444 rad sweep 0.1000 rad  [joint power 20.0 speed Some(3.0)]
+  arc centre (20.0000, 30.0000) radius 5.0000 from 2.1444 rad sweep 1.9944 rad  [re-pierce]
+  arc centre (20.0000, 30.0000) radius 5.0000 from 4.1388 rad sweep 0.1000 rad  [joint power 20.0 speed Some(3.0)]
+  arc centre (20.0000, 30.0000) radius 5.0000 from 4.2388 rad sweep 2.0444 rad  [re-pierce]
+contour from [2]: layer "0", depth 1, closed, length 32.5940
+  arc centre (83.5000, 30.0000) radius 1.5000 from -0.7854 rad sweep 0.7854 rad  [entry lead]
+  arc centre (80.0000, 30.0000) radius 5.0000 from 0.0000 rad sweep 2.0444 rad  [cool 300 ms]
+  arc centre (80.0000, 30.0000) radius 5.0000 from 2.0444 rad sweep 0.1000 rad  [joint power 20.0 speed Some(3.0)]
+  arc centre (80.0000, 30.0000) radius 5.0000 from 2.1444 rad sweep 1.9944 rad  [re-pierce]
+  arc centre (80.0000, 30.0000) radius 5.0000 from 4.1388 rad sweep 0.1000 rad  [joint power 20.0 speed Some(3.0)]
+  arc centre (80.0000, 30.0000) radius 5.0000 from 4.2388 rad sweep 2.0444 rad  [re-pierce]
+contour from [3]: layer "0", depth 1, closed, length 72.5940
+  arc centre (40.0000, 26.5000) radius 1.5000 from -2.3562 rad sweep 0.7854 rad  [entry lead]
+  line (40.0000, 25.0000) -> (60.0000, 25.0000)  [cool 300 ms]
+  arc centre (60.0000, 30.0000) radius 5.0000 from -1.5708 rad sweep 0.7111 rad
+  arc centre (60.0000, 30.0000) radius 5.0000 from -0.8597 rad sweep 0.1000 rad  [joint power 20.0 speed Some(3.0)]
+  arc centre (60.0000, 30.0000) radius 5.0000 from -0.7597 rad sweep 2.3305 rad  [re-pierce]
+  line (60.0000, 35.0000) -> (48.3473, 35.0000)
+  line (48.3473, 35.0000) -> (47.8473, 35.0000)  [joint power 20.0 speed Some(3.0)]
+  line (47.8473, 35.0000) -> (40.0000, 35.0000)  [re-pierce]
+  arc centre (40.0000, 30.0000) radius 5.0000 from 1.5708 rad sweep 3.1416 rad

@@ -1,0 +1,18 @@
+---
+source: crates/openlaser-dxf/tests/import.rs
+expression: render(&import)
+---
+units: Millimeters
+entities: 7
+contour 0: layer "CUT", open, length 20.0000
+  line (0.0000, 0.0000) -> (10.0000, 0.0000)
+  line (10.0000, 0.0000) -> (10.0000, 10.0000)
+contour 1: layer "MARK", open, length 20.0000
+  line (10.0000, 10.0000) -> (20.0000, 10.0000)
+  line (20.0000, 10.0000) -> (20.0000, 20.0000)
+contour 2: layer "CUT", open, length 10.0000
+  line (50.0000, 0.0000) -> (60.0000, 0.0000)
+contour 3: layer "CUT", open, length 10.0000
+  line (60.0000, 0.0000) -> (70.0000, 0.0000)
+contour 4: layer "CUT", open, length 10.0000
+  line (60.0000, 0.0000) -> (60.0000, 10.0000)

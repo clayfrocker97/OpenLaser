@@ -1,0 +1,9 @@
+---
+source: crates/openlaser-dxf/tests/import.rs
+expression: render(&import)
+---
+units: Millimeters
+entities: 2
+contour 0: layer "0", open, length 5.0198
+  line (0.0000, 0.0000) -> (1.0000, -1.0000)
+  line (1.0000, -1.0000) -> (3.0000, 2.0000)

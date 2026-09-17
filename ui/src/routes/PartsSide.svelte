@@ -1,0 +1,116 @@
+<script lang="ts">
+  import ImportParts from '../components/ImportParts.svelte';
+  import { api } from '../api/client';
+  import { server } from '../stores/server.svelte';
+  import { ui } from '../stores/ui.svelte';
+  import { osk } from '../lib/osk.svelte';
+  import { ago, explain, laserLabel, recipeLabel, size } from '../lib/format';
+  import { boxOf, pathOf, viewBoxFor } from '../lib/svg';
+  import { folderPath } from '../lib/folders';
+
+  const doc = $derived(server.doc!);
+  const library = $derived(doc.library);
+  const job = $derived(library.jobs.find((j) => j.id === ui.selected) ?? null);
+  const part = $derived(job ? library.parts.find((p) => p.id === job.part) ?? null : library.parts.find((p) => p.id === ui.selected) ?? null);
+  const folderName = $derived.by(() => {
+    const id = job?.folder ?? part?.folder ?? null;
+    return folderPath(library.folders, id).map((folder) => folder.name).join(' / ') || 'All parts';
+  });
+
+  async function run(action: () => Promise<unknown>, then?: () => void): Promise<void> {
+    try {
+      await action();
+      then?.();
+    } catch (error) {
+      ui.say(explain(error), true);
+    }
+  }
+
+  function open(tab: 'setup' | 'run'): void {
+    if (job) run(() => api.openJob(job.id), () => (ui.tab = tab));
+    else if (part) run(() => api.openPart(part.id), () => (ui.tab = tab));
+  }
+
+  function rename(): void {
+    const current = job?.name ?? part?.name ?? '';
+    osk.text('Rename', current, (name) => {
+      if (!name.trim()) return;
+      if (job) run(() => api.updateJob(job.id, { name: name.trim() }));
+      else if (part) run(() => api.updatePart(part.id, { name: name.trim() }));
+    });
+  }
+
+  function remove(): void {
+    if (job) run(() => api.removeJob(job.id), () => { ui.selected = null; ui.say('Job deleted.'); });
+    else if (part) run(() => api.removePart(part.id), () => { ui.selected = null; ui.say('Part deleted.'); });
+  }
+
+  /** Copies the selected saved item without replacing the open draft. */
+  function duplicate(): void {
+    if (job) {
+      run(async () => { const { id } = await api.duplicateJob(job.id); ui.selected = id; }, () => ui.say('Job copied.'));
+    } else if (part) {
+      run(async () => { const { id } = await api.duplicatePart(part.id); ui.selected = id; }, () => ui.say('Part copied.'));
+    }
+  }
+
+  function editNotes(): void {
+    const item = job ?? part;
+    if (!item) return;
+    const id = item.id, savedJob = !!job;
+    osk.text('Notes', item.notes, (notes) => run(() => savedJob ? api.updateJob(id, { notes }) : api.updatePart(id, { notes })));
+  }
+
+  const outline = $derived(job?.outline ?? part?.outline ?? []);
+  const thumb = $derived.by(() => { const box = boxOf(outline); return box ? viewBoxFor(box, 100, 70) : '0 0 100 70'; });
+</script>
+
+<aside class="panel side">
+  {#if !part}
+    <h2>Start with a part</h2>
+    <p class="muted">Import DXF or SVG, add text, or choose a library part.</p>
+    <div class="side-foot"><ImportParts /></div>
+  {:else}
+    <div class="side-title">
+      <div class="thumb" style="width:64px;height:48px;border-radius:8px;background:var(--panel-2);display:grid;place-items:center">
+        <svg viewBox={thumb} style="width:80%">{#each outline as line}<path d={pathOf(line)} fill="none" stroke="var(--ink)" stroke-width="2.5" vector-effect="non-scaling-stroke"/>{/each}</svg>
+      </div>
+      <div><h2>{job?.name ?? part.name}</h2><div class="muted">{job ? 'Saved job' : 'Part'}{#if job} · {laserLabel(job.recipe.laser)}{/if} · updated {ago(job?.updated ?? part.updated)}</div></div>
+    </div>
+    <dl class="kv">
+      <dt>Bounding box</dt><dd>{size(job ? job.bounds : part.bounds)}</dd>
+      <dt>Cut paths</dt><dd>{job?.contours ?? part.contours}</dd>
+      <dt>Material</dt><dd>{#if job}{recipeLabel(job.recipe)}{:else}<span class="muted">not set</span>{/if}</dd>
+      <dt>Source</dt><dd class="mono">{part.file_name}</dd>
+      <dt>Folder</dt><dd>{folderName}</dd>
+    </dl>
+    <div class="item-meta">
+      <button class="meta-notes" onclick={editNotes}><span class="meta-label">Notes<span class="edit-label">Edit</span></span><span class:placeholder={!(job ?? part).notes}>{(job ?? part).notes || 'Add a note'}</span></button>
+    </div>
+    <div class="row">
+      <button class="btn btn-ghost" onclick={duplicate}>Duplicate</button>
+      <button class="btn btn-ghost" onclick={rename}>Rename</button>
+      <button class="btn btn-ghost" onclick={remove}>Delete</button>
+    </div>
+    <div class="side-foot">
+      {#if job}
+        <button class="btn btn-ghost lg block" onclick={() => open('setup')}>Open in Setup</button>
+        <button class="btn btn-primary lg block" onclick={() => open('run')}>▶ Run again</button>
+      {:else}
+        <button class="btn btn-primary lg block" onclick={() => open('setup')}>Set up job →</button>
+      {/if}
+    </div>
+  {/if}
+</aside>
+
+<style>
+  .item-meta { display: grid; gap: 10px; border-top: 1px solid var(--line); padding-top: 16px; }
+  .meta-notes { appearance: none; display: grid; gap: 8px; width: 100%; text-align: left; padding: 14px 16px; font-size: var(--t-sm); border: 1px solid var(--line); border-radius: 12px; background: var(--panel-2); color: var(--ink); cursor: pointer; }
+  .meta-notes:hover { border-color: var(--accent); }
+  .meta-notes:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .meta-label { display: flex; justify-content: space-between; align-items: center; color: var(--ink-2); font-weight: 600; }
+  .edit-label { color: var(--accent-2); font-weight: 600; font-size: var(--t-xs); }
+  .placeholder { color: var(--ink-3); }
+  .meta-notes { min-height: 100px; }
+  .meta-notes > span:last-child { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 110px; overflow: auto; }
+</style>

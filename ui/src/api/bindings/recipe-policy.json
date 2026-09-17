@@ -1,0 +1,39 @@
+{
+  "duration": {
+    "aliases": [
+      "DrillDelay",
+      "GradualTime",
+      "FocusGradualTime"
+    ],
+    "max": 600000,
+    "min": 0,
+    "unit": "ms"
+  },
+  "stages": [
+    0,
+    0,
+    1,
+    2,
+    3,
+    0,
+    4,
+    5
+  ],
+  "stored_fields": [
+    "CutFocusPos",
+    "SmoothPierceDrillFocusPos",
+    "CleanResidue_WorkFocus",
+    "SmoothPierceDrillTime_ms",
+    "PreLaserOnFactor",
+    "ZFVibAbat_Coef",
+    "LeadLineParam_Enable",
+    "PowerCurveSmoothType",
+    "FreqCurveSmoothType"
+  ],
+  "stored_stage_fields": [
+    "DrillFocusPos",
+    "EnableFocusGradual",
+    "FocusGradualEndPos",
+    "DrillTime"
+  ]
+}

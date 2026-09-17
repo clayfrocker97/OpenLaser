@@ -1,0 +1,43 @@
+[package]
+name = "openlaser-server"
+description = "The coordinator, HTTP API and live event stream"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[features]
+embedded-ui = []
+typescript = [
+    "dep:ts-rs",
+    "openlaser-core/typescript", "openlaser-correction/typescript",
+    "openlaser-library/typescript",
+    "openlaser-controller/typescript",
+]
+
+[dependencies]
+openlaser-core.workspace = true
+openlaser-correction.workspace = true
+ts-rs = { workspace = true, optional = true }
+openlaser-prep.workspace = true
+openlaser-nest.workspace = true
+openlaser-dxf.workspace = true
+openlaser-svg.workspace = true
+openlaser-xml.workspace = true
+openlaser-protocol.workspace = true
+openlaser-compiler.workspace = true
+openlaser-controller.workspace = true
+openlaser-library.workspace = true
+openlaser-network.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+axum.workspace = true
+tokio-stream.workspace = true
+mdns-sd.workspace = true

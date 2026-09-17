@@ -1,0 +1,23 @@
+[package]
+name = "openlaser-controller"
+description = "The only crate that talks to the machine"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[features]
+typescript = ["dep:ts-rs", "openlaser-core/typescript"]
+
+[dependencies]
+openlaser-core.workspace = true
+ts-rs = { workspace = true, optional = true }
+openlaser-protocol.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tracing.workspace = true

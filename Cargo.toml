@@ -1,0 +1,79 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+# The retired prototype and the private evidence archive live beside this
+# workspace on disk. They are not members and are not tracked by git.
+exclude = ["source", "reference"]
+
+[workspace.package]
+version = "0.1.0-alpha.1"
+edition = "2024"
+rust-version = "1.97"
+license = "GPL-3.0-or-later"
+publish = false
+
+[workspace.dependencies]
+# Workspace members. Every crate refers to a sibling through this table so the
+# dependency direction is declared in one place.
+openlaser-core = { path = "crates/openlaser-core", version = "0.1.0-alpha.1" }
+openlaser-correction = { path = "crates/openlaser-correction", version = "0.1.0-alpha.1" }
+openlaser-prep = { path = "crates/openlaser-prep", version = "0.1.0-alpha.1" }
+openlaser-nest = { path = "crates/openlaser-nest", version = "0.1.0-alpha.1" }
+openlaser-dxf = { path = "crates/openlaser-dxf", version = "0.1.0-alpha.1" }
+openlaser-svg = { path = "crates/openlaser-svg", version = "0.1.0-alpha.1" }
+openlaser-xml = { path = "crates/openlaser-xml", version = "0.1.0-alpha.1" }
+openlaser-protocol = { path = "crates/openlaser-protocol", version = "0.1.0-alpha.1" }
+openlaser-compiler = { path = "crates/openlaser-compiler", version = "0.1.0-alpha.1" }
+openlaser-controller = { path = "crates/openlaser-controller", version = "0.1.0-alpha.1" }
+openlaser-library = { path = "crates/openlaser-library", version = "0.1.0-alpha.1" }
+openlaser-network = { path = "crates/openlaser-network", version = "0.1.0-alpha.1" }
+openlaser-server = { path = "crates/openlaser-server", version = "0.1.0-alpha.1" }
+
+# Third-party crates, pinned once for the whole workspace. Add a crate here
+# first, then use `name.workspace = true` in the member that needs it.
+serde = { version = "1.0.229", features = ["derive", "rc"] }
+serde_json = { version = "1.0.151", features = ["float_roundtrip"] }
+thiserror = "2.0.20"
+anyhow = "1.0.104"
+tokio = { version = "1.53.1", features = ["rt-multi-thread", "macros", "net", "sync", "time", "fs", "signal"] }
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+axum = "0.8.9"
+mdns-sd = "=0.21.1"
+tokio-stream = { version = "0.1.19", features = ["sync"] }
+ts-rs = { version = "12.0.1", features = ["no-serde-warnings"] }
+toml = "1.1.5"
+insta = "1.48.0"
+proptest = { version = "1.11.0", default-features = false, features = ["std"] }
+quick-xml = { version = "=0.41.0", default-features = false }
+sha2 = { version = "=0.10.9", default-features = false }
+cavalier_contours = "0.9.0"
+usvg = { version = "=0.48.1", default-features = false, features = ["text"] }
+read-fonts = "=0.41.0"
+i_overlay = "=8.1.1"
+svgtypes = "0.16.1"
+sparrow = { version = "=0.2.0", git = "https://github.com/JeroenGar/sparrow", rev = "9ef45676695ef94d045ac8bff0530822127f1437" }
+jagua-rs = { version = "=0.8.1", features = ["spp"] }
+rand = "0.10"
+rayon = "1.12"
+tao = { version = "=0.37.0", default-features = false, features = ["rwh_06"] }
+wry = { version = "=0.57.0", default-features = false, features = ["os-webview"] }
+muda = { version = "=0.20.0", default-features = false }
+winresource = { version = "=0.1.31", default-features = false }
+
+# Lints apply to every member through `[lints] workspace = true`.
+[workspace.lints.rust]
+unsafe_code = "deny"
+missing_docs = "warn"
+
+[workspace.lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+unwrap_used = "warn"
+expect_used = "warn"
+# Pedantic lints we have decided against, workspace-wide.
+module_name_repetitions = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+
+[profile.release]
+strip = "symbols"

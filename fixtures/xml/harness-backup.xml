@@ -1,0 +1,31 @@
+<ParameterRoot>
+<PAxisParam><AX InterpolationCycle='250'/><A0 AxisIndex='0'/><A1 AxisIndex='1'/></PAxisParam>
+<PMachineAxisConfig><MAC DoubleDevice='0'/></PMachineAxisConfig>
+<PMachineAxisConfig_0><MAC WritePluse='8000' SpeedRatio='31.04' SoftLimitMaxLen='1371' GoOriginalDirection='0' AxisReverse='1' EncoderReverse='0' IsRotatingShaft='0' ZoreType='0' OriginalInput='0' NegativeType='0' NegativeLimitInput='6' ForwardType='0' ForwardLimitInput='5' BrakeOutput='0' EnableZphaseSignal='0' SecondGoHome='0' SampleType='1' FastSpeed='80' SecondSpeed='20' ReturnLength='28' Acceleration='20000' AccelerationTime='125'/></PMachineAxisConfig_0>
+<PMachineAxisConfig_1><MAC_1 WritePluse='8000' SpeedRatio='31.04' SoftLimitMaxLen='971' GoOriginalDirection='0' AxisReverse='1' EncoderReverse='0' IsRotatingShaft='0' ZoreType='0' OriginalInput='0' NegativeType='0' NegativeLimitInput='8' ForwardType='0' ForwardLimitInput='7' BrakeOutput='0' EnableZphaseSignal='0' SecondGoHome='0' SampleType='1' FastSpeed='80' SecondSpeed='20' ReturnLength='15' Acceleration='20000' AccelerationTime='125'/></PMachineAxisConfig_1>
+<PSoftParam><SP m_iHardwareModel='224' m_iEnableLaserType='0'/></PSoftParam>
+<PManuParam>
+<MC CornerAccuracyRate='0.02' SplineAccuracyRate='0.01' ManuAcc='5000' AccTime='100' XFastMoveSpeed='500' XFastMoveAcc='5000' BoundSpeed='500' EmptyMoveAccTime='100' ResumeBackLength='2' JogSlowSpeed='20' JogFastSpeed='500' afterContinueDill='1'/>
+<MP LaserDAKeepOutput='0' DirectDrillMaxHeight='6' EnableManuCrashProtect='1' ManuCrashProtectUpHeight='35' JogStopDccFactor='2' ZFSafeHeight='10' EnableVerCorrect='0' EnablePLCProcess1='0' CO2PWMOutputSync='1'/>
+<MS EnableSoftLimit='1'/><LC PtLaserFreq='5000' PtLaserPeakCurrent='30'/><EC ECIOType='0' ECType='0'/><AF AFType='0'/>
+<GC GasDelay='100' DirectGasDelay='100' ChangeGasDelay='100'/><MGP iProportionalOpenSleep='300'/>
+</PManuParam>
+<PFCParam><FCP MaxSpeed='3000' MaxAcc='30000'/></PFCParam>
+<PZFParam><ZF ZFType='1' ZFUpSpeed='100' ZFFollowSpeed='100' ZFDockHeight='3' ZFJogSpeed='30' ZFFastJogSpeed='60'/></PZFParam>
+<PLaserParam><LGP LaserControlType='3' LaserType='0' LaserDAPort='1' LaserDAType='0' DOLaserGate='5' DOLaser='0' DORedLight='6' CO2LaserControlType='2' CO2LaserDAType='1' CO2LaserDAPort='1' CO2DOLaserGate='0' CO2DOLaser='9' CO2DORedLight='0' doCO2EnableOutput='0'/></PLaserParam>
+<PGasParam><MGP LowAir='0' LowO2='7' LowN2='0' HighAir='3' HighO2='0' HighN2='2' RatioAirSwitch='0' RatioO2Switch='8' RatioN2Switch='0' RatioAir='0' RatioO2='2' RatioH2='0' NewDAMAxPressureAir='10' NewDAMAxPressureO2='10' NewDAMAxPressureN2='10' CoolGas='0'/></PGasParam>
+<PDOParam><DO ZFGoOriginDone='2' ManuSignal='1' BackRollMoveEnable='0' RollSheetSlowMove='0' RollSheetFastMove='0' RollSheetMoveEnable='0' ManuDoneOutput='0' RollSheetOutput='0' ManuOutput='0' PlatBMoveEnable='0' PlatAMoveEnable='0' PlatBFastMove='0' PlatBSlowMove='0' PlatAFastMove='0' PlatASlowMove='0' PLCProcess1B='0' PLCProcess1A='0' GtO2EnableGasDAMap='0'/></PDOParam>
+<PDIParam><DO EnableBackRollSheet='0' GtO2EnableGasDAMap='0'/>
+<DI WaterWarning='3' WaterWarningType='1' LaserWarning='0' LaserWarningType='0' CO2WaterWarning='0' CO2WaterWarningType='0' CO2LaserWarning='0' CO2LaserWarningType='0' OnlyManualRelieveAlarm='0' AlarmDIStr='Door#4#1#0,,,,,,,,,,,,,,,' FunctionDIStr='a#0#0,b#0#0,c#0#0,d#0#0,LowAir#0#0,LowO2#12#1,LowN2#0#0,HighAir#0#0,HighO2#0#0,HighN2#0#0'/></PDIParam>
+<PLayerParam1><GP NoManu='0' ManuType='0' CutSpeed='50' CutPower='35' CutDuty='5' CutFreq='5000' CutPeakCurrent='100' CutGasType='5' CutAirPressure='0.85' CutHeight='0.5' UpHeight='15' NoFollow='0' LaserOnDelay='10' LaserOffBeforeDelay='0' LaserOffAfterDelay='0' PowerAdjustWithSpeed='1' PWMCurveNodes='0,10,100,100' FreqAdjustWithSpeed='0'/></PLayerParam1>
+<PCO2LayerParam1><GP NoManu='0' ManuType='0' CutSpeed='50' CutPower='35' CutDuty='5' CutFreq='5000' CutPeakCurrent='100' CutGasType='5' CutAirPressure='0.85' CutHeight='0.5' UpHeight='15' NoFollow='0' LaserOnDelay='10' LaserOffBeforeDelay='0' LaserOffAfterDelay='0' PowerAdjustWithSpeed='1' PWMCurveNodes='0,10,100,100' FreqAdjustWithSpeed='0'/></PCO2LayerParam1>
+<PMachineAxisConfig_2>
+<MAC_2 SoftLimitMaxLen="1000" WritePluse="2000" AxisReverse="1" EncoderReverse="0" GoOriginalDirection="0" SpeedRatio="5" IsRotatingShaft="0" ZoreType="0" OriginalInput="0" NegativeType="0" NegativeLimitInput="0" ForwardType="0" ForwardLimitInput="0" BrakeOutput="0" EnableZphaseSignal="0" SecondGoHome="0" SampleType="1" FastSpeed="30" SecondSpeed="20" ReturnLength="5" Acceleration="20000" AccelerationTime="125" />
+</PMachineAxisConfig_2>
+<PMachineAxisConfig_3>
+<MAC_3 SoftLimitMaxLen="1000" WritePluse="10000" AxisReverse="0" EncoderReverse="0" GoOriginalDirection="0" SpeedRatio="5" IsRotatingShaft="0" ZoreType="0" OriginalInput="0" NegativeType="0" NegativeLimitInput="9" ForwardType="0" ForwardLimitInput="10" BrakeOutput="0" EnableZphaseSignal="0" SecondGoHome="0" SampleType="1" FastSpeed="30" SecondSpeed="20" ReturnLength="10" Acceleration="20000" AccelerationTime="125" />
+</PMachineAxisConfig_3>
+<PMachineAxisConfig_4>
+<MAC_4 SoftLimitMaxLen="1000" WritePluse="2000" AxisReverse="0" EncoderReverse="0" GoOriginalDirection="1" SpeedRatio="10" IsRotatingShaft="0" ZoreType="0" OriginalInput="0" NegativeType="0" NegativeLimitInput="2" ForwardType="0" ForwardLimitInput="3" BrakeOutput="0" EnableZphaseSignal="0" SecondGoHome="0" SampleType="1" FastSpeed="30" SecondSpeed="20" ReturnLength="5" Acceleration="20000" AccelerationTime="125" />
+</PMachineAxisConfig_4>
+</ParameterRoot>

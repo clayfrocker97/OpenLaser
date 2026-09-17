@@ -1,0 +1,42 @@
+---
+source: crates/openlaser-prep/tests/prepare.rs
+expression: "render(&openlaser_prep::prepare(&plate(), &features).unwrap())"
+---
+contour from [0]: layer "0", depth 0, closed, length 327.3562
+  line (17.5251, 61.8536) -> (18.9393, 60.4393)  [entry lead]
+  arc centre (20.0000, 61.5000) radius 1.5000 from -2.3562 rad sweep 0.7854 rad  [entry lead]
+  line (20.0000, 60.0000) -> (100.0000, 60.0000)
+  line (100.0000, 60.0000) -> (100.0000, 0.0000)
+  line (100.0000, 0.0000) -> (0.0000, 0.0000)
+  line (0.0000, 0.0000) -> (0.0000, 60.0000)
+  line (0.0000, 60.0000) -> (20.0000, 60.0000)
+  line (20.0000, 60.0000) -> (21.0000, 60.0000)
+  arc centre (21.0000, 61.5000) radius 1.5000 from -1.5708 rad sweep 0.7854 rad  [exit lead]
+  line (22.0607, 60.4393) -> (23.4749, 61.8536)  [exit lead]
+contour from [1]: layer "0", depth 1, closed, length 38.7721
+  line (17.5251, 33.1464) -> (18.9393, 34.5607)  [entry lead]
+  arc centre (20.0000, 33.5000) radius 1.5000 from 2.3562 rad sweep -0.7854 rad  [entry lead]
+  arc centre (20.0000, 30.0000) radius 5.0000 from 1.5708 rad sweep -1.5708 rad
+  arc centre (20.0000, 30.0000) radius 5.0000 from 6.2832 rad sweep -4.7124 rad
+  arc centre (20.0000, 30.0000) radius 5.0000 from 1.5708 rad sweep -0.2000 rad
+  arc centre (20.6953, 33.4302) radius 1.5000 from 1.3708 rad sweep -0.7854 rad  [exit lead]
+  line (21.9456, 34.2590) -> (23.0506, 32.5920)  [exit lead]
+contour from [2]: layer "0", depth 1, closed, length 38.7721
+  line (77.5251, 33.1464) -> (78.9393, 34.5607)  [entry lead]
+  arc centre (80.0000, 33.5000) radius 1.5000 from 2.3562 rad sweep -0.7854 rad  [entry lead]
+  arc centre (80.0000, 30.0000) radius 5.0000 from 1.5708 rad sweep -1.5708 rad
+  arc centre (80.0000, 30.0000) radius 5.0000 from 6.2832 rad sweep -4.7124 rad
+  arc centre (80.0000, 30.0000) radius 5.0000 from 1.5708 rad sweep -0.2000 rad
+  arc centre (80.6953, 33.4302) radius 1.5000 from 1.3708 rad sweep -0.7854 rad  [exit lead]
+  line (81.9456, 34.2590) -> (83.0506, 32.5920)  [exit lead]
+contour from [3]: layer "0", depth 1, closed, length 78.7721
+  line (60.3289, 26.8536) -> (58.9146, 25.4393)  [entry lead]
+  arc centre (57.8540, 26.5000) radius 1.5000 from -0.7854 rad sweep -0.7854 rad  [entry lead]
+  line (57.8540, 25.0000) -> (40.0000, 25.0000)
+  arc centre (40.0000, 30.0000) radius 5.0000 from 4.7124 rad sweep -3.1416 rad
+  line (40.0000, 35.0000) -> (60.0000, 35.0000)
+  arc centre (60.0000, 30.0000) radius 5.0000 from 1.5708 rad sweep -3.1416 rad
+  line (60.0000, 25.0000) -> (57.8540, 25.0000)
+  line (57.8540, 25.0000) -> (56.8540, 25.0000)
+  arc centre (56.8540, 26.5000) radius 1.5000 from -1.5708 rad sweep -0.7854 rad  [exit lead]
+  line (55.7933, 25.4393) -> (54.3791, 26.8536)  [exit lead]

@@ -1,0 +1,11 @@
+---
+source: crates/openlaser-dxf/tests/import.rs
+expression: render(&import)
+---
+units: Inches
+entities: 1
+contour 0: layer "0", closed, length 101.6000
+  line (0.0000, 0.0000) -> (25.4000, 0.0000)
+  line (25.4000, 0.0000) -> (25.4000, 25.4000)
+  line (25.4000, 25.4000) -> (0.0000, 25.4000)
+  line (0.0000, 25.4000) -> (0.0000, 0.0000)

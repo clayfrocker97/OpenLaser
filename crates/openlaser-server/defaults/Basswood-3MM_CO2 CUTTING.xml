@@ -1,0 +1,5 @@
+<ParameterRoot>
+<PCO2LayerParam11>
+<GP PowerCurveSmoothType="2" FreqCurveSmoothType="0" PowerAdjustWithSpeed="1" FreqAdjustWithSpeed="0" CutSpeed="133.33333333333334" AdvFixHeightCutPos="0" LaserOnDelay="0" CutDuty="100" CutGasType="3" CutAirPressure="5" ShortDistGasKeepOn="0" NoCloseGasInManu="0" SlowStart="0" SlowStartLength="1" SlowStartSpeed="10" PWMCurveNodes="0,75,27,89,57,97,100,100" FreqCurveNodes="0,100,100,100" LayerFileName="Plywood 3mm air" Note="" RecentFile="" CutFreq="5000" LaserOffAfterDelay="0"/>
+</PCO2LayerParam11>
+</ParameterRoot>

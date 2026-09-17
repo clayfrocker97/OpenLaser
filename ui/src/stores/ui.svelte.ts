@@ -1,0 +1,135 @@
+// What the UI remembers for itself: the page, selections, and the bar.
+import type { Features, Pick, Preview } from '../api';
+import { SETTINGS_PAGES } from '../lib/navigation';
+
+export type Tab = 'parts' | 'setup' | 'run' | 'materials' | 'machine';
+
+const FEATURE_IDS = ['leads', 'joints', 'cooling', 'kerf', 'bridges', 'order', 'start', 'common'] as const;
+export type FeatureId = (typeof FEATURE_IDS)[number];
+
+/** What a tap on the drawing places while a panel asks for it. */
+export interface Picking {
+  features: Features;
+  preview?: Preview;
+  marks: [number, number][];
+  feature: 'joints' | 'cooling' | 'start' | 'bridges' | 'order';
+  /** The first end of the bridge being placed. */
+  first: Pick | null;
+  /** The contours tapped so far, for a manual order. */
+  order: number[];
+  /** The geometry on which the pending picks were made. */
+  revision: number;
+  /** Local point owner for an evolving bridge contour. */
+  firstOwner?: number;
+}
+
+function remembered<T>(key: string, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw === null ? fallback : (JSON.parse(raw) as T);
+  } catch {
+    return fallback;
+  }
+}
+
+function remember(key: string, value: unknown): void {
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* private mode */ }
+}
+
+function returningTab(): Tab {
+  try {
+    const tab = sessionStorage.getItem('ol-tab-return');
+    sessionStorage.removeItem('ol-tab-return');
+    if (tab === 'parts' || tab === 'setup' || tab === 'run' || tab === 'materials' || tab === 'machine') return tab;
+  } catch { /* Opening a layout does not require browser storage. */ }
+  return 'parts';
+}
+
+function returningSettingsPage(): number {
+  try {
+    const page = Number(sessionStorage.getItem('ol-settings-return'));
+    sessionStorage.removeItem('ol-settings-return');
+    if (SETTINGS_PAGES.some(item => item.id === page)) return page;
+  } catch { /* The default settings section remains available. */ }
+  return 0;
+}
+
+class Ui {
+  tab = $state<Tab>(returningTab());
+  search = $state('');
+  folder = $state<string | null>(null);
+  /** The selected library card: a part or a job id. */
+  selected = $state<string | null>(null);
+  selectedRecipe = $state<string | null>(null);
+  setupPanel = $state<FeatureId | 'copy' | 'clipboard' | 'nest' | null>(null);
+  nestPreview = $state<Preview | null>(null);
+  nestStock = $state<{ outline: number[][]; cutouts: number[][][] } | null>(null);
+  nestPicking = $state(false);
+  selectionEpoch = $state(0);
+  picking = $state<Picking | null>(null);
+  /** Drawing layers hidden on the canvas, for this session. */
+  hiddenDrawingLayers = $state<string[]>([]);
+  favTools = $state<string[]>(remembered('ol-bar', FEATURE_IDS.filter(id => id !== 'common')));
+  editBar = $state(false);
+  jogFast = $state(false);
+  snap = $state(remembered('ol-snap', true));
+  grid = $state(remembered('ol-grid', 1));
+  /** Canvas layers the operator switched off. */
+  hiddenLayers = $state<string[]>(remembered('ol-hidden-layers', []));
+  /** Whether the run view shows every travel move or only the next one. */
+  travelMode = $state<'next' | 'all'>(remembered('ol-travel', 'next'));
+  machinePage = $state(returningSettingsPage());
+  checklistEditor = $state<'defaults' | 'pause' | 'postflight' | null>(null);
+  theme = $state<'light' | 'dark'>(remembered('ol-theme', matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+  toast = $state<{ text: string; error: boolean; at: number } | null>(null);
+  modal = $state<'pending' | 'alarms' | 'material' | 'recipe' | 'outputs' | null>(null);
+  pendingJobName = $state<string | null>(null);
+
+  editChecklist(scope: 'defaults' | 'pause' | 'postflight'): void {
+    this.machinePage = 1;
+    this.checklistEditor = scope;
+    this.tab = 'machine';
+  }
+
+  previewTheme(theme: 'light' | 'dark'): void {
+    this.theme = theme;
+    document.documentElement.dataset['theme'] = theme;
+  }
+
+  applyTheme(theme: 'light' | 'dark'): void {
+    this.previewTheme(theme);
+    remember('ol-theme', theme);
+  }
+
+  setGrid(value: number): void { this.grid = value; remember('ol-grid', value); }
+  toggleSnap(): void { this.snap = !this.snap; remember('ol-snap', this.snap); }
+
+  setBar(tools: string[]): void {
+    this.favTools = tools;
+    remember('ol-bar', tools);
+  }
+
+  layerShown(layer: string): boolean {
+    return !this.hiddenLayers.includes(layer);
+  }
+
+  toggleLayer(layer: string): void {
+    this.hiddenLayers = this.layerShown(layer) ? [...this.hiddenLayers, layer] : this.hiddenLayers.filter((l) => l !== layer);
+    remember('ol-hidden-layers', this.hiddenLayers);
+  }
+
+  setTravelMode(mode: 'next' | 'all'): void {
+    this.travelMode = mode;
+    remember('ol-travel', mode);
+  }
+
+  private toastTimer: ReturnType<typeof setTimeout> | null = null;
+
+  say(text: string, error = false): void {
+    this.toast = { text, error, at: Date.now() };
+    if (this.toastTimer) clearTimeout(this.toastTimer);
+    this.toastTimer = setTimeout(() => { this.toast = null; }, 2600);
+  }
+}
+
+export const ui = new Ui();

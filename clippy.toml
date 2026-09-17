@@ -1,0 +1,4 @@
+msrv = "1.97"
+too-many-arguments-threshold = 6
+# Product and part names that may appear in prose without backticks.
+doc-valid-idents = ["OpenLaser", "M-Laser", "NexCut", "MCC100", "NCModule", "CADModule", "MainApp", ".."]

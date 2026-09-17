@@ -1,0 +1,19 @@
+[package]
+name = "openlaser-nest"
+description = "Bounded Sparrow nesting with original-curve placement"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+openlaser-core.workspace = true
+sparrow.workspace = true
+jagua-rs.workspace = true
+rand.workspace = true
+rayon.workspace = true
+thiserror.workspace = true
