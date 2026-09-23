@@ -5,7 +5,8 @@
   import { server } from '../stores/server.svelte';
   import { ui } from '../stores/ui.svelte';
   import { recipeEdits } from '../lib/recipe-edits.svelte';
-  import { settingsEdits, routeValues, mergePreferences, type SettingKey } from '../lib/settings-edits.svelte';
+  import { settingsEdits, routeValues, mergePreferences, same, type SettingKey } from '../lib/settings-edits.svelte';
+  import { holdSeconds } from '../lib/hold-confirm';
   import { explain, laserLabel } from '../lib/format';
   import { shown } from '../lib/recipe';
   import { conflictText, reviewText } from '../lib/review-values';
@@ -26,7 +27,9 @@
   const route = $derived(routeValues(doc));
   const routeConflicts = $derived(Object.entries(staged.route ?? {}).filter(([key, edit]) => edit.base !== route[key as keyof typeof route] && edit.value !== route[key as keyof typeof route]));
   const prefMerge = $derived(staged.preflight && preferences ? mergePreferences($state.snapshot(staged.preflight.base), $state.snapshot(staged.preflight.value), $state.snapshot(preferences)) : null);
-  const labels: Record<SettingKey, string> = { route: 'Controller route', preflight: 'Checklist defaults', theme: 'Display theme', backup: 'Machine backup', soft: 'Process settings', xml: 'Machine XML settings' };
+  const labels: Record<SettingKey, string> = { route: 'Controller route', preflight: 'Checklist defaults', theme: 'Display theme', hold: 'Hold times', backup: 'Machine backup', soft: 'Process settings', xml: 'Machine XML settings' };
+  // Another screen saved hold times after these were staged: choose first.
+  const holdConflict = $derived(!!staged.hold && !same(doc.hold, staged.hold.base));
   let xmlFields = $state<XmlField[]>([]);
   const display = (v: unknown): string => reviewText(v);
 
@@ -75,6 +78,18 @@
     try { await api.updateRecipe(recipe.id, save.change); recipeEdits.finish(save, true); }
     catch (e) { recipeEdits.finish(save, false); throw e; }
   }
+  /** Saving machine settings or a backup writes a connected controller: say so first. */
+  function confirmSave(key: SettingKey): Promise<boolean> {
+    if (key !== 'xml' && key !== 'backup') return Promise.resolve(true);
+    const connected = doc.machine.connection.state === 'connected';
+    const count = key === 'xml' ? Object.keys(staged.xml?.edits ?? {}).length : 0;
+    return ui.confirm({
+      title: key === 'xml' ? 'Save machine settings?' : 'Use this machine backup?',
+      body: `${key === 'xml' ? `${count} changed value${count === 1 ? '' : 's'} replace the machine settings` : `${staged.backup?.name ?? 'The staged backup'} replaces the machine settings`}${connected ? ', and the connected controller is written and read back to verify them.' : '. The controller is written when it next connects.'}`,
+      confirm: connected ? 'Save and write controller' : 'Save settings',
+    });
+  }
+
   async function saveSetting(key: SettingKey): Promise<void> {
     savedTheme = settingsEdits.readTheme();
     if (key === 'route' && staged.route) {
@@ -86,6 +101,8 @@
       preferences = saved;
       if (merged.conflicts.length) throw new Error('Choose the checklist values to keep.');
       await api.savePreflightPreferences(merged.value);
+    } else if (key === 'hold' && staged.hold) {
+      await api.saveHoldTimes($state.snapshot(staged.hold.value), $state.snapshot(staged.hold.base));
     } else if (key === 'xml' && staged.xml) {
       await api.saveMachineSettings(staged.xml.base, Object.values($state.snapshot(staged.xml.edits)));
     } else if ((key === 'backup' || key === 'soft') && staged[key]) {
@@ -120,13 +137,13 @@
   {#each recipeEdits.pending as id (id)}
     {@const recipe = doc.library.recipes.find(r => r.id === id)}
     {@const conflicts = recipe ? recipeEdits.conflicts(recipe) : []}
-    <section class="pending-item"><div class="row"><div><h3>{recipe?.name ?? 'Deleted material'}</h3><small>{recipeEdits.count(id)} staged material values</small></div><div class="actions"><button class="btn btn-ghost" disabled={busy} onclick={() => { ui.selectedRecipe = id; ui.tab = 'materials'; onclose(); }}>Open</button><button class="btn btn-ghost" disabled={busy} onclick={() => recipeEdits.discard(id)}>Discard</button><button class="btn btn-primary" disabled={busy || !recipe || !!conflicts.length} onclick={() => recipe && run(() => saveRecipe(recipe))}>Save</button></div></div>
+    <section class="pending-item"><div class="row"><div><h3>{recipe?.name ?? 'Deleted material'}</h3><small>{recipeEdits.count(id)} staged material values</small></div><div class="actions"><button class="btn btn-ghost" disabled={busy} onclick={() => { ui.selectedRecipe = id; ui.tab = 'materials'; onclose(); }}>Open</button><button class="btn btn-ghost" disabled={busy} onclick={async () => { if (await ui.confirm({ title: 'Discard these material values?', body: `${recipeEdits.count(id)} staged values for ${recipe?.name ?? 'this material'} are thrown away.`, confirm: 'Discard values', danger: true })) recipeEdits.discard(id); }}>Discard</button><button class="btn btn-primary" disabled={busy || !recipe || !!conflicts.length} onclick={() => recipe && run(() => saveRecipe(recipe))}>Save</button></div></div>
       {#each conflicts as conflict}<div class="conflict"><strong>{conflict.key}</strong><small>Base: {shown(conflict.key, conflict.base)}</small><button class="choice" onclick={() => recipe && recipeEdits.resolve(recipe, conflict.key, true)}>Keep draft: {shown(conflict.key, conflict.draft)}</button><button class="choice" onclick={() => recipe && recipeEdits.resolve(recipe, conflict.key, false)}>Keep saved: {shown(conflict.key, conflict.saved)}</button></div>{/each}
       <details><summary>Review values</summary><pre>{JSON.stringify(Object.fromEntries(Object.entries(recipeEdits.attributes(id)).map(([key, value]) => [key, shown(key, value)])), null, 2)}{recipeEdits.film(id) === undefined ? '' : `\nFilm: ${recipeEdits.film(id) ?? 'none'}`}</pre></details>
     </section>
   {/each}
   {#each settingsEdits.pending as key (key)}
-    <section class="pending-item"><div class="row"><h3>{labels[key]}</h3><div class="actions"><button class="btn btn-ghost" disabled={busy} onclick={() => run(() => settingsEdits.discard(key))}>Discard</button><button class="btn btn-primary" disabled={busy || (key === 'route' && !!routeConflicts.length) || (key === 'preflight' && !!prefMerge?.conflicts.length) || ((key === 'backup' || key === 'soft') && staged[key]?.base !== (key === 'backup' ? doc.files.backup?.sha256 ?? '' : doc.soft.sha256 ?? ''))} onclick={() => run(() => saveSetting(key))}>Save</button></div></div>
+    <section class="pending-item"><div class="row"><h3>{labels[key]}</h3><div class="actions"><button class="btn btn-ghost" disabled={busy} onclick={async () => { if (await ui.confirm({ title: `Discard ${labels[key].toLowerCase()} edits?`, body: 'The staged changes on this screen are thrown away.', confirm: 'Discard edits', danger: true })) run(() => settingsEdits.discard(key)); }}>Discard</button><button class="btn btn-primary" disabled={busy || (key === 'route' && !!routeConflicts.length) || (key === 'hold' && holdConflict) || (key === 'preflight' && !!prefMerge?.conflicts.length) || ((key === 'backup' || key === 'soft') && staged[key]?.base !== (key === 'backup' ? doc.files.backup?.sha256 ?? '' : doc.soft.sha256 ?? ''))} onclick={async () => { if (await confirmSave(key)) run(() => saveSetting(key)); }}>Save</button></div></div>
       {#if key === 'theme'}<p>{staged.theme?.base} → {staged.theme?.value}</p>{#if staged.theme && savedTheme !== staged.theme.base && savedTheme !== staged.theme.value}<div class="conflict"><small>Saved theme: {savedTheme}</small><button class="choice" onclick={() => run(() => settingsEdits.rebaseTheme())}>Keep draft theme</button><button class="choice" onclick={() => run(() => settingsEdits.discard('theme'))}>Keep saved theme</button></div>{/if}
       {:else if key === 'route'}
         {#each Object.entries(staged.route ?? {}) as [field, edit]}<p>{field}: {edit.base || 'automatic'} → {edit.value}</p>{/each}
@@ -143,6 +160,9 @@
             {/each}
           {/each}
         </details>{/if}
+      {:else if key === 'hold' && staged.hold}
+        <p>Move or fire: {holdSeconds(staged.hold.base.move_ms)} → {holdSeconds(staged.hold.value.move_ms)} · Set origin: {holdSeconds(staged.hold.base.zero_ms)} → {holdSeconds(staged.hold.value.zero_ms)} · every screen</p>
+        {#if holdConflict}<div class="conflict"><small>Saved on another screen: move or fire {holdSeconds(doc.hold.move_ms)} · set origin {holdSeconds(doc.hold.zero_ms)}</small><button class="choice" onclick={() => run(() => settingsEdits.rebaseHold($state.snapshot(doc.hold)))}>Keep these hold times</button><button class="choice" onclick={() => run(() => settingsEdits.discard('hold'))}>Keep saved hold times</button></div>{/if}
       {:else if key === 'xml' && staged.xml}
         <p>{Object.keys(staged.xml.edits).length} XML edits · applied on save when connected.</p>
         {#if staged.xml.base !== (doc.files.backup?.sha256 ?? '')}<p class="warn-text">The backup changed. Open Settings to compare or discard these edits.</p>{/if}

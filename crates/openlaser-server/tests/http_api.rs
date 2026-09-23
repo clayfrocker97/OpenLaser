@@ -661,3 +661,28 @@ async fn font_uploads_drive_svg_import_and_text_creation_with_explicit_face_sele
     assert!(bad.contains("selected font is unavailable"));
     server.close().await;
 }
+
+/// Hold times are one setting for every screen: saved only from the times the
+/// caller last read, never short enough for a tap, and published to all.
+#[tokio::test]
+async fn hold_times_are_shared_checked_and_published() {
+    let server = Server::start().await;
+    let change = |hold: [u32; 2], expected: [u32; 2]| {
+        serde_json::json!({
+            "hold": { "move_ms": hold[0], "zero_ms": hold[1] },
+            "expected": { "move_ms": expected[0], "zero_ms": expected[1] },
+        })
+        .to_string()
+    };
+    let (status, response) =
+        server.request("POST", "/api/touch", Some(&change([1500, 900], [1000, 750])), &[]).await;
+    assert_eq!(status, 200, "{response}");
+    let hold = server.shared.lock().await.document().hold;
+    assert_eq!([hold.move_ms, hold.zero_ms], [1500, 900]);
+    let stale = change([2000, 900], [1000, 750]);
+    assert_eq!(server.request("POST", "/api/touch", Some(&stale), &[]).await.0, 409);
+    let tap = change([100, 900], [1500, 900]);
+    assert_eq!(server.request("POST", "/api/touch", Some(&tap), &[]).await.0, 400);
+    assert_eq!(server.shared.lock().await.document().hold.move_ms, 1500);
+    server.close().await;
+}

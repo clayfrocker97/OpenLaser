@@ -30,7 +30,7 @@
     onfilm: (id: string | null) => void;
     oncopy: () => void;
     onsave: () => void;
-    ondiscard: () => void;
+    ondiscard: () => unknown;
   } = $props();
 
   const doc = $derived(server.doc!);
@@ -79,9 +79,15 @@
   const thickness = () => osk.number('Thickness', recipe.thickness_mm, 'mm', (v) => { if (v >= 0) run(() => api.updateRecipe(recipe.id, { thickness_mm: v, attributes: {} })); });
   const note = () => osk.text('Setup note', recipe.note, (text) => run(() => api.updateRecipe(recipe.id, { note: text, attributes: {} })));
   const star = () => run(() => Promise.all(members().map((r) => api.updateRecipe(r.id, { favourite: !recipe.favourite, attributes: {} }))));
-  const remove = () => {
+  const remove = async () => {
     if (pending || saving) { ui.say('Save or discard this recipe’s edits before deleting it.', true); return; }
-    run(() => api.removeRecipe(recipe.id), () => ui.say('Recipe removed; saved jobs keep their copy.'));
+    const confirmed = await ui.confirm({
+      title: 'Delete this recipe?',
+      body: `${recipe.name} leaves the material library. Saved jobs keep their own copy, and library history can undo it.`,
+      confirm: 'Delete recipe',
+      danger: true,
+    });
+    if (confirmed) run(() => api.removeRecipe(recipe.id), () => ui.say('Recipe removed; saved jobs keep their copy.'));
   };
   const use = () => run(() => api.setRecipe(recipe.id), () => (ui.tab = 'setup'));
 </script>

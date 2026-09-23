@@ -1,4 +1,5 @@
 <script lang="ts">
+  import SkippedFiles from '../components/SkippedFiles.svelte';
   import { access } from '../lib/access.svelte';
   import { server } from '../stores/server.svelte';
   import { ui } from '../stores/ui.svelte';
@@ -28,6 +29,7 @@
 </script>
 
 <div class="phone-page-title"><h1>Parts</h1><button class="phone-icon" aria-label="Library actions" onclick={() => actions = true}><i class="ic ic-plus"></i></button></div>
+<SkippedFiles />
 <div class="phone-segments" role="group" aria-label="Library type">
   {#each [['all','All'],['parts','Parts'],['jobs','Jobs']] as [id,label]}<button aria-pressed={kind === id} onclick={() => kind = id as typeof kind}>{label}</button>{/each}
 </div>

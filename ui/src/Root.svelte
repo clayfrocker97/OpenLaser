@@ -4,6 +4,7 @@
   import { subscribe } from './api/client';
   import { server } from './stores/server.svelte';
   import ControlGate from './components/ControlGate.svelte';
+  import Confirm from './components/Confirm.svelte';
 
   const layout = chooseLayout();
   async function loadShell() {
@@ -26,6 +27,7 @@
 {/if}
 {#if access.manage}{#await import('./components/Network.svelte') then { default: Network }}<Network />{/await}{/if}
 <ControlGate />
+<Confirm />
 
 <style>
   .interface-shell { display:contents; }

@@ -11,6 +11,7 @@
   import Preview from './Preview.svelte';
   import FlightChecklist from '../components/FlightChecklist.svelte';
   import RunControls from '../components/RunControls.svelte';
+  import HoldButton from '../components/HoldButton.svelte';
 
   let { controls, review }: { controls:() => void; review:(restart?: boolean) => void } = $props();
   const doc = $derived(server.doc!);
@@ -76,11 +77,11 @@
   </div>
   <div class="phone-run-footer">
     {#if draft}
-      <RunControls onaction={act} {busy} showStop={false} />
+      <RunControls onaction={act} {busy} showStop={false} explain={false} />
       {#if !draft.recipe && !recovering}<button class="phone-text-action phone-setup-link" onclick={() => ui.tab = 'setup'}>Choose material</button>
       {:else if !running && !completed && !recovering}<p class="phone-readiness">{diagnosticText(draft.error ?? doc.readiness.run.reason ?? '')}</p>{/if}
     {/if}
-    <div class="phone-run-tools"><button onclick={controls}><i class="ic ic-target"></i>Controls</button><button disabled={blocked || !doc.readiness.frame.ok} onclick={() => perform(() => api.machine('frame'))}><i class="ic ic-frame"></i>Frame</button></div>
+    <div class="phone-run-tools"><button onclick={controls}><i class="ic ic-target"></i>Controls</button><HoldButton class="" disabled={blocked || !doc.readiness.frame.ok} onhold={() => perform(() => api.machine('frame'))}><i class="ic ic-frame"></i>Frame</HoldButton></div>
   </div>
 </div>
 {#if preflight}<FlightChecklist initial={preflight} onclose={() => preflight = null} />{/if}

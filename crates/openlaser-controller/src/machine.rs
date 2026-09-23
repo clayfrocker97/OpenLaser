@@ -759,14 +759,14 @@ impl Task {
 
     fn own_press(&mut self, lease: Option<&Lease>) -> Result<()> {
         if let Some(lease) = lease {
-            self.leases.start(lease)?;
+            self.leases.start(lease, Instant::now())?;
         }
         Ok(())
     }
 
     async fn release_press(&mut self, lease: Option<Lease>) -> Result<()> {
         if let Some(lease) = &lease {
-            self.leases.close(lease)?;
+            self.leases.close(lease, Instant::now())?;
         } else {
             self.released_at = Some(Instant::now());
         }
@@ -805,6 +805,14 @@ impl Task {
 
     fn connected(&self) -> Result<&Snapshot> {
         self.snapshot.as_ref().ok_or(Error::Disconnected)
+    }
+
+    /// Whether the latest feedback reports both X and Y referenced. An
+    /// operation completes on this snapshot after it was validated, so a
+    /// reference carried across a completion is checked here, not a poll
+    /// later.
+    fn xy_referenced(&self) -> bool {
+        self.snapshot.as_ref().is_some_and(|snapshot| snapshot.axes.xy_referenced())
     }
 
     fn configured(&self) -> Result<&Bindings> {
@@ -998,7 +1006,7 @@ impl Task {
             .map_err(|error| Error::Refused(format!("the shutdown policy is invalid: {error}")))?;
         self.monitor.configure(bindings.rules.clone(), bindings.head_enabled);
         self.binding_revision += 1;
-        self.session.invalidate();
+        self.session.rebind();
         self.bindings = Some(bindings);
         Ok(())
     }
@@ -1143,9 +1151,12 @@ impl Task {
                 Err(Error::Refused("read the parameters before initialization".into())),
             );
         }
-        self.session.invalidate();
+        // The reference is set aside, like a read's, and returns only if
+        // the written configuration keeps it.
+        let homed = self.session.homed.take();
+        self.session.rebind();
         self.launch(Ok(parameters::Parameters::initialize(plan)), reply, |operation, reply| {
-            Job::Parameters(Box::new(operation), None, reply)
+            Job::Parameters(Box::new(operation), homed, reply)
         });
     }
 
@@ -1297,8 +1308,13 @@ impl Task {
                 "the controller configuration changed; reconnect and read the parameters".into()
             );
         }
+        // The reference is lost with either axis's reference bit, or when the
+        // live configuration no longer keeps the one Go Origin used.
+        let moved = snapshot.parameters().is_ok_and(|live| {
+            self.session.reference.is_some_and(|reference| !reference.keeps_reference(&live))
+        });
         if self.session.is_homed()
-            && (!snapshot.axes.axis(0).referenced() || !snapshot.axes.axis(1).referenced())
+            && (!snapshot.axes.axis(0).referenced() || !snapshot.axes.axis(1).referenced() || moved)
         {
             self.session.homed = None;
             if self
@@ -1447,10 +1463,20 @@ impl Task {
             Job::Home(home, reply) => {
                 if home.reference_verified() {
                     self.session.homed = Some(epoch);
+                    self.session.reference =
+                        self.snapshot.as_ref().and_then(|snapshot| snapshot.parameters().ok());
                 }
                 self.answer(reply, Ok(()));
             }
             Job::Calibrate(calibrate, reply) => match calibrate.quality() {
+                // Recorded, so setup shows it; the connection stands.
+                Some(Quality::Bad) => {
+                    self.session.calibration = Some((Quality::Bad, epoch));
+                    self.answer(
+                        reply,
+                        Err(Error::Failed("the head reported a bad calibration".into())),
+                    );
+                }
                 Some(quality) => {
                     self.session.calibration = Some((quality, epoch));
                     self.answer(reply, Ok(quality));
@@ -1463,6 +1489,9 @@ impl Task {
             Job::Motion(_, reply) | Job::Outputs(_, reply) => self.answer(reply, Ok(())),
             Job::Mode(switch, reply) => {
                 self.session.mode_applied(switch.mode());
+                if !self.xy_referenced() {
+                    self.session.homed = None;
+                }
                 self.answer(reply, Ok(()));
             }
             Job::Relief(relief, id, reply) => {
@@ -1492,7 +1521,9 @@ impl Task {
                         self.session.mode_applied(bindings.mode);
                     }
                     self.session.parameters = Some(verified);
-                    if parameters.unchanged() {
+                    if parameters.unchanged()
+                        || (self.xy_referenced() && self.session.reference_holds(&verified))
+                    {
                         self.session.homed = homed;
                     }
                     self.answer(reply, Ok(verified));

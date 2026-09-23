@@ -1,7 +1,7 @@
 <script lang="ts">
   import { api } from '../api/client';
   import { access } from '../lib/access.svelte';
-  import { connectionLabel } from '../lib/connection';
+  import { confirmDisconnect, connectionLabel } from '../lib/connection';
   import { WORKFLOW, SETTINGS, SETTINGS_PAGES } from '../lib/navigation';
   import { TOOLS } from '../lib/features';
   import { recipeEdits } from '../lib/recipe-edits.svelte';
@@ -47,6 +47,7 @@
   function setting(page:number): void { ui.machinePage = page; detail = { tab:'machine',kind:'machine',title:settingsName(page) }; }
   async function connect(): Promise<void> {
     if (connecting) return;
+    if (connected && !await confirmDisconnect(doc ?? null, (request) => ui.confirm(request))) return;
     connecting = true;
     try { await api.machine(connected ? 'disconnect' : linkBusy ? 'cancel' : 'connect'); }
     catch (error) { ui.say(explain(error), true); }

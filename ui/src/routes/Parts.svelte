@@ -1,4 +1,5 @@
 <script lang="ts">
+  import SkippedFiles from '../components/SkippedFiles.svelte';
   import SheetLibrary from '../components/SheetLibrary.svelte';
   import ImportParts from '../components/ImportParts.svelte';
   import EditHistory from '../components/EditHistory.svelte';
@@ -106,6 +107,7 @@
     <ImportParts />
   </div>{/if}
 
+  <SkippedFiles />
   {#if kindFilter === 'sheet'}<SheetLibrary />{:else}
   <div class="crumbs">
     {#if q}

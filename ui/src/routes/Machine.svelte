@@ -5,6 +5,8 @@
   import MatrixCalibration from '../components/MatrixCalibration.svelte';
   import MachineSettings from '../components/MachineSettings.svelte';
   import MachineFiles from '../components/MachineFiles.svelte';
+  import HoldButton from '../components/HoldButton.svelte';
+  import { holdSeconds, MAX_HOLD_MS, MIN_HOLD_MS } from '../lib/hold-confirm';
   import { SETTINGS_PAGES } from '../lib/navigation';
   import { APP_VERSION } from '../lib/version';
   import { settingsEdits } from '../lib/settings-edits.svelte';
@@ -33,6 +35,16 @@
 
   async function run(action: () => Promise<unknown>): Promise<void> {
     try { await action(); } catch (error) { ui.say(explain(error), true); }
+  }
+
+  // Hold times are one setting for every screen, staged like the others.
+  const holdTimes = $derived(settingsEdits.entries.hold?.value ?? doc.hold);
+  function holdTime(key: 'move_ms' | 'zero_ms', label: string): void {
+    osk.number(label, holdTimes[key] / 1000, 's', (seconds) => {
+      const ms = Math.round(seconds * 1000);
+      if (ms < MIN_HOLD_MS || ms > MAX_HOLD_MS) { ui.say(`Use ${holdSeconds(MIN_HOLD_MS)} to ${holdSeconds(MAX_HOLD_MS)}.`, true); return; }
+      void run(() => settingsEdits.hold({ ...$state.snapshot(holdTimes), [key]: ms }, $state.snapshot(doc.hold)));
+    });
   }
 
   const held = new Hold({
@@ -73,6 +85,8 @@
         <div class="setting-group"><h3>Display</h3>
           <div class="setting"><div class="lbl">Units</div><div class="seg" role="group" aria-label="Display units"><button class:on={units.system === 'metric'} aria-pressed={units.system === 'metric'} onclick={() => units.set('metric')}>Metric · mm</button><button class:on={units.system === 'imperial'} aria-pressed={units.system === 'imperial'} onclick={() => units.set('imperial')}>Imperial · in</button></div></div>
           <div class="setting"><div class="lbl">Night mode<small>Preview · save in Pending changes</small></div><button class="switch" class:on={ui.theme === 'dark'} onclick={() => run(() => settingsEdits.theme(ui.theme === 'dark' ? 'light' : 'dark'))} aria-label="Night mode"></button></div>
+          <div class="setting"><div class="lbl">Hold to move or fire<small>Every screen · save in Pending changes</small></div><button class="val" data-numpad onclick={() => holdTime('move_ms', 'Hold to move or fire')}>{holdSeconds(holdTimes.move_ms)}</button></div>
+          <div class="setting"><div class="lbl">Hold to set origin<small>Every screen · save in Pending changes</small></div><button class="val" data-numpad onclick={() => holdTime('zero_ms', 'Hold to set origin')}>{holdSeconds(holdTimes.zero_ms)}</button></div>
           <div class="setting"><div class="lbl">Local network<small>{access.info?.address.replace('http://', '')}</small></div><button class="btn btn-ghost" onclick={() => access.manage = true}>Open</button></div>
           <div class="setting"><div class="lbl">{compact ? 'Full interface' : 'Phone interface'}</div><a class="btn btn-ghost" href={compact ? '/app' : '/mobile'} onclick={() => rememberLayout(compact ? 'full' : 'mobile')}>Open</a></div>
         </div>
@@ -92,8 +106,9 @@
         </div>
       {:else if group === 'laser'}
         <div class="setting-group"><h3>Laser</h3>
-          <div class="setting"><div class="lbl">Operating mode<small>Home after switching</small></div>
-            <div class="seg">{#each ['fiber', 'co2'] as mode}<button class:on={doc.mode === mode} disabled={!readiness.mode.ok && doc.mode !== mode} title={readiness.mode.reason ?? ''} onclick={() => { if (doc.mode !== mode) run(() => api.machine('mode', { mode: mode as 'fiber' | 'co2' })); }}>{laserLabel(mode as 'fiber' | 'co2')}</button>{/each}</div></div>
+          <div class="setting"><div class="lbl">Operating mode<small>Hold to switch · the XY reference is kept</small></div>
+            <div class="seg">{#each ['fiber', 'co2'] as mode}{#if doc.mode === mode}<button class="on" disabled>{laserLabel(mode as 'fiber' | 'co2')}</button>{:else}<HoldButton class="" disabled={!readiness.mode.ok} title={readiness.mode.reason ?? ''} onhold={() => run(() => api.machine('mode', { mode: mode as 'fiber' | 'co2' }))}>{laserLabel(mode as 'fiber' | 'co2')}</HoldButton>{/if}{/each}</div>
+            {#if !readiness.mode.ok && readiness.mode.reason}<p class="gate-reason">{readiness.mode.reason}</p>{/if}</div>
           <div class="setting"><div class="lbl">Applied on this connection<small>Current session</small></div><div class="val">{machine.session.mode ? laserLabel(machine.session.mode) : 'not yet'}</div></div>
           <div class="setting"><div class="lbl">Head controller<small>Machine backup</small></div><div class="val">{bindings ? (bindings.head_enabled ? 'configured' : 'none') : '—'}</div></div>
           <div class="setting"><div class="lbl">Head calibration<small>on this connection</small></div><div class="val">{machine.session.calibration ?? 'not yet'}</div></div>
@@ -120,11 +135,11 @@
         <ManualTests />
         <div class="setting-group"><h3>Manual outputs</h3>
           <div class="setting"><div class="lbl">Hold a button<small>Release to turn off.</small></div></div>
-          <div class="setting"><div class="lbl">Pointer<small>{doc.mode === 'fiber' ? 'Fiber' : 'CO₂'} · {bindings?.outputs.pointer_port ? `Output ${bindings.outputs.pointer_port}` : 'Unassigned'}</small></div><button class="btn btn-ghost" disabled={!bindings?.outputs.pointer || !readiness.outputs.ok} onpointerdown={(event) => hold(event, { kind: 'pointer' })}>Hold</button></div>
-          <div class="setting"><div class="lbl">Shutter<small>{doc.mode === 'fiber' ? 'Fiber' : 'CO₂'} · {bindings?.outputs.shutter_port ? `Output ${bindings.outputs.shutter_port}` : 'Unassigned'}</small></div><button class="btn btn-ghost" disabled={!bindings?.outputs.shutter || !readiness.outputs.ok} onpointerdown={(event) => hold(event, { kind: 'shutter' })}>Hold</button></div>
+          <div class="setting"><div class="lbl">Pointer<small>{doc.mode === 'fiber' ? 'Fiber' : 'CO₂'} · {bindings?.outputs.pointer_port ? `Output ${bindings.outputs.pointer_port}` : 'Unassigned'}</small></div><button class="btn btn-ghost deadman" disabled={!bindings?.outputs.pointer || !readiness.outputs.ok} onpointerdown={(event) => hold(event, { kind: 'pointer' })}>Hold</button></div>
+          <div class="setting"><div class="lbl">Shutter<small>{doc.mode === 'fiber' ? 'Fiber' : 'CO₂'} · {bindings?.outputs.shutter_port ? `Output ${bindings.outputs.shutter_port}` : 'Unassigned'}</small></div><button class="btn btn-warn deadman" disabled={!bindings?.outputs.shutter || !readiness.outputs.ok} onpointerdown={(event) => hold(event, { kind: 'shutter' })}>Hold</button></div>
           {#each GAS as name, selector}
             {#if bindings?.outputs.gas[selector]}
-              <div class="setting"><div class="lbl">{name}<small>valve{selector < 3 ? ' and proportional pressure' : ''}</small></div><button class="btn btn-ghost" disabled={!readiness.outputs.ok} onpointerdown={(event) => hold(event, { kind: 'gas', selector, pressure: gasPressure })}>Hold</button></div>
+              <div class="setting"><div class="lbl">{name}<small>valve{selector < 3 ? ' and proportional pressure' : ''}</small></div><button class="btn btn-warn deadman" disabled={!readiness.outputs.ok} onpointerdown={(event) => hold(event, { kind: 'gas', selector, pressure: gasPressure })}>Hold</button></div>
             {/if}
           {/each}
           <div class="setting"><div class="lbl">Gas pressure<small>for the proportional valve</small></div><button class="val" data-numpad onclick={() => osk.number('Gas pressure', gasPressure, 'bar', (v) => { if (v >= 0 && v <= 100) gasPressure = v; })}>{quantity(gasPressure, 'bar')}</button></div>
@@ -151,6 +166,7 @@
       <div><span class="sw" style="background:var(--stop)"></span>Red · Stop</div>
       <div><span class="sw" style="background:var(--hold-soft);border:1px solid #efd9ad"></span>Amber · hold, alarms, caution</div>
       <div><span class="sw" style="background:var(--accent)"></span>Orange · selection and primary actions</div>
+      <div><span class="sw hold-sample">Hold</span>Press and hold · moves, fires or sets a reference</div>
     </div>
   </div>
 
@@ -170,6 +186,7 @@
   .settings-title span { display: block; margin-top: 3px; font-size: 10px; color: var(--ink-3); }
   .settings-navigation { min-width: 0; overflow-x: auto; }
   .settings-navigation .seg button { min-height: 44px; padding-inline: 13px; }
+  .hold-sample { display: inline-grid; place-items: center; width: auto; padding: 0 4px; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; border: 1px solid var(--line-2); }
   .settings.wide-page { display: block; overflow-y: auto; min-height: 0; }
   @media (max-width: 700px) { .settings-head { flex-wrap: wrap; gap: 10px; } .settings-navigation { width: 100%; } }
 </style>

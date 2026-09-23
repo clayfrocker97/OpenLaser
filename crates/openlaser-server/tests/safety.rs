@@ -432,6 +432,16 @@ async fn automatic_checks_follow_current_facts_and_origin_edits_do_not_move_axes
             && d.message.as_ref().is_some_and(|m| m.error && m.text.contains("bad calibration"))
     })
     .await;
+    let document = shared.lock().await.document();
+    assert!(
+        matches!(
+            document.machine.connection,
+            openlaser_controller::state::Connection::Connected { .. }
+        ),
+        "a bad result is a finished calibration, not a lost connection"
+    );
+    assert_eq!(document.machine.session.calibration, Some(Quality::Bad));
+    assert!(document.machine.session.homed);
     assert!(
         !preflight::review(&shared, PreflightIntent::Run).await.unwrap().satisfied.contains(&5)
     );
@@ -673,12 +683,14 @@ async fn compiling_selects_the_recipe_mode_offline_and_on_a_connected_simulator(
     );
     common::seed(&shared, &simulator).await;
     connect::connect(&shared).await.unwrap();
+    machine::home(&shared).await.unwrap();
+    until(&shared, 10, |d| d.machine.session.homed).await;
     shared.lock().await.set_recipe(&fiber).unwrap();
     machine::compile(&shared, false).await.unwrap();
     let document = shared.lock().await.document();
     assert_eq!(document.mode, Some(LaserMode::Fiber));
     assert_eq!(document.machine.session.mode, Some(LaserMode::Fiber));
-    assert!(!document.machine.session.homed, "a mode switch still requires homing");
+    assert!(document.machine.session.homed, "a mode switch keeps the XY reference");
     assert!(
         shared
             .lock()
@@ -694,7 +706,9 @@ async fn compiling_selects_the_recipe_mode_offline_and_on_a_connected_simulator(
     );
     shared.lock().await.set_recipe(&co2).unwrap();
     machine::compile(&shared, false).await.unwrap();
-    assert_eq!(shared.lock().await.document().machine.session.mode, Some(LaserMode::Co2));
+    let document = shared.lock().await.document();
+    assert_eq!(document.machine.session.mode, Some(LaserMode::Co2));
+    assert!(document.machine.session.homed, "switching back keeps it too");
     openlaser_server::shutdown(&shared).await.unwrap();
 }
 

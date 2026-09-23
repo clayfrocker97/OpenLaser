@@ -1,6 +1,7 @@
 <script lang="ts">
   import { untrack } from 'svelte';
   import Modal from './Modal.svelte';
+  import HoldButton from './HoldButton.svelte';
   import { api } from '../api/client';
   import { server } from '../stores/server.svelte';
   import { ui } from '../stores/ui.svelte';
@@ -60,7 +61,8 @@
     <div class="alarm-item">
       <div class="bar" class:warn={!alarm.blocking}></div>
       <div><strong>{alarm.label}</strong><span class="muted">{alarm.active ? 'Active now' : 'Condition cleared · reset retained alarm'}</span></div>
-      <button class="btn" class:btn-move={alarm.relief.moves_axes} class:btn-ghost={!alarm.relief.moves_axes} disabled={resetting || !server.link} onclick={() => relieve(alarm.id)} title={alarm.relief.moves_axes ? 'Moves the Z head to establish its reference' : 'Resets this live alarm'}>{alarm.relief.label}</button>
+      {#if alarm.relief.moves_axes}<HoldButton class="btn btn-move" disabled={resetting || !server.link} onhold={() => relieve(alarm.id)} title="Moves the Z head to establish its reference">{alarm.relief.label}</HoldButton>
+      {:else}<button class="btn btn-ghost" disabled={resetting || !server.link} onclick={() => relieve(alarm.id)} title="Resets this live alarm">{alarm.relief.label}</button>{/if}
     </div>
   {:else}
     {#if !faulted}<div class="all-clear"><i class="ic ic-check"></i><strong>No current alarms</strong></div>{/if}

@@ -3,6 +3,17 @@ import type { Features, Pick, Preview } from '../api';
 import { SETTINGS_PAGES } from '../lib/navigation';
 
 export type Tab = 'parts' | 'setup' | 'run' | 'materials' | 'machine';
+/** A question before a destructive or machine-changing action (DESIGN.md, Touch rules). */
+export type ConfirmRequest = {
+  title: string;
+  /** What will happen, in the operator's terms. */
+  body: string;
+  /** The confirming button's label: the consequence, such as "Delete part". */
+  confirm: string;
+  /** Loses work or changes the machine: shown in the danger colour. */
+  danger?: boolean;
+};
+type Confirmation = ConfirmRequest & { resolve: (ok: boolean) => void };
 
 const FEATURE_IDS = ['leads', 'joints', 'cooling', 'kerf', 'bridges', 'order', 'start', 'common'] as const;
 export type FeatureId = (typeof FEATURE_IDS)[number];
@@ -82,6 +93,8 @@ class Ui {
   checklistEditor = $state<'defaults' | 'pause' | 'postflight' | null>(null);
   theme = $state<'light' | 'dark'>(remembered('ol-theme', matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
   toast = $state<{ text: string; error: boolean; at: number } | null>(null);
+  /** The confirmation on screen, if one is asked. */
+  confirmation = $state<Confirmation | null>(null);
   modal = $state<'pending' | 'alarms' | 'material' | 'recipe' | 'outputs' | null>(null);
   pendingJobName = $state<string | null>(null);
 
@@ -125,10 +138,28 @@ class Ui {
 
   private toastTimer: ReturnType<typeof setTimeout> | null = null;
 
+  /** Shows a note; an error stays until dismissed or replaced. */
   say(text: string, error = false): void {
     this.toast = { text, error, at: Date.now() };
     if (this.toastTimer) clearTimeout(this.toastTimer);
-    this.toastTimer = setTimeout(() => { this.toast = null; }, 2600);
+    this.toastTimer = error ? null : setTimeout(() => { this.toast = null; }, 2600);
+  }
+
+  dismissToast(): void {
+    if (this.toastTimer) clearTimeout(this.toastTimer);
+    this.toast = null;
+  }
+
+  /** Asks before something that loses work or changes the machine; true to go ahead. */
+  confirm(request: ConfirmRequest): Promise<boolean> {
+    this.answer(false);
+    return new Promise((resolve) => { this.confirmation = { ...request, resolve }; });
+  }
+
+  answer(ok: boolean): void {
+    const asked = this.confirmation;
+    this.confirmation = null;
+    asked?.resolve(ok);
   }
 }
 

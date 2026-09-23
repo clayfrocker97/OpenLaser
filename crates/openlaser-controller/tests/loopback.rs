@@ -721,8 +721,8 @@ async fn a_door_input_blocks_and_recovers() {
 }
 
 /// The mode switch sends its cleanup, the head mode, and the limits, then
-/// invalidates the reference; the head-only search relieves the head
-/// reference alarm without touching XY and leaves the reference invalid.
+/// keeps the physical XY reference but asks for the parameters again; the
+/// head-only search relieves the head reference alarm without touching XY.
 #[tokio::test]
 async fn mode_switch_and_head_relief() {
     let (_simulator, control, machine) = homed().await;
@@ -739,13 +739,13 @@ async fn mode_switch_and_head_relief() {
         ]
     );
     let state = machine.state();
-    assert!(!state.session.homed);
+    assert!(state.session.homed, "a mode switch keeps the XY reference");
     assert_eq!(state.session.mode, Some(LaserMode::Fiber));
     assert!(matches!(machine.travel(step([100, 0], false)).await, Err(Error::Refused(_))));
 
     machine.relieve(Some(99)).await.expect("head relief");
     assert_eq!(words(&control.take_writes()), [vec![102], vec![9999, 2, 2, 0]]);
-    assert!(!machine.state().session.homed);
+    assert!(machine.state().session.homed, "the head search leaves XY referenced");
 }
 
 /// Stop is accepted while idle and sends the whole stop sequence; a lost

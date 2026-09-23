@@ -15,5 +15,7 @@
 </script>
 
 {#if ui.toast}
-  <div class="toast" class:error={ui.toast.error}>{ui.toast.text}</div>
+  <div class="toast" class:error={ui.toast.error} role={ui.toast.error ? 'alert' : 'status'}>
+    <span>{ui.toast.text}</span>{#if ui.toast.error}<button class="toast-close" onclick={() => ui.dismissToast()}>OK</button>{/if}
+  </div>
 {/if}

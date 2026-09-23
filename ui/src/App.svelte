@@ -13,7 +13,7 @@
   import { ui, type Tab } from './stores/ui.svelte';
   import { explain } from './lib/format';
   import { WORKFLOW, SETTINGS } from './lib/navigation';
-  import { connectionLabel } from './lib/connection';
+  import { confirmDisconnect, connectionLabel } from './lib/connection';
 
   const doc = $derived(server.doc);
   const connected = $derived(doc?.machine.connection.state === 'connected');
@@ -37,11 +37,17 @@
   }
 
   async function connect(): Promise<void> {
+    if (connected && !await confirmDisconnect(doc ?? null, (request) => ui.confirm(request))) return;
     try {
       await api.machine(connected ? 'disconnect' : busy ? 'cancel' : 'connect');
     } catch (error) {
       ui.say(explain(error), true);
     }
+  }
+
+  // Every page can stop the machine with one tap.
+  async function stop(): Promise<void> {
+    try { await api.machine('stop'); } catch (error) { ui.say(explain(error), true); }
   }
 
   const done = $derived({
@@ -70,6 +76,7 @@
       <button class="btn btn-ghost icon-btn page-btn" class:active={ui.tab === 'materials'} onclick={() => togglePage('materials')} title="Material library"><i class="ic ic-layers"></i><span>Materials</span></button>
       <button class="btn btn-ghost icon-btn page-btn" class:active={ui.tab === SETTINGS.id} onclick={() => togglePage(SETTINGS.id)} title={SETTINGS.label}><i class="ic ic-gear"></i><span>{SETTINGS.label}</span></button>
       <button class="btn btn-ghost icon-btn alarm" onclick={() => (ui.modal = 'alarms')} title="Alarms"><i class="ic ic-bell"></i><span>Alarms</span>{#if alarms > 0}<span class="badge">{alarms}</span>{/if}</button>
+      {#if connected}<button class="btn btn-stop topbar-stop" onclick={stop} disabled={!server.link || !doc?.readiness.stop.ok}><i class="ic ic-stop"></i><span>Stop</span></button>{/if}
       <button class="btn btn-primary connect" class:connected class:busy onclick={connect} disabled={!server.link} title={link?.detail ?? ''}><span class="dot"></span><span>{label}</span>{#if busy}<span class="cancel">Cancel</span>{/if}</button>
     </div>
   </header>

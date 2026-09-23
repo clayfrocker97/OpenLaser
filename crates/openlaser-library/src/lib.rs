@@ -3,8 +3,10 @@
 //! Parts, jobs and recipes on disk.
 //!
 //! One JSON file per item under the data directory, each with a schema
-//! version so an old file is migrated on load and a newer one is refused
-//! rather than misread. Originals are kept by their hash and never
+//! version. A file that cannot be loaded as it stands, whether newer,
+//! damaged or invalid, is never misread or rewritten: it is left where it
+//! is, reported, and the rest of the library opens without it and without
+//! anything that depends on it. Originals are kept by their hash and never
 //! rewritten. A job is a frozen snapshot: it carries its recipe and its
 //! features, so editing a library recipe never changes an accepted job.
 //! Writes go to a temporary file and are renamed into place, so a crash
@@ -399,6 +401,15 @@ pub struct SheetInfo {
     pub total: u32,
 }
 
+/// An item file the library left out when it opened, untouched on disk.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Skipped {
+    /// The file, relative to the library root, such as `jobs/<id>.json`.
+    pub file: String,
+    /// Why it was left out.
+    pub reason: String,
+}
+
 /// The library: everything loaded, every change written through.
 #[derive(Clone, Debug)]
 pub struct Library {
@@ -407,10 +418,14 @@ pub struct Library {
     parts: BTreeMap<Id, Part>,
     recipes: BTreeMap<Id, Recipe>,
     jobs: BTreeMap<Id, Job>,
+    skipped: Vec<Skipped>,
 }
 
 impl Library {
-    /// Opens the library at `root`, creating it when absent.
+    /// Opens the library at `root`, creating it when absent. An item file
+    /// that cannot be read or does not validate is left out, with every item
+    /// that depends on it, and listed by [`Library::skipped`]; the folder
+    /// tree, which every item belongs to, must still load.
     pub fn open(root: impl Into<PathBuf>) -> Result<Self> {
         let root = root.into();
         for dir in ["parts", "recipes", "jobs", "originals", "photos"] {
@@ -420,15 +435,45 @@ impl Library {
         let folders = store::read_optional::<Folders>(&root.join("folders.json"))?
             .unwrap_or_default()
             .folders;
-        let library = Self {
+        let mut skipped = Vec::new();
+        let mut library = Self {
             root: root.clone(),
             folders,
-            parts: store::read_all(&root.join("parts"))?,
-            recipes: store::read_all(&root.join("recipes"))?,
-            jobs: store::read_all(&root.join("jobs"))?,
+            parts: store::read_all(&root, "parts", &mut skipped)?,
+            recipes: store::read_all(&root, "recipes", &mut skipped)?,
+            jobs: store::read_all(&root, "jobs", &mut skipped)?,
+            skipped: Vec::new(),
         };
+        validation::folders(&library.folders).map_err(|error| Error::Format {
+            path: root.join("folders.json").display().to_string(),
+            reason: error.to_string(),
+        })?;
+        // Leaving an item out can strand what depends on it: repeat until
+        // everything left validates against everything else left.
+        loop {
+            let invalid = validation::invalid_items(&library);
+            if invalid.is_empty() {
+                break;
+            }
+            for (kind, id, reason) in invalid {
+                match kind {
+                    "parts" => drop(library.parts.remove(&id)),
+                    "recipes" => drop(library.recipes.remove(&id)),
+                    _ => drop(library.jobs.remove(&id)),
+                }
+                skipped.push(Skipped { file: format!("{kind}/{id}.json"), reason });
+            }
+        }
         validation::library(&library)?;
+        skipped.sort_by(|a, b| a.file.cmp(&b.file));
+        library.skipped = skipped;
         Ok(library)
+    }
+
+    /// The item files left out when the library opened, and why.
+    #[must_use]
+    pub fn skipped(&self) -> &[Skipped] {
+        &self.skipped
     }
 
     /// Where the library lives.
@@ -843,6 +888,15 @@ mod tests {
         dir
     }
 
+    fn edit(path: &Path, change: impl FnOnce(&mut serde_json::Value)) -> Vec<u8> {
+        let mut value: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
+        change(&mut value);
+        let bytes = serde_json::to_vec(&value).unwrap();
+        std::fs::write(path, &bytes).unwrap();
+        bytes
+    }
+
     fn square() -> Drawing {
         let corners = [[0., 0.], [10., 0.], [10., 10.], [0., 10.]];
         let curves = (0..4)
@@ -852,6 +906,34 @@ mod tests {
             })
             .collect();
         Drawing { contours: vec![Contour { layer: "0".into(), curves }] }
+    }
+
+    fn job(part: &Id, recipe: Recipe) -> Job {
+        Job {
+            placement: None,
+            sheet: None,
+            correction: None,
+            calibration: false,
+            grouping: openlaser_core::grouping::Grouping::default(),
+            nesting: None,
+            tags: Vec::new(),
+            notes: String::new(),
+            quantity: 1,
+            preflight: preflight::JobPreflight::default(),
+            id: Id::from(""),
+            name: "plate".into(),
+            folder: None,
+            part: part.clone(),
+            recipe,
+            film: None,
+            features: Features::default(),
+            placed: Vec::new(),
+            zero: None,
+            anchor: Anchor::default(),
+            favourite: false,
+            created: 0,
+            updated: 0,
+        }
     }
 
     fn recipe() -> Recipe {
@@ -941,9 +1023,9 @@ mod tests {
     }
 
     /// A part in use by a job and a folder with content cannot be removed;
-    /// a removed job frees its part; a file from a newer build is refused.
+    /// a removed job frees its part; a file from a newer build is left out.
     #[test]
-    fn references_are_protected_and_newer_files_refused() {
+    fn references_are_protected_and_newer_files_left_out() {
         let root = scratch("references");
         let mut library = Library::open(&root).unwrap();
         let folder = library.add_folder("Customer", None).unwrap();
@@ -983,8 +1065,13 @@ mod tests {
         library.remove_part(&part.id).unwrap();
         library.remove_folder(&folder.id).unwrap();
         assert!(library.add_folder("  ", None).is_err());
-        std::fs::write(root.join("parts").join("future.json"), br#"{"version": 99}"#).unwrap();
-        assert!(matches!(Library::open(&root), Err(Error::Newer { version: 99, .. })));
+        let future = root.join("parts").join("future.json");
+        std::fs::write(&future, br#"{"version": 99}"#).unwrap();
+        let reopened = Library::open(&root).unwrap();
+        assert_eq!(reopened.skipped().len(), 1);
+        assert_eq!(reopened.skipped()[0].file, "parts/future.json");
+        assert!(reopened.skipped()[0].reason.contains("99"), "{:?}", reopened.skipped());
+        assert_eq!(std::fs::read(&future).unwrap(), br#"{"version": 99}"#, "never rewritten");
     }
 
     #[test]
@@ -1049,22 +1136,49 @@ mod tests {
         assert_eq!(Library::open(&root).unwrap().recipes().count(), 0);
     }
 
+    /// A bad item file is left out and named, with whatever depends on it,
+    /// and the rest opens; a bad folder tree still refuses to open.
     #[test]
-    fn invalid_files_name_the_fault_instead_of_overwriting_an_item() {
+    fn invalid_files_are_named_and_left_out_without_overwriting() {
         let root = scratch("invalid-files");
         let mut library = Library::open(&root).unwrap();
         let recipe = library.add_recipe(recipe()).unwrap();
+        let kept = library.add_part("kept.dxf", b"kept", square()).unwrap();
+        let broken = library.add_part("broken.dxf", b"broken", square()).unwrap();
         let duplicate = root.join("recipes/duplicate.json");
         store::write(&duplicate, &recipe).unwrap();
-        assert!(
-            matches!(Library::open(&root), Err(Error::Format { path, reason }) if path.ends_with("duplicate.json") && reason.contains("file name"))
-        );
-        std::fs::remove_file(&duplicate).unwrap();
         let version = root.join("recipes/unsupported.json");
         std::fs::write(&version, br#"{"version":0}"#).unwrap();
-        assert!(
-            matches!(Library::open(&root), Err(Error::Format { path, reason }) if path.ends_with("unsupported.json") && reason.contains("schema version 0"))
-        );
+        // A field this build does not know, as a newer build might write it.
+        let newer = library.add_job(job(&kept.id, recipe.clone())).unwrap();
+        let newer_file = format!("jobs/{}.json", newer.id);
+        edit(&root.join(&newer_file), |job| job["preflight"]["surprise"] = true.into());
+        // A part that no longer validates strands the job built on it.
+        let stranded = library.add_job(job(&broken.id, recipe.clone())).unwrap();
+        let broken_file = format!("parts/{}.json", broken.id);
+        let damaged = edit(&root.join(&broken_file), |part| part["sha256"] = "x".into());
+        let reopened = Library::open(&root).unwrap();
+        let stranded_file = format!("jobs/{}.json", stranded.id);
+        let mut expected = vec![
+            "recipes/duplicate.json",
+            "recipes/unsupported.json",
+            &newer_file,
+            &broken_file,
+            &stranded_file,
+        ];
+        expected.sort_unstable();
+        let files: Vec<_> = reopened.skipped().iter().map(|s| s.file.as_str()).collect();
+        assert_eq!(files, expected);
+        let reason =
+            |file: &str| &reopened.skipped().iter().find(|s| s.file == file).unwrap().reason;
+        assert!(reason("recipes/duplicate.json").contains("file name"));
+        assert!(reason("recipes/unsupported.json").contains("schema version 0"));
+        assert!(reason(&newer_file).contains("surprise"), "{}", reason(&newer_file));
+        assert!(reason(&stranded_file).contains("no part"), "{}", reason(&stranded_file));
+        assert_eq!(reopened.recipe(&recipe.id).unwrap(), &recipe);
+        assert!(reopened.part(&kept.id).is_ok());
+        assert_eq!(std::fs::read(root.join(&broken_file)).unwrap(), damaged, "left as found");
+        std::fs::remove_file(&duplicate).unwrap();
         std::fs::remove_file(&version).unwrap();
         let folder = Folder {
             id: Id::from("folder"),

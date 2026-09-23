@@ -28,6 +28,8 @@ pub struct Document {
     pub alarm_history: crate::alarm_history::HistoryStatus,
     /// Active host process overrides.
     pub soft: crate::soft_settings::SoftView,
+    /// How long held controls must be held, the same on every screen.
+    pub hold: crate::touch::HoldTimes,
     /// Changes with every publication.
     pub revision: u64,
     /// The controller task's state.
@@ -106,6 +108,7 @@ impl Serialize for Patch<'_> {
         map.serialize_entry("completed_sheet", &d.completed_sheet)?;
         map.serialize_entry("alarm_history", &d.alarm_history)?;
         map.serialize_entry("soft", &d.soft)?;
+        map.serialize_entry("hold", &d.hold)?;
         map.serialize_entry("machine", &d.machine)?;
         map.serialize_entry("calibration", &d.calibration)?;
         map.serialize_entry("mode", &d.mode)?;
@@ -426,6 +429,18 @@ pub struct LibraryView {
     pub recipes: Vec<RecipeView>,
     /// Every job.
     pub jobs: Vec<JobView>,
+    /// Library files left out when it opened, untouched on disk.
+    pub skipped: Vec<SkippedView>,
+}
+
+/// A library file that could not be loaded, and why.
+#[cfg_attr(feature = "typescript", derive(ts_rs::TS), ts(export))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct SkippedView {
+    /// The file, relative to the data directory.
+    pub file: String,
+    /// Why it was left out.
+    pub reason: String,
 }
 
 /// A part without its geometry.

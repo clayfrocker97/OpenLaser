@@ -1,6 +1,7 @@
 <script lang="ts">
   import { distance as length, quantity, unitLabel } from '../lib/units.svelte';
   import { api } from '../api/client';
+  import HoldButton from './HoldButton.svelte';
   import { server } from '../stores/server.svelte';
   import { osk } from '../lib/osk.svelte';
   import { explain, fmt } from '../lib/format';
@@ -60,7 +61,7 @@
         {#if recovery.position}<p class="position">X {length(recovery.position[0])} · Y {length(recovery.position[1])} {unitLabel('mm')}</p>{/if}
       </div>
       <button class="row-action" disabled={busy || !selected} onclick={() => page = 'adjust'}><span>Adjust restart point<small>Move back, skip an outline or recall a point</small></span><span>›</span></button>
-      <button class="btn btn-move block" disabled={busy || !recovery.ready || !selected || !doc.readiness.jog.ok} onclick={() => call(() => api.moveRestart(recovery.revision))}>Move head here · laser off</button>
+      <HoldButton class="btn btn-move block" disabled={busy || !recovery.ready || !selected || !doc.readiness.jog.ok} onhold={() => call(() => api.moveRestart(recovery.revision))}>Move head here · laser off</HoldButton>
     {:else if page === 'paths'}
       <input class="path-search" aria-label="Find restart path" type="search" bind:value={search} placeholder="Path number or status…" />
       <div class="paths" role="group" aria-label="Restart paths">{#each shown as item}<button class="path-row" aria-pressed={selected?.pass === item.index} disabled={busy} onclick={() => change({ kind: 'select', pass: item.index, fraction: 0 }, () => page = 'main')}><strong>{label(item.pass.kind)} {item.pass.ordinal + 1}</strong><span>{item.status} · {quantity(item.length_mm, 'mm', 1)}</span></button>{/each}</div>
@@ -77,14 +78,15 @@
       <div class="group"><span class="eyebrow">What to cut</span><button class="row-action" disabled={busy || !selected} onclick={() => change({ kind: 'skip' }, () => page = 'main')}><span>Skip this outline</span><span>›</span></button>{#if skipped}<button class="row-action" disabled={busy} onclick={() => change({ kind: 'include_all' }, () => page = 'main')}><span>Restore skipped outlines</span><span>{skipped}</span></button>{/if}</div>
     {:else}
       <p class="help">Establish the machine reference, then confirm that the sheet still matches the drawing.</p>
-      {#if !doc.machine.session.homed}<button class="btn btn-move block" disabled={busy || !doc.readiness.home.ok} onclick={() => call(() => api.machine('home'))}>Home machine</button>{/if}
+      {#if !doc.machine.session.homed}<HoldButton class="btn btn-move block" disabled={busy || !doc.readiness.home.ok} onhold={() => call(() => api.machine('home'))}>Home machine</HoldButton>{/if}
       <label class="clearance"><input type="checkbox" bind:checked={clearance} disabled={busy} /><span>The sheet is in the same position and the restart path is clear.</span></label>
       <button class="btn btn-primary block" disabled={busy || !clearance || !selected || !doc.readiness.jog.ok} onclick={() => call(() => api.prepareRecovery(recovery.revision, clearance), () => page = 'main')}>Confirm restart position</button>
     {/if}
     {#if recovery.problem || error}<p role="alert" class="recovery-error">{error || recovery.problem}</p>{/if}
   </div>
   <div class="recovery-footer">
-    {#if page === 'main'}<button class="btn btn-start xl block" disabled={busy || !selected || (recovery.ready && !doc.readiness.resume.ok)} onclick={primary}>{reviewing ? 'Preparing…' : recovery.ready ? 'Resume from here' : 'Prepare restart'}</button>
+    {#if page === 'main' && recovery.ready}<HoldButton class="btn btn-start xl block" disabled={busy || !selected || !doc.readiness.resume.ok} onhold={primary}>{reviewing ? 'Preparing…' : 'Resume from here'}</HoldButton>
+    {:else if page === 'main'}<button class="btn btn-start xl block" disabled={busy || !selected} onclick={primary}>Prepare restart</button>
     {:else if page !== 'prepare'}<button class="btn btn-primary block" disabled={busy} onclick={() => page = 'main'}>Done</button>{/if}
     <button class="btn btn-ghost block stop-recovery" disabled={sending || !doc.readiness.stop.ok} onclick={() => { void api.machine('stop').catch(e => error = explain(e)); }}>Stop motion</button>
   </div>
@@ -108,9 +110,9 @@
   .row-action { width:100%; min-height:60px; display:flex; align-items:center; justify-content:space-between; gap:14px; padding:13px 4px; background:transparent; color:var(--ink); border:0; border-bottom:1px solid var(--line); text-align:left; cursor:pointer; font:inherit; font-size:15px; }
   .row-action small { display:block; color:var(--ink-3); margin-top:6px; line-height:1.5; font-size:12px; }
   .row-action > span:last-child { flex:none; } .group { display:grid; gap:4px; }
-  .recovery-content .btn,.recovery-footer .btn { min-height:56px; font-size:15px; }
+  .recovery-content :global(.btn),.recovery-footer :global(.btn) { min-height:56px; font-size:15px; }
   .recovery-footer { display:grid; gap:10px; padding:18px 22px; border-top:1px solid var(--line); background:var(--panel); }
-  .recovery-footer .btn-start { min-height:66px; font-size:18px; } .stop-recovery { color:var(--stop); }
+  .recovery-footer :global(.btn-start) { min-height:66px; font-size:18px; } .stop-recovery { color:var(--stop); }
   .path-search { width:100%; min-height:52px; border:1px solid var(--line); border-radius:10px; background:var(--panel-2); color:var(--ink); font:inherit; padding:12px; }
   .paths { display:grid; gap:8px; } .path-row { display:grid; gap:7px; min-height:72px; text-align:left; border:1px solid var(--line); border-radius:10px; background:var(--panel-2); color:var(--ink); padding:14px; cursor:pointer; font:inherit; }
   .path-row span { font-size:12px; color:var(--ink-3); } .path-row[aria-pressed="true"] { border-color:var(--accent); background:var(--accent-soft); }
@@ -119,5 +121,5 @@
   .clearance { display:flex; align-items:flex-start; gap:14px; padding:16px; border:1px solid var(--line); border-radius:12px; min-height:84px; cursor:pointer; font-size:15px; line-height:1.6; }
   .clearance input { width:24px; height:24px; flex:none; margin-top:2px; accent-color:var(--accent); }
   .recovery-error { padding:12px; color:var(--warn); background:var(--warn-soft); border-radius:10px; font-size:13px; line-height:1.6; margin:0; }
-  button:disabled { cursor:default; opacity:.38; }
+  .recovery-side :global(button:disabled) { cursor:default; opacity:.38; }
 </style>

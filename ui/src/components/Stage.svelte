@@ -114,8 +114,9 @@
     if (current?.kind === 'drag') ondragend?.(current.grabbed, true);
   }
   $effect(() => () => cancel());
-  /** A drag distance that counts as movement, not a tap. */
-  const slop = () => 4 * view.mmPerPixel;
+  /** A drag distance that counts as movement, not a tap: a fingertip wobbles
+   *  further than a mouse (DESIGN.md, Touch rules). */
+  const slop = (e: PointerEvent) => (e.pointerType === 'mouse' ? 4 : 12) * view.mmPerPixel;
 
   function down(e: PointerEvent): void {
     if (!svg) return;
@@ -165,7 +166,7 @@
       gesture.last = [e.clientX, e.clientY];
     } else {
       const to = toDrawing(e.clientX, e.clientY);
-      gesture.moved ||= distance(gesture.from, to) > slop();
+      gesture.moved ||= distance(gesture.from, to) > slop(e);
       if (!gesture.moved) return;
       if (gesture.kind === 'drag') ondrag?.(gesture.grabbed, gesture.from, to);
       else marquee = boxOf(gesture.from, to);

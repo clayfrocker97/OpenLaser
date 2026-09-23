@@ -144,3 +144,17 @@ fn imported_italic_and_bold_faces_replace_fallback_without_changing_prior_snapsh
     changed.push(0);
     assert!(fonts.with_font("other-version", changed).is_err());
 }
+
+/// Exporters' document type declarations import; entity declarations, which
+/// could expand without bound, are refused before anything expands them.
+#[test]
+fn a_doctype_imports_and_entities_are_refused() {
+    let doctype = r#"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">"#;
+    let path = svg(r#"<path d="M0 0L10 0" stroke="black"/>"#);
+    let drawing = import(format!("{doctype}\n{path}").as_bytes()).unwrap().drawing;
+    assert!((drawing.length() - 10.).abs() < 1e-6);
+    let entity = r#"<!DOCTYPE svg [<!ENTITY a "aaaaaaaaaa">]>"#;
+    let refused = import(format!("{entity}\n{path}").as_bytes()).unwrap_err();
+    assert!(refused.to_string().contains("entity"), "{refused}");
+}

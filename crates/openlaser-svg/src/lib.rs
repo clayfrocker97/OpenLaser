@@ -51,8 +51,17 @@ pub fn import_with_fonts(bytes: &[u8], fonts: &Fonts) -> Result<Import> {
         return Err(Error("the SVG exceeds 64 MiB".into()));
     }
     let source = std::str::from_utf8(bytes).map_err(|e| Error(format!("SVG encoding: {e}")))?;
-    let document =
-        usvg::roxmltree::Document::parse(source).map_err(|e| Error(format!("SVG XML: {e}")))?;
+    // Exporters often add a document type declaration, which is harmless on
+    // its own. Entity declarations can expand without bound, so they are
+    // refused before anything expands them.
+    if source.contains("<!ENTITY") {
+        return Err(Error(
+            "SVG entity declarations are not supported; export the drawing as plain SVG".into(),
+        ));
+    }
+    let options = usvg::roxmltree::ParsingOptions { allow_dtd: true, ..Default::default() };
+    let document = usvg::roxmltree::Document::parse_with_options(source, options)
+        .map_err(|e| Error(format!("SVG XML: {e}")))?;
     validate_source(&document)?;
     let warnings = Mutex::new(BTreeSet::new());
     let options = fonts.options(&warnings);

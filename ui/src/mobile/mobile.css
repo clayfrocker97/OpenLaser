@@ -2,7 +2,7 @@
 html[data-layout="mobile"] { color-scheme:light; }
 html[data-layout="mobile"][data-theme="dark"] { color-scheme:dark; }
 .phone-app { height:100dvh; max-width:680px; margin-inline:auto; display:flex; flex-direction:column; overflow:hidden; background:var(--bg); }
-.phone-app button,.phone-app a { touch-action:manipulation; }
+.phone-app button:not(.hold-btn),.phone-app a { touch-action:manipulation; }
 .phone-app button:disabled { opacity:.42; cursor:default; }
 .phone-header { flex:none; padding:calc(9px + env(safe-area-inset-top)) 16px 7px; display:flex; align-items:center; justify-content:space-between; gap:12px; }
 .phone-header > img { width:120px; height:auto; }

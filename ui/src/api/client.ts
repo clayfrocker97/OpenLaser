@@ -1,6 +1,6 @@
 // The typed fetch client and the event stream. Every physical action is a
 // POST the server admits; the UI only asks.
-import type { PostflightReview, ExecutionView, RecoveryChange, TableRequest, Preview, EditHistory, PendingDraft, MergeReview, PreflightConfirmation, PreflightIntent, PreflightPreferences, PreflightReview, JobPreflight, HistoryPage, Document, DraftView, Lease, Features, LeadOverride, ItemChange, JogRequest, LaserMode, NewRecipe, OutputRequest, Anchor, PickView, RecipeChange, RouteChange, Transform } from './index';
+import type { PostflightReview, ExecutionView, RecoveryChange, TableRequest, Preview, EditHistory, PendingDraft, MergeReview, PreflightConfirmation, PreflightIntent, PreflightPreferences, PreflightReview, JobPreflight, HistoryPage, HoldTimes, Document, DraftView, Lease, Features, LeadOverride, ItemChange, JogRequest, LaserMode, NewRecipe, OutputRequest, Anchor, PickView, RecipeChange, RouteChange, Transform } from './index';
 import { server } from '../stores/server.svelte';
 import type { SheetPage, SheetView, SaveRemnant, NestSheetPreview, CorrectionView, CorrectionChange, NestRequest, NestView, StockChoice } from './index';
 import type { PlacementChange } from './index';
@@ -114,6 +114,8 @@ export const api = {
   preflight: (intent: PreflightIntent) => request<PreflightReview>('GET', `/api/preflight?intent=${intent}`),
   preflightPreferences: () => request<PreflightPreferences>('GET', '/api/preflight/preferences'),
   savePreflightPreferences: (preferences: PreflightPreferences) => post('/api/preflight/preferences', preferences),
+  /** Hold times for every screen, refused if they changed since `expected` was read. */
+  saveHoldTimes: (hold: HoldTimes, expected: HoldTimes) => post('/api/touch', { hold, expected }),
   setPreflight: (policy: JobPreflight, revision?: number) => draftPost('/api/draft/preflight', policy, revision),
   preflightAction: (token: string, step: number) => post('/api/preflight/action', { token, step }),
   importSoft: (name: string, bytes: ArrayBuffer, expected?: string) => request<{ ok: true }>('POST', `/api/machine/soft?name=${encodeURIComponent(name)}${expected === undefined ? '' : `&expected=${encodeURIComponent(expected)}`}`, undefined, bytes),

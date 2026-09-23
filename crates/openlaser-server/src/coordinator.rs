@@ -13,7 +13,7 @@ use crate::connect;
 use crate::document::{
     BindingsView, Document, DraftView, ExecutionView, FeatureSource, FilesView, Gate, JobView,
     LibraryView, Message, OutputsView, PartView, PickView, Readiness, RecipeView, Revisions,
-    RuleView,
+    RuleView, SkippedView,
 };
 use crate::draft::{self, Binder, Draft};
 use crate::{Error, Result, recipes};
@@ -37,6 +37,9 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use tokio::sync::{Mutex, MutexGuard, watch};
+
+/// Why a new run or frame is refused while a job is held.
+const HELD: &str = "a job is paused; resume or stop it first";
 
 /// How the server is set up.
 #[derive(Clone, Debug)]
@@ -98,6 +101,8 @@ pub struct Coordinator {
     pub(crate) postflight: Option<crate::postflight::Pending>,
     /// Preserved host process overrides.
     pub soft: crate::soft_settings::SoftSettings,
+    /// How long every screen's held controls must be held.
+    pub hold: crate::touch::HoldTimes,
     /// Read-only historical alarm recording.
     pub history: crate::alarm_history::History,
     /// The configuration.
@@ -197,6 +202,9 @@ impl Coordinator {
     )]
     pub fn start(config: Config) -> std::result::Result<Shared, String> {
         let library = Library::open(&config.data_dir).map_err(|e| e.to_string())?;
+        for skipped in library.skipped() {
+            tracing::warn!(file = %skipped.file, reason = %skipped.reason, "library file left out");
+        }
         let sheet_store =
             crate::stock_store::Store::open(&config.data_dir).map_err(|e| e.to_string())?;
         let correction =
@@ -230,6 +238,7 @@ impl Coordinator {
             preflight,
             postflight: None,
             soft,
+            hold: crate::touch::HoldTimes::open(&config.data_dir),
             history,
             mode: config.mode,
             link: connect::Link::open(&config),
@@ -390,6 +399,7 @@ impl Coordinator {
             preflight_revision: self.preflight.revision,
             alarm_history: self.history.status(),
             soft: self.soft.view(),
+            hold: self.hold,
             revision: self.revision,
             calibration: self.calibration_view(&machine),
             machine,
@@ -500,6 +510,7 @@ impl Coordinator {
             let gate = motion(true, &machine.blocked);
             match draft {
                 _ if !gate.ok => gate,
+                _ if self.held.is_some() => Gate::closed(HELD),
                 Some(d) if d.compiled.is_none() => d
                     .error
                     .as_ref()
@@ -585,6 +596,12 @@ impl Coordinator {
                 .filter_map(|job| {
                     self.library.part(&job.part).ok().map(|part| JobView::new(job, part))
                 })
+                .collect(),
+            skipped: self
+                .library
+                .skipped()
+                .iter()
+                .map(|s| SkippedView { file: s.file.clone(), reason: s.reason.clone() })
                 .collect(),
         });
         self.publish();
@@ -1601,6 +1618,15 @@ impl Coordinator {
     pub(crate) fn idle(&self) -> Result<()> {
         if self.operation.is_some() || self.machine.state().operation.is_some() {
             return Err(Error::Refused("another operation is active".into()));
+        }
+        Ok(())
+    }
+
+    /// A held job keeps its origin, sheet record and cut history until it is
+    /// resumed or stopped, so no new run or frame may replace it.
+    pub(crate) fn not_held(&self) -> Result<()> {
+        if self.held.is_some() {
+            return Err(Error::Refused(HELD.into()));
         }
         Ok(())
     }

@@ -16,6 +16,30 @@ pub(crate) fn library(library: &Library) -> Result<()> {
     collection(library, "jobs", &library.jobs, job)
 }
 
+/// Every part, recipe and job that fails on its own or against the rest:
+/// its collection, id and reason.
+pub(crate) fn invalid_items(library: &Library) -> Vec<(&'static str, Id, String)> {
+    let mut invalid = Vec::new();
+    each(library, "parts", &library.parts, part, &mut invalid);
+    each(library, "recipes", &library.recipes, library_recipe, &mut invalid);
+    each(library, "jobs", &library.jobs, job, &mut invalid);
+    invalid
+}
+
+fn each<T: HasId>(
+    library: &Library,
+    kind: &'static str,
+    items: &BTreeMap<Id, T>,
+    check: fn(&T, &Library) -> Result<()>,
+    invalid: &mut Vec<(&'static str, Id, String)>,
+) {
+    for (key, item) in items {
+        if let Err(error) = same_id(key, item.id()).and_then(|()| check(item, library)) {
+            invalid.push((kind, key.clone(), error.to_string()));
+        }
+    }
+}
+
 fn invalid(path: &std::path::Path, error: &Error) -> Error {
     Error::Format { path: path.display().to_string(), reason: error.to_string() }
 }

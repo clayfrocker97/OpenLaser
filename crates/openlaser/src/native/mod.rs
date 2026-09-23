@@ -47,6 +47,8 @@ pub fn run(arguments: &crate::Arguments, runtime: &tokio::runtime::Runtime) -> R
     let webview = window::build(&window, &mut context, Rc::new(RefCell::new(origin)))?;
     webview.load_url(&url).map_err(|e| e.to_string())?;
     window.set_visible(true);
+    let mut service = Some(service);
+    let mut closed = Ok(());
     events.run_return(|event, _, flow| {
         *flow = ControlFlow::WaitUntil(Instant::now() + Duration::from_millis(300));
         match event {
@@ -59,10 +61,25 @@ pub fn run(arguments: &crate::Arguments, runtime: &tokio::runtime::Runtime) -> R
                 window.set_minimized(false);
                 window.set_focus();
             }
+            // Sent as the loop ends, including when macOS quits the app from
+            // the Dock or at logout, which ends the process as soon as this
+            // returns: shut the service down here, never after the loop.
+            // This sends the normal admitted shutdown, waits for controller
+            // cleanup and for the server to release its listener and lock.
+            Event::LoopDestroyed => {
+                window.set_visible(false);
+                if let Some(service) = service.take() {
+                    closed = service.close();
+                }
+            }
             _ => {}
         }
     });
-    // This sends the normal admitted shutdown, waits for controller cleanup
-    // and for the Rust server to release its listener and ownership lock.
-    service.close()
+    match service {
+        Some(service) => {
+            window.set_visible(false);
+            service.close()
+        }
+        None => closed,
+    }
 }
