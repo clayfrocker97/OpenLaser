@@ -19,9 +19,11 @@
 )]
 
 pub mod features;
+pub mod fit;
 pub mod geometry;
 pub mod grouping;
 pub mod nesting;
+pub mod repair;
 pub mod toolpath;
 pub mod units;
 

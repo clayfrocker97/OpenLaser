@@ -1,0 +1,348 @@
+  0
+SECTION
+  2
+HEADER
+  9
+$ACADVER
+  1
+AC1027
+  9
+$INSUNITS
+ 70
+4
+  0
+ENDSEC
+  0
+SECTION
+  2
+TABLES
+  0
+TABLE
+  2
+LAYER
+  5
+100
+100
+AcDbSymbolTable
+ 70
+3
+  0
+LAYER
+  5
+101
+100
+AcDbSymbolTableRecord
+100
+AcDbLayerTableRecord
+  2
+0
+ 70
+0
+ 62
+7
+  6
+CONTINUOUS
+  0
+LAYER
+  5
+102
+100
+AcDbSymbolTableRecord
+100
+AcDbLayerTableRecord
+  2
+PARTS
+ 70
+0
+ 62
+1
+  6
+CONTINUOUS
+  0
+LAYER
+  5
+103
+100
+AcDbSymbolTableRecord
+100
+AcDbLayerTableRecord
+  2
+HOLES
+ 70
+0
+ 62
+2
+  6
+CONTINUOUS
+  0
+ENDTAB
+  0
+ENDSEC
+  0
+SECTION
+  2
+BLOCKS
+  0
+BLOCK
+  5
+104
+100
+AcDbEntity
+  8
+0
+100
+AcDbBlockBegin
+  2
+*Model_Space
+ 70
+0
+ 10
+0.0
+ 20
+0.0
+ 30
+0.0
+  3
+*Model_Space
+  1
+
+  0
+ENDBLK
+  5
+105
+100
+AcDbEntity
+  8
+0
+100
+AcDbBlockEnd
+  0
+BLOCK
+  5
+106
+100
+AcDbEntity
+  8
+0
+100
+AcDbBlockBegin
+  2
+*Paper_Space
+ 70
+0
+ 10
+0.0
+ 20
+0.0
+ 30
+0.0
+  3
+*Paper_Space
+  1
+
+  0
+ENDBLK
+  5
+107
+100
+AcDbEntity
+  8
+0
+100
+AcDbBlockEnd
+  0
+BLOCK
+  5
+108
+100
+AcDbEntity
+  8
+0
+100
+AcDbBlockBegin
+  2
+TAB
+ 70
+0
+ 10
+0.0
+ 20
+5.0
+ 30
+0.0
+  3
+TAB
+  1
+
+  0
+LWPOLYLINE
+  5
+109
+100
+AcDbEntity
+  8
+0
+100
+AcDbPolyline
+ 90
+4
+ 70
+1
+ 43
+0.0
+ 10
+0.0
+ 20
+0.0
+ 10
+20.0
+ 20
+0.0
+ 10
+20.0
+ 20
+10.0
+ 10
+0.0
+ 20
+10.0
+  0
+ARC
+  5
+10A
+100
+AcDbEntity
+  8
+HOLES
+100
+AcDbCircle
+ 10
+14.0
+ 20
+5.0
+ 30
+0.0
+ 40
+2.0
+100
+AcDbArc
+ 50
+270.0
+ 51
+90.0
+  0
+LINE
+  5
+10B
+100
+AcDbEntity
+  8
+HOLES
+100
+AcDbLine
+ 10
+14.0
+ 20
+3.0
+ 30
+0.0
+ 11
+10.0
+ 21
+3.0
+ 31
+0.0
+  0
+LINE
+  5
+10C
+100
+AcDbEntity
+  8
+HOLES
+100
+AcDbLine
+ 10
+10.0
+ 20
+7.0
+ 30
+0.0
+ 11
+14.0
+ 21
+7.0
+ 31
+0.0
+  0
+ARC
+  5
+10D
+100
+AcDbEntity
+  8
+HOLES
+100
+AcDbCircle
+ 10
+10.0
+ 20
+5.0
+ 30
+0.0
+ 40
+2.0
+100
+AcDbArc
+ 50
+90.0
+ 51
+270.0
+  0
+ENDBLK
+  5
+10E
+100
+AcDbEntity
+  8
+0
+100
+AcDbBlockEnd
+  0
+ENDSEC
+  0
+SECTION
+  2
+ENTITIES
+  0
+INSERT
+  5
+10F
+100
+AcDbEntity
+  8
+PARTS
+100
+AcDbBlockReference
+  2
+TAB
+ 10
+0.0
+ 20
+0.0
+ 30
+0.0
+ 50
+30.0
+ 70
+4
+ 71
+3
+ 44
+25.0
+ 45
+15.0
+  0
+ENDSEC
+  0
+EOF

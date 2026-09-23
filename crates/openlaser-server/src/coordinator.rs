@@ -772,7 +772,13 @@ impl Coordinator {
 
     /// Imports a DXF or SVG as a part, preserving open paths.
     pub fn import_part(&mut self, file_name: &str, bytes: &[u8]) -> Result<PartView> {
-        let import = crate::imports::part(file_name, bytes, &self.fonts.fonts)?;
+        let import = crate::imports::part(
+            file_name,
+            bytes,
+            &self.fonts.fonts,
+            &crate::imports::ImportOptions::default(),
+        )?;
+        crate::imports::require_geometry(&import)?;
         self.import_drawing(file_name, bytes, import)
     }
 
@@ -783,11 +789,12 @@ impl Coordinator {
         bytes: &[u8],
         import: crate::imports::Import,
     ) -> Result<PartView> {
+        let notices = import.notices();
         let part = self.library.add_part(file_name, bytes, import.drawing)?;
         let view = PartView::new(&part);
         self.library_changed();
-        if !import.warnings.is_empty() {
-            self.note(format!("Imported {}. {}", part.name, import.warnings.join(" ")), false);
+        if !notices.is_empty() {
+            self.note(format!("Imported {}. {}", part.name, notices.join(" ")), false);
         }
         Ok(view)
     }

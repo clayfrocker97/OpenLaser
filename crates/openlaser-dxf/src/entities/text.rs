@@ -8,7 +8,7 @@ use openlaser_core::geometry::{Contour, Curve, Point};
 use openlaser_svg::{Alignment, Family, Text};
 use std::sync::OnceLock;
 
-pub(super) struct TextEntity {
+pub(crate) struct TextEntity {
     value: String,
     position: Point,
     height: f64,
@@ -21,13 +21,13 @@ pub(super) struct TextEntity {
     rectangle: Option<f64>,
     multiline: bool,
     spacing: f64,
-    layer: String,
-    line: usize,
+    pub layer: String,
+    pub line: usize,
     pub style: String,
 }
 
 impl TextEntity {
-    pub(super) fn read(fields: &Fields<'_>, multiline: bool) -> Result<Self> {
+    pub(crate) fn read(fields: &Fields<'_>, multiline: bool) -> Result<Self> {
         fields.planar()?;
         let raw = if multiline {
             fields
@@ -115,7 +115,7 @@ impl TextEntity {
         })
     }
 
-    pub(super) fn outlines(&self, scale: f64) -> Result<Vec<Contour>> {
+    pub(crate) fn outlines(&self, scale: f64) -> Result<Vec<Contour>> {
         let error = |reason: String| Error::Entity {
             line: self.line,
             entity: if self.multiline { "MTEXT" } else { "TEXT" }.into(),

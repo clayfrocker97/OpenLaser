@@ -9,24 +9,10 @@
 //! that would cross itself or lose its closure is kept as drawn.
 
 use crate::{Result, feature, float, topology};
+use openlaser_core::fit::{curve_distance, fit_points, push_arc};
 use openlaser_core::geometry::{Bounds, Contour, Curve, Drawing, Point};
-use std::f64::consts::{PI, TAU};
 
-/// The finest tolerance simplification takes, in millimetres.
-pub const MIN_TOLERANCE: f64 = 0.001;
-
-/// The coarsest tolerance simplification takes, in millimetres.
-pub const MAX_TOLERANCE: f64 = 0.5;
-
-/// The most original lines one fitted curve replaces, which bounds the
-/// search for each curve.
-const MAX_SPAN: usize = 256;
-
-/// Radii beyond this are straight for any tolerance taken here.
-const MAX_RADIUS: f64 = 100_000.;
-
-/// Points closer than this are the same point.
-const SAME: f64 = 1e-9;
+pub use openlaser_core::fit::{MAX_TOLERANCE, MIN_TOLERANCE};
 
 /// A simplified drawing and what changed.
 #[derive(Clone, Debug, PartialEq)]
@@ -91,12 +77,13 @@ fn simplified(contour: &Contour, tolerance: f64) -> Contour {
                 run.push(end);
             }
             arc @ Curve::Arc { .. } => {
-                fit_run(&mut run, &mut curves, tolerance);
+                fit_points(&run, tolerance, &mut curves);
+                run.clear();
                 push_arc(&mut curves, arc);
             }
         }
     }
-    fit_run(&mut run, &mut curves, tolerance);
+    fit_points(&run, tolerance, &mut curves);
     let candidate = Contour { layer: contour.layer.clone(), curves };
     if acceptable(contour, &candidate) { candidate } else { contour.clone() }
 }
@@ -112,150 +99,6 @@ fn acceptable(original: &Contour, candidate: &Contour) -> bool {
         && (!candidate.is_closed()
             || topology::polyline(original).is_err()
             || topology::polyline(candidate).is_ok())
-}
-
-/// Replaces a run of lines through `run`'s points with the fewest lines and
-/// arcs found greedily, each the longest that stays within the tolerance.
-fn fit_run(run: &mut Vec<Point>, curves: &mut Vec<Curve>, tolerance: f64) {
-    run.dedup_by(|next, kept| next.distance(*kept) <= SAME);
-    let points = std::mem::take(run);
-    let mut from = 0;
-    while from + 1 < points.len() {
-        let line = longest_line(&points, from, tolerance);
-        match longest_arc(&points, from, tolerance) {
-            Some((to, arc)) if to > line => {
-                curves.push(arc);
-                from = to;
-            }
-            _ => {
-                curves.push(Curve::Line { start: points[from], end: points[line] });
-                from = line;
-            }
-        }
-    }
-}
-
-/// The furthest point a straight line from `from` can reach with every
-/// point between within the tolerance.
-fn longest_line(points: &[Point], from: usize, tolerance: f64) -> usize {
-    let last = (from + MAX_SPAN).min(points.len() - 1);
-    let mut best = from + 1;
-    for to in from + 2..=last {
-        let (a, b) = (points[from], points[to]);
-        if points[from + 1..to].iter().all(|&p| segment_distance(p, a, b) <= tolerance) {
-            best = to;
-        } else {
-            break;
-        }
-    }
-    best
-}
-
-/// The furthest point, at least three lines on, an arc from `from` can
-/// reach within the tolerance, and that arc.
-fn longest_arc(points: &[Point], from: usize, tolerance: f64) -> Option<(usize, Curve)> {
-    let last = (from + MAX_SPAN).min(points.len() - 1);
-    let mut best = None;
-    for to in from + 3..=last {
-        match fit_arc(&points[from..=to], tolerance) {
-            Some(arc) => best = Some((to, arc)),
-            None => break,
-        }
-    }
-    best
-}
-
-/// The arc through the first, middle and last points, when every point and
-/// every chord's middle lies within the tolerance of it, it turns one way
-/// throughout and sweeps at most half a turn.
-fn fit_arc(points: &[Point], tolerance: f64) -> Option<Curve> {
-    let (first, last) = (*points.first()?, *points.last()?);
-    let (center, radius) = circle(first, points[points.len() / 2], last)?;
-    if !(radius > tolerance && radius < MAX_RADIUS) {
-        return None;
-    }
-    let mut sweep = 0.;
-    let mut turn: Option<bool> = None;
-    for pair in points.windows(2) {
-        let (p, q) = (pair[0], pair[1]);
-        let step = (p - center).cross(q - center).atan2((p - center).dot(q - center));
-        let forward = step > 0.;
-        if step.abs() <= f64::EPSILON || turn.is_some_and(|t| t != forward) {
-            return None;
-        }
-        turn = Some(forward);
-        sweep += step;
-        let off = |at: Point| (at.distance(center) - radius).abs() > tolerance;
-        if off(q) || off(p.lerp(q, 0.5)) || sweep.abs() > PI + 1e-9 {
-            return None;
-        }
-    }
-    let start_angle = (first - center).angle();
-    let arc = Curve::Arc { center, radius, start_angle, sweep };
-    (arc.end().distance(last) <= SAME * 1e3 && arc.start().distance(first) <= SAME * 1e3)
-        .then_some(arc)
-}
-
-/// The circle through three points, computed about the first for accuracy
-/// far from the origin; none when they are in line.
-fn circle(a: Point, b: Point, c: Point) -> Option<(Point, f64)> {
-    let (b, c) = (b - a, c - a);
-    let d = 2. * b.cross(c);
-    if d.abs() <= SAME * (b.norm() * c.norm()).max(SAME) {
-        return None;
-    }
-    let (bb, cc) = (b.dot(b), c.dot(c));
-    let center = Point::new((c.y * bb - b.y * cc) / d, (b.x * cc - c.x * bb) / d);
-    let radius = center.norm();
-    radius.is_finite().then_some((a + center, radius))
-}
-
-/// Adds an arc, joining it to the arc before on the same circle.
-fn push_arc(curves: &mut Vec<Curve>, arc: Curve) {
-    if let (
-        Some(Curve::Arc { center, radius, start_angle, sweep }),
-        Curve::Arc { center: c, radius: r, sweep: s, .. },
-    ) = (curves.last().copied(), arc)
-        && center.distance(c) <= SAME * 100.
-        && (radius - r).abs() <= SAME * 100.
-        && sweep.signum() == s.signum()
-        && (sweep + s).abs() <= TAU
-    {
-        let joined = Curve::Arc { center, radius, start_angle, sweep: sweep + s };
-        if joined.end().distance(arc.end()) <= SAME * 1e3 {
-            curves.pop();
-            curves.push(joined);
-            return;
-        }
-    }
-    curves.push(arc);
-}
-
-/// The distance from `p` to the segment from `a` to `b`.
-fn segment_distance(p: Point, a: Point, b: Point) -> f64 {
-    let ab = b - a;
-    let length = ab.dot(ab);
-    if length <= SAME * SAME {
-        return p.distance(a);
-    }
-    p.distance(a + ab * ((p - a).dot(ab) / length).clamp(0., 1.))
-}
-
-/// The distance from `p` to a curve.
-fn curve_distance(p: Point, curve: &Curve) -> f64 {
-    match *curve {
-        Curve::Line { start, end } => segment_distance(p, start, end),
-        Curve::Arc { center, radius, start_angle, sweep } => {
-            let angle = (p - center).angle();
-            let along = (angle - start_angle) * sweep.signum();
-            let within = along.rem_euclid(TAU) <= sweep.abs() + 1e-12;
-            if within {
-                (p.distance(center) - radius).abs()
-            } else {
-                p.distance(curve.start()).min(p.distance(curve.end()))
-            }
-        }
-    }
 }
 
 /// Every contour but those repeating an earlier one on the same layer, and
@@ -321,6 +164,7 @@ fn same_path(a: &Contour, b: &Contour, tolerance: f64) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::f64::consts::{PI, TAU};
 
     fn polyline(points: &[Point], closed: bool) -> Contour {
         let mut curves: Vec<Curve> =

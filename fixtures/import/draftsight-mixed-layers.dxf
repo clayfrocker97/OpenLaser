@@ -1,0 +1,464 @@
+  0
+SECTION
+  2
+HEADER
+  9
+$ACADVER
+  1
+AC1015
+  9
+$INSUNITS
+ 70
+4
+  0
+ENDSEC
+  0
+SECTION
+  2
+TABLES
+  0
+TABLE
+  2
+LAYER
+  5
+100
+100
+AcDbSymbolTable
+ 70
+4
+  0
+LAYER
+  5
+101
+100
+AcDbSymbolTableRecord
+100
+AcDbLayerTableRecord
+  2
+0
+ 70
+0
+ 62
+7
+  6
+CONTINUOUS
+  0
+LAYER
+  5
+102
+100
+AcDbSymbolTableRecord
+100
+AcDbLayerTableRecord
+  2
+OUTER
+ 70
+0
+ 62
+1
+  6
+CONTINUOUS
+  0
+LAYER
+  5
+103
+100
+AcDbSymbolTableRecord
+100
+AcDbLayerTableRecord
+  2
+INNER
+ 70
+0
+ 62
+2
+  6
+CONTINUOUS
+  0
+LAYER
+  5
+104
+100
+AcDbSymbolTableRecord
+100
+AcDbLayerTableRecord
+  2
+ENGRAVE
+ 70
+0
+ 62
+3
+  6
+CONTINUOUS
+  0
+ENDTAB
+  0
+ENDSEC
+  0
+SECTION
+  2
+BLOCKS
+  0
+BLOCK
+  5
+105
+100
+AcDbEntity
+  8
+0
+100
+AcDbBlockBegin
+  2
+*Model_Space
+ 70
+0
+ 10
+0.0
+ 20
+0.0
+ 30
+0.0
+  3
+*Model_Space
+  1
+
+  0
+ENDBLK
+  5
+106
+100
+AcDbEntity
+  8
+0
+100
+AcDbBlockEnd
+  0
+BLOCK
+  5
+107
+100
+AcDbEntity
+  8
+0
+100
+AcDbBlockBegin
+  2
+*Paper_Space
+ 70
+0
+ 10
+0.0
+ 20
+0.0
+ 30
+0.0
+  3
+*Paper_Space
+  1
+
+  0
+ENDBLK
+  5
+108
+100
+AcDbEntity
+  8
+0
+100
+AcDbBlockEnd
+  0
+BLOCK
+  5
+109
+100
+AcDbEntity
+  8
+0
+100
+AcDbBlockBegin
+  2
+SLOT
+ 70
+0
+ 10
+0.0
+ 20
+0.0
+ 30
+0.0
+  3
+SLOT
+  1
+
+  0
+LWPOLYLINE
+  5
+10A
+100
+AcDbEntity
+  8
+0
+100
+AcDbPolyline
+ 90
+4
+ 70
+1
+ 43
+0.0
+ 10
+0.0
+ 20
+0.0
+ 10
+10.0
+ 20
+0.0
+ 42
+1.0
+ 10
+10.0
+ 20
+4.0
+ 10
+0.0
+ 20
+4.0
+ 42
+1.0
+  0
+ENDBLK
+  5
+10B
+100
+AcDbEntity
+  8
+0
+100
+AcDbBlockEnd
+  0
+ENDSEC
+  0
+SECTION
+  2
+ENTITIES
+  0
+LWPOLYLINE
+  5
+10C
+100
+AcDbEntity
+  8
+OUTER
+100
+AcDbPolyline
+ 90
+4
+ 70
+1
+ 43
+0.0
+ 10
+0.0
+ 20
+0.0
+ 10
+120.0
+ 20
+0.0
+ 10
+120.0
+ 20
+80.0
+ 10
+0.0
+ 20
+80.0
+  0
+ELLIPSE
+  5
+10D
+100
+AcDbEntity
+  8
+INNER
+100
+AcDbEllipse
+ 10
+30.0
+ 20
+40.0
+ 30
+0.0
+ 11
+15.0
+ 21
+0.0
+ 31
+0.0
+210
+0.0
+220
+0.0
+230
+1.0
+ 40
+0.5
+ 41
+0.0
+ 42
+6.283185307179586
+  0
+SPLINE
+  5
+10E
+100
+AcDbEntity
+  8
+ENGRAVE
+100
+AcDbSpline
+210
+0.0
+220
+0.0
+230
+1.0
+ 70
+8
+ 71
+3
+ 72
+11
+ 73
+7
+ 74
+0
+ 42
+1e-10
+ 43
+1e-10
+ 44
+1e-10
+ 40
+0.0
+ 40
+0.0
+ 40
+0.0
+ 40
+0.0
+ 40
+0.25
+ 40
+0.5
+ 40
+0.75
+ 40
+1.0
+ 40
+1.0
+ 40
+1.0
+ 40
+1.0
+ 10
+10.0
+ 20
+65.0
+ 30
+0.0
+ 10
+15.0
+ 20
+70.0
+ 30
+0.0
+ 10
+25.0
+ 20
+71.0
+ 30
+0.0
+ 10
+35.0
+ 20
+65.0
+ 30
+0.0
+ 10
+45.0
+ 20
+59.0
+ 30
+0.0
+ 10
+55.0
+ 20
+60.0
+ 30
+0.0
+ 10
+60.0
+ 20
+65.0
+ 30
+0.0
+  0
+INSERT
+  5
+10F
+100
+AcDbEntity
+  8
+INNER
+100
+AcDbBlockReference
+  2
+SLOT
+ 10
+70.0
+ 20
+15.0
+ 30
+0.0
+  0
+INSERT
+  5
+110
+100
+AcDbEntity
+  8
+INNER
+100
+AcDbBlockReference
+  2
+SLOT
+ 10
+70.0
+ 20
+35.0
+ 30
+0.0
+  0
+INSERT
+  5
+111
+100
+AcDbEntity
+  8
+INNER
+100
+AcDbBlockReference
+  2
+SLOT
+ 10
+70.0
+ 20
+55.0
+ 30
+0.0
+  0
+ENDSEC
+  0
+EOF
