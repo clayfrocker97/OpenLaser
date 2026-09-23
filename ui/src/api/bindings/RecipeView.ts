@@ -40,7 +40,7 @@ key: string,
  */
 film: Id | null,
 /**
- * Cutting speed, power, pressure and height, as the vendor stores them.
+ * The headline values every screen summarises the recipe with.
  */
 summary: RecipeSummary,
 /**

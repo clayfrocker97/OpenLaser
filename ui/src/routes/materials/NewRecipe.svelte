@@ -10,7 +10,8 @@
   import { ui } from '../../stores/ui.svelte';
   import { osk } from '../../lib/osk.svelte';
   import { explain } from '../../lib/format';
-  import { GAS, shown } from '../../lib/recipe';
+  import { GAS } from '../../lib/recipe';
+  import { summaryLine } from '../../lib/summary';
   import { CARDS, cardUrl, type MaterialCard } from '../../lib/materials';
   import type { LaserMode, Values } from '../../api';
 
@@ -54,12 +55,11 @@
 
   /** Where the values can start from: recipes of the material, then the machine's banks. */
   type Source = { values: Values; label: string; meta: string; gas: string | null };
-  const meta = (s: { speed: string | null; power: string | null; pressure: string | null }, duty?: string) => `${shown('CutSpeed', s.speed ?? '')} · ${shown('CutPower', s.power ?? duty ?? '')} · ${shown('CutAirPressure', s.pressure ?? '')}`;
   const sources = $derived.by((): Source[] => {
     const own = recipes.filter((r) => r.laser === draft.laser && r.name === draft.name).sort((a, b) => a.thickness_mm - b.thickness_mm);
-    const list: Source[] = own.map((r) => ({ values: { recipe: r.id }, label: `${r.name} · ${mm(r.thickness_mm)} · ${r.gas}`, meta: meta(r.summary, r.attributes['CutDuty']), gas: r.attributes['CutGasType'] ?? null }));
+    const list: Source[] = own.map((r) => ({ values: { recipe: r.id }, label: `${r.name} · ${mm(r.thickness_mm)} · ${r.gas}`, meta: summaryLine(r), gas: r.attributes['CutGasType'] ?? null }));
     for (const b of doc.files.banks.filter((b) => b.laser === draft.laser)) {
-      list.push({ values: { bank: b.bank }, label: `Machine bank ${b.bank}${b.name ? ` · ${b.name}` : ''}${b.disabled ? ' · disabled' : ''}`, meta: meta(b.summary), gas: b.summary.gas ?? null });
+      list.push({ values: { bank: b.bank }, label: `Machine bank ${b.bank}${b.name ? ` · ${b.name}` : ''}${b.disabled ? ' · disabled' : ''}`, meta: summaryLine({ laser: b.laser, gas: b.summary.gas === null ? '' : GAS[Number(b.summary.gas)] ?? '', summary: b.summary }), gas: b.summary.gas ?? null });
     }
     return list;
   });

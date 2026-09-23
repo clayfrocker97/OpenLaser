@@ -78,7 +78,7 @@ pub fn banks(bundle: &Bundle) -> Vec<BankView> {
                 bank,
                 name: attributes.get("LayerFileName").cloned().unwrap_or_default(),
                 disabled: attributes.get("NoManu").is_some_and(|v| v == "1"),
-                summary: RecipeSummary::of(attributes),
+                summary: RecipeSummary::of(attributes, laser),
             });
         }
     }

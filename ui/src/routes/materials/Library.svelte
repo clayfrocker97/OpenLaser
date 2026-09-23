@@ -4,6 +4,7 @@
   // recipes by gas, then thickness. Importing the vendor's process library
   // folder adds every recipe file and the photo of the same name beside it.
   import Modal from '../../components/Modal.svelte';
+  import MaterialSummary from '../../components/MaterialSummary.svelte';
   import { api } from '../../api/client';
   import { ui } from '../../stores/ui.svelte';
   import { explain, laserLabel } from '../../lib/format';
@@ -82,7 +83,7 @@
           {#each gasesOf(m) as gas (gas)}
             <span class="gas">{gas}</span>
             {#each m.recipes.filter((r) => r.gas === gas) as r (r.id)}
-              <button class="rec" class:on={r.id === selected?.id} aria-pressed={r.id === selected?.id} onclick={() => onselect(r)}><strong>{r.thickness_mm > 0 ? quantity(r.thickness_mm, 'mm') : 'No thickness'}</strong>{#if r.attributes['OpenLaserNozzleDiameter']}<small>Ø {quantity(Number(r.attributes['OpenLaserNozzleDiameter']), 'mm')}{r.attributes['OpenLaserNozzleType'] === 'double' ? ' · Double' : r.attributes['OpenLaserNozzleType'] === 'single' ? ' · Single' : ''}</small>{/if}</button>
+              <button class="rec" class:on={r.id === selected?.id} aria-pressed={r.id === selected?.id} onclick={() => onselect(r)}><strong>{r.thickness_mm > 0 ? quantity(r.thickness_mm, 'mm') : 'No thickness'}</strong><MaterialSummary source={r} variant="line" /></button>
             {/each}
           {/each}
         {/if}

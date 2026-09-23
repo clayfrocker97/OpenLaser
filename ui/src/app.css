@@ -756,19 +756,22 @@ body.osk-open .app { padding-bottom: 0; }
 .mat .art.blank { display: grid; place-items: center; color: var(--ink-3); }
 .mat-info { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .mat .name { overflow-wrap: anywhere; line-height: 1.25; }
-.mat-meta { font-size: var(--t-xs); font-weight: 500; color: var(--ink-2); }
+.mat-meta { font-size: var(--t-sm); font-weight: 500; color: var(--ink-2); }
 .mat-chevron { color: var(--ink-3); transition: transform .16s cubic-bezier(.2,0,0,1); }
 .mat.open { border-color: var(--accent); background: var(--accent-soft); }
 .mat.open .mat-chevron { transform: rotate(90deg); color: var(--accent); }
 .mat:hover { border-color: var(--accent); }
 .mat:active { background: var(--panel); }
-.gas { padding: 8px 12px 0 18px; font-size: var(--t-xs); font-weight: 700; color: var(--ink-3); text-transform: uppercase; letter-spacing: .08em; }
+.gas { padding: 8px 12px 0 18px; font-size: var(--t-sm); font-weight: 700; color: var(--ink-3); text-transform: uppercase; letter-spacing: .08em; }
 .rec + .gas { margin-top: 2px; padding-top: 12px; border-top: 1px solid var(--line); }
-.rec { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 52px; flex-shrink: 0; margin-left: 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); font-weight: 600; color: var(--ink-2); text-align: left; cursor: pointer; }
-.rec small { font-size: var(--t-xs); font-weight: 500; text-align: right; }
+.rec { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 4px; min-height: 52px; flex-shrink: 0; margin-left: 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); font-weight: 600; color: var(--ink-2); text-align: left; cursor: pointer; }
+.rec .summary-line { font-weight: 500; }
 .rec.on { background: var(--accent-soft); color: var(--accent-2); font-weight: 700; }
 .library-foot { display: flex; flex-direction: column; gap: 6px; align-items: center; }
-.library-foot .muted { font-size: var(--t-xs); }
+.library-foot .muted { font-size: var(--t-sm); text-align: center; }
+.import-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%; }
+.import-buttons .btn { padding: 0 10px; }
+.panel.library.dragging { border-color: var(--accent); box-shadow: inset 0 0 0 2px var(--accent); background: var(--accent-soft); }
 .recipe-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 16px; }
 .recipe-identity { display: flex; align-items: center; gap: 18px; min-width: 0; }
 .recipe-head .art { width: 112px; height: 112px; flex: none; border-radius: 14px; object-fit: cover; background: var(--panel-2); }
@@ -788,6 +791,7 @@ body.osk-open .app { padding-bottom: 0; }
 .recipe-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; }
 .recipe-actions .btn { flex: 1 0 auto; min-height: 48px; }
 .recipe-actions .recipe-delete { color: var(--danger); flex-grow: 0; }
+.recipe-summary { padding: 4px 22px 12px; }
 .recipe-tabs { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 22px 12px; border-bottom: 1px solid var(--line); font-size: var(--t-sm); }
 .recipe-body { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: none; padding: 16px 22px; display: flex; flex-direction: column; gap: 16px; }
 .recipe-body::-webkit-scrollbar { display: none; }
@@ -841,7 +845,7 @@ body.osk-open .app { padding-bottom: 0; }
 .from-row .muted { font-size: var(--t-sm); margin: 0; }
 .from { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; max-width: 300px; min-height: 56px; padding: 6px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel-2); cursor: pointer; text-align: left; font-weight: 600; font-size: var(--t-sm); }
 .from > span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.from small { font: 600 var(--t-xs) var(--font); color: var(--ink-3); }
+.from small { font: 600 var(--t-sm) var(--font); color: var(--ink-3); white-space: normal; }
 .from.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-2); }
 
 /* ---------- Materials page: the three recipe pages, their sheets and the imported values ---------- */

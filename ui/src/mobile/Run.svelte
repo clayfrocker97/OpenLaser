@@ -3,6 +3,7 @@
   import type { ExecutionView, PreflightReview } from '../api';
   import { api } from '../api/client';
   import { beginRun } from '../lib/run-actions';
+  import MaterialSummary from '../components/MaterialSummary.svelte';
   import { access } from '../lib/access.svelte';
   import { server } from '../stores/server.svelte';
   import { ui } from '../stores/ui.svelte';
@@ -68,7 +69,7 @@
         </div>
       {/if}
       <section class="phone-job-card">
-        <div class="phone-job-heading"><div><h2>{name}</h2><p class="phone-job-material">{material ? recipeLabel(material) : 'No material'}</p></div></div>
+        <div class="phone-job-heading"><div><h2>{name}</h2><p class="phone-job-material">{material ? recipeLabel(material) : 'No material'}</p>{#if material}<p class="phone-job-summary"><MaterialSummary source={material} variant="line" /></p>{/if}</div></div>
         <button class="phone-preview-button" aria-label="View toolpath" onclick={() => review()}><Preview {outline} /></button>
         {#if compiled}<div class="phone-progress"><div><strong>{percent}<small>%</small></strong><span>{done} / {total} passes</span><span>{seconds(compiled.seconds * (1 - percent / 100))}<small>{running ? 'estimated left' : 'estimated time'}</small></span></div><progress aria-label="Job progress" max="100" value={percent}></progress></div>{/if}
       </section>

@@ -1,10 +1,11 @@
 <script lang="ts">
   import { distance, quantity, unitLabel } from '../../lib/units.svelte';
   import Modal from '../../components/Modal.svelte';
+  import MaterialSummary from '../../components/MaterialSummary.svelte';
   import { api } from '../../api/client';
   import { server } from '../../stores/server.svelte';
   import { ui } from '../../stores/ui.svelte';
-  import { explain, laserLabel, recipeLabel, value } from '../../lib/format';
+  import { explain, laserLabel, recipeLabel } from '../../lib/format';
   import { pictureOf, materialsOf, materialKey } from '../../lib/materials';
   import type { RecipeView } from '../../api';
 
@@ -52,7 +53,7 @@
         <div class="side-title">{#if picture}<img class="swatch" src={picture} alt="">{:else}<div class="swatch" style="background:var(--panel-2)"></div>{/if}<div><h2>{pick.name}</h2><div class="muted">{laserLabel(pick.laser)}</div></div></div>
         <div class="field"><h3>Thickness</h3><div class="chips">{#each thicknesses as t}<button class="chip" class:on={t === pick.thickness_mm} onclick={() => choose(group.find((r) => r.thickness_mm === t)!)}>{quantity(t, 'mm')}</button>{/each}</div></div>
         <div class="field"><h3>Assist gas</h3><div class="chips">{#each gases as r}<button class="chip" class:on={r.id === pick.id} onclick={() => choose(r)}>{r.gas}</button>{/each}</div></div>
-        <dl class="kv"><dt>Speed</dt><dd>{quantity(pick.summary.speed, 'mm/s')}</dd><dt>Power</dt><dd>{value(pick.summary.power)} %</dd><dt>Pressure</dt><dd>{quantity(pick.summary.pressure, 'bar')}</dd><dt>Height</dt><dd>{quantity(pick.summary.height, 'mm')}</dd></dl>
+        <MaterialSummary source={pick} />
         <button class="btn btn-primary lg block" onclick={use}>Use {pick.name} {quantity(pick.thickness_mm, 'mm')}</button>
         <button class="link" onclick={() => { onclose(); ui.selectedRecipe = pick!.id; ui.tab = 'materials'; }}>Edit recipes in the library</button>
       {/if}

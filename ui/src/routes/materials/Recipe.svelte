@@ -9,6 +9,8 @@
   import Piercing from './Piercing.svelte';
   import Options from './Options.svelte';
   import Sheets from './Sheets.svelte';
+  import MaterialSummary from '../../components/MaterialSummary.svelte';
+  import { summaryOf } from '../../lib/summary';
   import { api } from '../../api/client';
   import { server } from '../../stores/server.svelte';
   import { ui } from '../../stores/ui.svelte';
@@ -43,6 +45,8 @@
   $effect(() => { if (!osk.open) editing = null; });
   const pending = $derived(Object.keys(edits).length + ((film?.id ?? null) === (recipe.film ?? null) ? 0 : 1));
   const a = $derived(available(doc.files.capabilities, recipe.laser));
+  /** The summary as the recipe stands with its staged edits. */
+  const summary = $derived.by(() => { const s = summaryOf(values, recipe.laser); return 'CutGasType' in edits ? s : { ...s, gas: recipe.gas }; });
 
   /** Opens the control for a key: a flip, the keyboard, or the keypad with the field's limits. */
   function tap(key: string, override?: { value: string; commit: (value: string) => void }): void {
@@ -119,6 +123,7 @@
     <span><b>Setup</b><span class="text">{noteLine || 'No setup note yet'}</span></span>
     <button class="btn btn-ghost" onclick={note}>Edit setup</button>
   </div>
+  <div class="recipe-summary"><MaterialSummary source={summary} /></div>
   <div class="recipe-tabs">
     <div class="seg">
       <button class:on={page === 'cutting'} onclick={() => (page = 'cutting')}>Cutting</button>

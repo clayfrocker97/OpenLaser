@@ -9,6 +9,7 @@
   import Recovery from '../components/Recovery.svelte';
   import RunSide from './RunSide.svelte';
   import RunControls from '../components/RunControls.svelte';
+  import MaterialSummary from '../components/MaterialSummary.svelte';
   import FlightChecklist from '../components/FlightChecklist.svelte';
   import type { ExecutionView, PreflightReview } from '../api';
   import Stage from '../components/Stage.svelte';
@@ -155,6 +156,7 @@
       <span class="run-msg run-material">{material ? `${recipeLabel(material)} · ${laserLabel(material.laser)}` : 'No material'}</span>
       {#if draft?.calibration}<span class="run-msg run-correction">Correction off</span>{:else if !displayed && draft?.placement.correction_pending}<span class="run-msg run-correction">Correction pending position</span>{/if}
     </div>
+    {#if material}<div class="run-summary"><MaterialSummary source={material} variant="line" /></div>{/if}
     <div class="run-meta">
       <strong>{execution?.frame ? 'Frame' : `${Math.round(pct)}%`}</strong>
       <span>{execution?.frame ? 'Laser off' : `${done} / ${contours} passes`}</span>
@@ -235,6 +237,7 @@
 .crumb { grid-column:1 / -1; min-width:0; }
 .crumb > strong { flex:none; max-width:40%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .run-material { flex:1; }
+.run-summary { grid-column:1 / -1; min-width:0; }
 .run-correction { flex:none; }
 .run-meta { white-space:nowrap; gap:10px; align-items:center; }
 .panel-head > .actions { display:block; min-width:0; text-align:right; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }

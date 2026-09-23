@@ -544,7 +544,7 @@ pub struct RecipeView {
     pub key: String,
     /// The recipe the film pass runs with, when film removal is on.
     pub film: Option<Id>,
-    /// Cutting speed, power, pressure and height, as the vendor stores them.
+    /// The headline values every screen summarises the recipe with.
     pub summary: RecipeSummary,
     /// Every attribute, for the editor.
     pub attributes: std::collections::BTreeMap<String, String>,
@@ -562,46 +562,78 @@ pub struct RecipeView {
     pub updated: u64,
 }
 
-/// The headline process values of a recipe.
+/// The headline process values of a recipe, as the vendor stores them: the
+/// one summary every screen shows. `peak` is the laser's power setting and
+/// `duty` the part of each pulse period it is on; the interface names them
+/// Power and Duty (see `ui/DESIGN.md`).
 #[cfg_attr(feature = "typescript", derive(ts_rs::TS), ts(export))]
 #[derive(Clone, Debug, Default, PartialEq, Serialize)]
 pub struct RecipeSummary {
     /// `CutSpeed` in millimetres per second.
     pub speed: Option<String>,
-    /// `CutPower` in percent.
-    pub power: Option<String>,
-    /// `CutAirPressure` in bar.
-    pub pressure: Option<String>,
-    /// `CutHeight` in millimetres.
-    pub height: Option<String>,
+    /// Peak power in percent: `CutPeakCurrent`.
+    pub peak: Option<String>,
+    /// Duty cycle in percent: `CutPower` on a fiber laser, `CutDuty` on CO2.
+    pub duty: Option<String>,
     /// `CutFreq` in hertz.
     pub frequency: Option<String>,
     /// `CutGasType`, the gas selection 0 to 5.
     pub gas: Option<String>,
+    /// `CutAirPressure` in bar.
+    pub pressure: Option<String>,
+    /// `CutHeight`, the nozzle gap while cutting, in millimetres.
+    pub height: Option<String>,
+    /// The nozzle, focus and lens the head is set up with.
+    pub setup: crate::recipes::setup::HeadSetup,
+    /// The ordinary piercing stages the machining type runs, 0 for none.
+    pub pierce_stages: u8,
+    /// Whether smooth piercing replaces the stages.
+    pub smooth_pierce: bool,
 }
 
 impl RecipeSummary {
-    /// The headline values of a layer bank.
+    /// The headline values of a layer bank for `laser`.
     #[must_use]
-    pub fn of(attributes: &std::collections::BTreeMap<String, String>) -> Self {
+    pub fn of(attributes: &std::collections::BTreeMap<String, String>, laser: LaserMode) -> Self {
         let get = |key: &str| attributes.get(key).cloned();
+        let (duty, other) =
+            if laser == LaserMode::Co2 { ("CutDuty", "CutPower") } else { ("CutPower", "CutDuty") };
+        let kind =
+            attributes.get("ManuType").and_then(|v| v.trim().parse::<u8>().ok()).unwrap_or(0);
         Self {
             speed: get("CutSpeed"),
-            power: get("CutPower").or_else(|| get("CutDuty")),
-            pressure: get("CutAirPressure"),
-            height: get("CutHeight"),
+            peak: get("CutPeakCurrent"),
+            duty: get(duty).or_else(|| get(other)),
             frequency: get("CutFreq"),
             gas: get("CutGasType"),
+            pressure: get("CutAirPressure"),
+            height: get("CutHeight"),
+            setup: crate::recipes::setup::HeadSetup::of(attributes),
+            pierce_stages: openlaser_xml::recipe::MACHINING_KINDS
+                .iter()
+                .find(|(k, _)| *k == kind)
+                .map_or(0, |(_, stages)| *stages),
+            smooth_pierce: attributes.get("EnableSmoothPierce").is_some_and(|v| v.trim() == "1"),
         }
+    }
+
+    /// A library recipe's summary: CO2 always cuts with High Air, whose
+    /// pressure is not set electronically.
+    #[must_use]
+    pub fn of_recipe(recipe: &Recipe) -> Self {
+        let mut summary = Self::of(&recipe.attributes, recipe.laser);
+        if recipe.laser == LaserMode::Co2 {
+            summary.gas = Some(openlaser_xml::recipe::CO2_GAS.to_string());
+            summary.pressure = None;
+        }
+        summary
     }
 }
 
 impl RecipeView {
     pub(crate) fn new(recipe: &Recipe) -> Self {
-        let mut summary = RecipeSummary::of(&recipe.attributes);
+        let summary = RecipeSummary::of_recipe(recipe);
         let gas = if recipe.laser == LaserMode::Co2 {
-            summary.gas = Some(openlaser_xml::recipe::CO2_GAS.to_string());
-            summary.pressure = None;
             crate::recipes::GAS[3].to_owned()
         } else {
             recipe.gas.clone()
@@ -989,6 +1021,8 @@ pub struct MaterialView {
     pub gas: String,
     /// The laser this recipe uses.
     pub laser: LaserMode,
+    /// The recipe's headline values as the program was compiled with them.
+    pub summary: RecipeSummary,
 }
 
 impl From<&Recipe> for MaterialView {
@@ -998,6 +1032,7 @@ impl From<&Recipe> for MaterialView {
             thickness_mm: recipe.thickness_mm,
             gas: recipe.gas.clone(),
             laser: recipe.laser,
+            summary: RecipeSummary::of_recipe(recipe),
         }
     }
 }

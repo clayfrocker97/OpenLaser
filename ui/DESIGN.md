@@ -76,6 +76,31 @@ touch-first CNC interface and adapted for a laser.
   machine.** Go origin (a move) and Set origin (a reference) stay visibly
   different.
 
+## Power and duty
+
+Laser output has two settings, and every label keeps them apart:
+
+- **Power** is the peak power setting in percent: the laser's output
+  while the beam is on (`CutPeakCurrent` and the stage, smooth-pierce and
+  slag-removal `…PeakCurrent` fields). It is a command, not measured watts.
+- **Duty** is the duty cycle in percent: the part of each pulse period the
+  beam is on (`CutPower` on fiber, `CutDuty` on CO₂, and the stage `…Power`
+  fields despite their vendor names).
+
+Never write "power" for a duty cycle, "peak output" or "duty cycle" as a
+field name, or "% power" beside a duty value. Frequency stays Frequency.
+
+## Material summary
+
+A recipe is summarised the same way everywhere: the library, the recipe
+page, Setup's material card and picker, Run, the phone and the import
+review. Use `components/MaterialSummary.svelte` (or `summaryLine` from
+`lib/summary.ts` for plain text); never lay out recipe values by hand. It
+shows, in order: Speed, Power, Duty, Frequency, Gas (with its pressure),
+Nozzle (bore and single or double), Focus, Lens, Cut height and Pierce.
+The grid shows every value, `—` where the recipe does not say; the line
+shows the values that are set.
+
 ## Colour
 
 | Colour | Means |
