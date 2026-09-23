@@ -91,6 +91,8 @@ class Ui {
   favTools = $state<string[]>(remembered('ol-bar', FEATURE_IDS.filter(id => id !== 'common')));
   editBar = $state(false);
   jogFast = $state(false);
+  /** The X/Y step a tap on a jog key moves, in millimetres. Holding a key jogs continuously. */
+  jogStep = $state<number>(remembered<number | null>('ol-jog-step', 1) ?? 1);
   snap = $state(remembered('ol-snap', true));
   grid = $state(remembered('ol-grid', 1));
   /** Canvas layers the operator switched off. */
@@ -123,6 +125,7 @@ class Ui {
   }
 
   setGrid(value: number): void { this.grid = value; remember('ol-grid', value); }
+  setJogStep(step: number): void { this.jogStep = step; remember('ol-jog-step', step); }
   toggleSnap(): void { this.snap = !this.snap; remember('ol-snap', this.snap); }
 
   setBar(tools: string[]): void {

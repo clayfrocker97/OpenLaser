@@ -19,4 +19,10 @@ step_mm: number | null,
 /**
  * Fast or slow.
  */
-fast: boolean, };
+fast: boolean,
+/**
+ * For a diagonal jog, the direction of the other axis. Both axes travel
+ * the same distance, so the head moves at 45° and stops at whichever
+ * limit comes first.
+ */
+diagonal?: boolean, };

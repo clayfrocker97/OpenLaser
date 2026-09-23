@@ -401,6 +401,12 @@ pub struct JogRequest {
     pub step_mm: Option<f64>,
     /// Fast or slow.
     pub fast: bool,
+    /// For a diagonal jog, the direction of the other axis. Both axes travel
+    /// the same distance, so the head moves at 45° and stops at whichever
+    /// limit comes first.
+    #[serde(default)]
+    #[cfg_attr(feature = "typescript", ts(optional))]
+    pub diagonal: Option<bool>,
 }
 
 /// A held W/table jog at an operator-selected speed.
@@ -558,7 +564,7 @@ pub async fn pulse(shared: &Shared, duration_ms: u32, power: u8) -> Result<()> {
     start_run(shared, owner, epoch, requested, result, "Laser pulse").await
 }
 
-/// Jogs X or Y: a step, or a held move until released.
+/// Jogs X or Y, or both at 45°: a step, or a held move until released.
 pub async fn jog(shared: &Shared, request: JogRequest, lease: Option<Lease>) -> Result<()> {
     shared.epoch()?;
     let requested = Instant::now();
@@ -587,18 +593,33 @@ pub async fn jog(shared: &Shared, request: JogRequest, lease: Option<Lease>) -> 
             within_bank(jog.extent[request.axis], &verified.banks[request.axis], scale);
         jog.soft_limit = true;
         let state = coordinator.machine.state();
-        let travel = if state.xy_recovery {
-            if let Some(blocked) =
-                &state.xy_jog_blocked[request.axis][usize::from(request.positive)]
-            {
-                return Err(Error::Refused(blocked.clone()));
-            }
-            openlaser_xml::bindings::coordinate(delta_mm.clamp(-1., 1.), scale)?
-        } else {
-            jog.travel(request.axis, position[request.axis], delta_mm, held, scale)?
-        };
         let mut delta = [0, 0];
-        delta[request.axis] = travel;
+        if let Some(other_positive) = request.diagonal {
+            if state.xy_recovery {
+                return Err(Error::Refused(
+                    "limit recovery moves one axis at a time; jog straight off the limit".into(),
+                ));
+            }
+            let other = 1 - request.axis;
+            let other_mm = if other_positive { step } else { -step };
+            let first = jog.travel(request.axis, position[request.axis], delta_mm, held, scale)?;
+            let second = jog.travel(other, position[other], other_mm, held, scale)?;
+            // Equal distances keep the move at 45°; the nearer limit ends it.
+            let distance = first.unsigned_abs().min(second.unsigned_abs()).cast_signed();
+            delta[request.axis] = distance * first.signum();
+            delta[other] = distance * second.signum();
+        } else {
+            delta[request.axis] = if state.xy_recovery {
+                if let Some(blocked) =
+                    &state.xy_jog_blocked[request.axis][usize::from(request.positive)]
+                {
+                    return Err(Error::Refused(blocked.clone()));
+                }
+                openlaser_xml::bindings::coordinate(delta_mm.clamp(-1., 1.), scale)?
+            } else {
+                jog.travel(request.axis, position[request.axis], delta_mm, held, scale)?
+            };
+        }
         let fast = usize::from(request.fast);
         let motion = Request {
             delta,

@@ -24,6 +24,8 @@ struct MachineRequest {
     output: Option<OutputRequest>,
     mode: Option<LaserMode>,
     alarm: Option<u32>,
+    /// Machine X and Y in millimetres for Go to X/Y.
+    xy: Option<[f64; 2]>,
     #[serde(default)]
     fast: bool,
 }
@@ -63,6 +65,7 @@ pub(super) fn routes() -> Router<Shared> {
         .route("/api/machine/pulse", post(pulse))
         .route("/api/machine/gas-test", post(gas_test))
         .route("/api/machine/go-origin", post(go_origin))
+        .route("/api/machine/go-xy", post(go_xy))
         .route("/api/machine/release", post(release))
         .route("/api/machine/heartbeat", post(heartbeat))
         .route("/api/machine/outputs", post(outputs))
@@ -146,6 +149,13 @@ async fn gas_test(State(shared): State<Shared>, body: Body) -> Reply {
 async fn go_origin(State(shared): State<Shared>, body: Body) -> Reply {
     let request = input(&shared, body)?;
     machine::go_origin(&shared, request.fast).await?;
+    Ok(ok())
+}
+
+async fn go_xy(State(shared): State<Shared>, body: Body) -> Reply {
+    let request = input(&shared, body)?;
+    let xy = request.xy.ok_or_else(|| Error::Request("Go to X/Y needs a target".into()))?;
+    machine::go_xy(&shared, xy).await?;
     Ok(ok())
 }
 

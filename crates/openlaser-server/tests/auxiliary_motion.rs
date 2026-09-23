@@ -97,7 +97,7 @@ async fn connection_initializes_mismatched_parameters_then_allows_jogging() {
     assert!(control.view().pwm.iter().all(|p| p[1] == 0));
     machine::jog(
         &shared,
-        JogRequest { axis: 0, positive: true, step_mm: Some(10.), fast: false },
+        JogRequest { axis: 0, positive: true, step_mm: Some(10.), fast: false, diagonal: None },
         None,
     )
     .await
@@ -132,7 +132,13 @@ async fn unreadable_live_travel_or_resolution_still_refuses_jogging() {
         assert!(
             machine::jog(
                 &shared,
-                JogRequest { axis: 0, positive: true, step_mm: Some(1.), fast: false },
+                JogRequest {
+                    axis: 0,
+                    positive: true,
+                    step_mm: Some(1.),
+                    fast: false,
+                    diagonal: None
+                },
                 None
             )
             .await
@@ -170,7 +176,7 @@ async fn an_unreferenced_machine_can_jog_xy_z_and_w_then_home() {
     for axis in 0..2 {
         machine::jog(
             &shared,
-            JogRequest { axis, positive: true, step_mm: Some(2.), fast: false },
+            JogRequest { axis, positive: true, step_mm: Some(2.), fast: false, diagonal: None },
             None,
         )
         .await
@@ -236,7 +242,7 @@ async fn unrelated_faults_still_block_manual_positioning_and_z_recovery() {
         assert!(control.writes().is_empty(), "a faulted home emitted motion");
         let refused = machine::jog(
             &shared,
-            JogRequest { axis: 0, positive: true, step_mm: Some(1.), fast: false },
+            JogRequest { axis: 0, positive: true, step_mm: Some(1.), fast: false, diagonal: None },
             None,
         )
         .await
@@ -270,7 +276,7 @@ async fn homing_sequences_head_before_xy_and_auxiliary_axes_remain_independent()
     for axis in 0..2 {
         machine::jog(
             &shared,
-            JogRequest { axis, positive: true, step_mm: Some(5.), fast: false },
+            JogRequest { axis, positive: true, step_mm: Some(5.), fast: false, diagonal: None },
             None,
         )
         .await
@@ -361,5 +367,50 @@ async fn homing_sequences_head_before_xy_and_auxiliary_axes_remain_independent()
     println!(
         "AXIS_ACCEPTANCE head-before-XY; stalled/cancelled home refused; XY home; Z up/down/release; W up/down/release/limits; axes independent; outputs off"
     );
+    openlaser_server::shutdown(&shared).await.unwrap();
+}
+
+/// A diagonal jog moves X and Y together by the same distance, and Go to
+/// X/Y reaches a typed machine position once the machine is homed.
+#[tokio::test]
+async fn a_diagonal_jog_moves_both_axes_and_go_to_xy_reaches_the_target() {
+    let (simulator, shared) = start("diagonal-jog").await;
+    common::seed(&shared, &simulator).await;
+    connect::connect(&shared).await.unwrap();
+    machine::home(&shared).await.unwrap();
+    until(&shared, 10, |d| d.machine.session.homed && d.machine.operation.is_none()).await;
+    let start = shared.lock().await.document().machine.feedback.unwrap().position_mm;
+    machine::jog(
+        &shared,
+        JogRequest {
+            axis: 0,
+            positive: true,
+            step_mm: Some(3.),
+            fast: false,
+            diagonal: Some(true),
+        },
+        None,
+    )
+    .await
+    .unwrap();
+    until(&shared, 5, |d| {
+        d.machine.operation.is_none()
+            && d.machine.feedback.as_ref().is_some_and(|f| {
+                f.stationary
+                    && (f.position_mm[0] - start[0] - 3.).abs() < 0.01
+                    && (f.position_mm[1] - start[1] - 3.).abs() < 0.01
+            })
+    })
+    .await;
+    machine::go_xy(&shared, [20., 15.]).await.unwrap();
+    until(&shared, 10, |d| {
+        d.machine.operation.is_none()
+            && d.machine.feedback.as_ref().is_some_and(|f| {
+                f.stationary
+                    && (f.position_mm[0] - 20.).abs() < 0.01
+                    && (f.position_mm[1] - 15.).abs() < 0.01
+            })
+    })
+    .await;
     openlaser_server::shutdown(&shared).await.unwrap();
 }

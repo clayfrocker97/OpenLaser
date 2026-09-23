@@ -32,7 +32,7 @@ fn short_stroke(name: &str, simulator: &Simulator) -> openlaser_server::Config {
 async fn press(shared: &Shared, axis: usize, positive: bool, sequence: u64) {
     machine::jog(
         shared,
-        JogRequest { axis, positive, step_mm: None, fast: true },
+        JogRequest { axis, positive, step_mm: None, fast: true, diagonal: None },
         Some(lease(sequence)),
     )
     .await
@@ -85,7 +85,7 @@ async fn every_xy_limit_at_connection_offers_only_the_away_direction_then_home()
                 assert!(
                     machine::jog(
                         &shared,
-                        JogRequest { axis, positive, step_mm: None, fast: true },
+                        JogRequest { axis, positive, step_mm: None, fast: true, diagonal: None },
                         Some(lease(1))
                     )
                     .await
@@ -139,7 +139,7 @@ async fn a_stuck_xy_limit_stays_bounded_and_an_emergency_stop_still_blocks() {
     control.clear_writes();
     machine::jog(
         &shared,
-        JogRequest { axis: 0, positive: false, step_mm: None, fast: true },
+        JogRequest { axis: 0, positive: false, step_mm: None, fast: true, diagonal: None },
         Some(lease(1)),
     )
     .await
@@ -158,7 +158,7 @@ async fn a_stuck_xy_limit_stays_bounded_and_an_emergency_stop_still_blocks() {
     assert!(
         machine::jog(
             &shared,
-            JogRequest { axis: 0, positive: false, step_mm: Some(1.), fast: false },
+            JogRequest { axis: 0, positive: false, step_mm: Some(1.), fast: false, diagonal: None },
             None
         )
         .await
@@ -206,7 +206,7 @@ async fn cooling_and_source_alarms_allow_setup_and_axes_but_keep_cutting_closed(
     for axis in 0..2 {
         machine::jog(
             &shared,
-            JogRequest { axis, positive: true, step_mm: Some(1.), fast: false },
+            JogRequest { axis, positive: true, step_mm: Some(1.), fast: false, diagonal: None },
             None,
         )
         .await
@@ -237,7 +237,7 @@ async fn cooling_and_source_alarms_allow_setup_and_axes_but_keep_cutting_closed(
     assert!(
         machine::jog(
             &shared,
-            JogRequest { axis: 0, positive: true, step_mm: Some(1.), fast: false },
+            JogRequest { axis: 0, positive: true, step_mm: Some(1.), fast: false, diagonal: None },
             None
         )
         .await

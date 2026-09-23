@@ -52,7 +52,7 @@ async function openDraft(path: string, body?: unknown): Promise<DraftReply> {
 }
 
 /** The machine actions the server accepts. */
-export type MachineAction = 'pulse' | 'gas-test' | 'table' | 'connect' | 'cancel' | 'disconnect' | 'home' | 'calibrate' | 'jog' | 'go-origin' | 'frame' | 'release' | 'heartbeat' | 'outputs' | 'mode' | 'relieve' | 'run' | 'resume' | 'hold' | 'stop';
+export type MachineAction = 'pulse' | 'gas-test' | 'table' | 'connect' | 'cancel' | 'disconnect' | 'home' | 'calibrate' | 'jog' | 'go-origin' | 'go-xy' | 'frame' | 'release' | 'heartbeat' | 'outputs' | 'mode' | 'relieve' | 'run' | 'resume' | 'hold' | 'stop';
 
 export interface TextOptions {
   value: string;
@@ -178,7 +178,7 @@ export const api = {
 
   /** The adapter, controller address or computer address the next Connect uses. */
   setRoute: (change: RouteChange) => post('/api/machine/route', change),
-  machine: (action: MachineAction, body: { pulse?: { duration_ms: number; power: number }; gas_test?: { selector: number; pressure: number; duration_ms: number }; table?: TableRequest; preflight?: PreflightConfirmation; lease?: Lease; jog?: JogRequest; output?: OutputRequest; mode?: LaserMode; alarm?: number | null; fast?: boolean } = {}) => post(`/api/machine/${action}`, body),
+  machine: (action: MachineAction, body: { pulse?: { duration_ms: number; power: number }; gas_test?: { selector: number; pressure: number; duration_ms: number }; table?: TableRequest; preflight?: PreflightConfirmation; lease?: Lease; jog?: JogRequest; output?: OutputRequest; mode?: LaserMode; alarm?: number | null; xy?: [number, number]; fast?: boolean } = {}) => post(`/api/machine/${action}`, body),
 };
 
 /**
