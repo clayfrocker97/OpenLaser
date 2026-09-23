@@ -173,7 +173,7 @@
   {:else if ui.setupPanel === 'copy'}
     <CopyPanel />
   {:else if ui.setupPanel === 'clipboard'}
-    <ClipboardPanel {clipboard} bind:settings={pasteSettings} {pasting} disabled={draft.error === 'preparing geometry' || !pasteable(clipboard, draft) || !!ui.picking || !!ui.nestPreview || ui.nestPicking} onpaste={() => { void canvas?.paste(pasteSettings.count); }} />
+    <ClipboardPanel {clipboard} bind:settings={pasteSettings} {pasting} disabled={draft.error === 'preparing geometry' || !pasteable(clipboard, draft) || !!ui.picking || ui.nestShown || ui.nestPicking} onpaste={() => { void canvas?.paste(pasteSettings.count); }} />
   {:else if ui.setupPanel === 'nest'}
     <NestPanel {selectedContours} onselectall={() => canvas?.selectAll()} />
   {:else if ui.setupPanel}

@@ -333,3 +333,55 @@ async fn nested_sheets_save_as_jobs_of_their_own_parts() {
     sources.sort_unstable();
     assert_eq!(sources, [0, 1], "the tab and the disc renumbered from the start");
 }
+
+/// A running search shows where it has the parts, copy by copy, before it
+/// has a result; the result itself is shown once it is done.
+#[tokio::test]
+async fn a_running_nest_shows_its_arrangement_as_it_goes() {
+    let (_simulator, shared) = start("parts-live-nest").await;
+    {
+        let mut c = shared.lock().await;
+        let [a, b, disc] = parts(&mut c);
+        let recipe = recipe(&mut c);
+        c.open_parts(&[a, b, disc]).unwrap();
+        c.set_recipe(&recipe).unwrap();
+        c.set_features(Features { leads: None, kerf: None, ..Features::default() }).unwrap();
+    }
+    machine::prepare(&shared).await.unwrap();
+    shared.lock().await.set_stock(StockChoice::Rectangle { width: 600., height: 400. }).unwrap();
+    machine::prepare(&shared).await.unwrap();
+    let revision = shared.lock().await.document().draft_revision;
+    let groups = shared.lock().await.draft.as_ref().unwrap().groups.len();
+    let request = NestRequest {
+        contours: vec![2],
+        quantity: 15,
+        settings: NestSettings {
+            remnant_clearance: 0.,
+            spacing: 3.,
+            margin: 3.,
+            rotation: NestRotation::Fixed,
+        },
+        seconds: 3,
+    };
+    let task = nesting::start(&shared, revision, request).await.unwrap();
+    let mut serials = Vec::new();
+    let finished = loop {
+        let view = nesting::status(&shared, task.id).await.unwrap();
+        if !view.running {
+            break view;
+        }
+        if let Some(live) = &view.live {
+            assert_eq!(live.sheet, 1);
+            assert!(!live.stock_outline.is_empty());
+            assert!(live.copies.iter().all(|copy| copy.group < groups));
+            assert!(live.copies.len() <= 17);
+            serials.push(view.live_serial);
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+    };
+    assert!(finished.error.is_none(), "{:?}", finished.error);
+    assert!(finished.live.is_none(), "a finished search shows its result instead");
+    assert!(!serials.is_empty(), "the search showed nothing while it ran");
+    assert!(serials.windows(2).all(|w| w[0] <= w[1]));
+    assert!(finished.preview.is_some());
+}

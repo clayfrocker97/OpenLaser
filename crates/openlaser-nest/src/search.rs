@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use crate::polygon::{GUARD, contains, polygon};
-use crate::{Error, Placement, Request, Solution};
-use jagua_rs::entities::{Container, Item, Layout};
+use crate::{Error, Placement, Request, SheetSolution, Solution};
+use jagua_rs::entities::{Container, Item, Layout, PlacedItem};
 use jagua_rs::geometry::DTransformation;
 use jagua_rs::geometry::shape_modification::ShapeModifyConfig;
 use jagua_rs::io::export::int_to_ext_transformation;
 use jagua_rs::io::ext_repr::{ExtContainer, ExtItem, ExtQualityZone, ExtSPolygon, ExtShape};
 use jagua_rs::io::import::{Importer, ext_to_int_transformation};
-use jagua_rs::probs::spp::entities::{SPInstance, SPSolution, Strip};
+use jagua_rs::probs::spp::entities::{SPInstance, SPProblem, SPSolution, Strip};
 use openlaser_core::geometry::{Point, Transform};
 use openlaser_core::nesting::NestRotation;
 use rand::rngs::Xoshiro256PlusPlus;
@@ -18,10 +18,37 @@ use sparrow::eval::lbf_evaluator::LBFEvaluator;
 use sparrow::eval::sample_eval::{SampleEval, SampleEvaluator};
 use sparrow::sample::search::{SampleConfig, search_placement};
 use sparrow::util::listener::DummySolListener;
+use sparrow::util::listener::{ReportType, SolutionListener};
 use sparrow::util::terminator::Terminator;
 use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
+
+/// How often a running search shows where it stands.
+pub const LIVE_INTERVAL: Duration = Duration::from_millis(200);
+
+/// Shows a search's sheets as they stand and which one just changed, at
+/// most every [`LIVE_INTERVAL`].
+pub(crate) struct Live<'a> {
+    show: &'a (dyn Fn(&[SheetSolution], usize) + Sync),
+    last: Option<Instant>,
+}
+
+impl<'a> Live<'a> {
+    pub(crate) fn new(show: &'a (dyn Fn(&[SheetSolution], usize) + Sync)) -> Self {
+        Self { show, last: None }
+    }
+
+    /// Whether the last showing is old enough for another.
+    fn due(&mut self) -> bool {
+        let now = Instant::now();
+        if self.last.is_some_and(|last| now - last < LIVE_INTERVAL) {
+            return false;
+        }
+        self.last = Some(now);
+        true
+    }
+}
 
 struct Budget<'a> {
     cancel: &'a AtomicBool,
@@ -80,6 +107,16 @@ pub(crate) fn run(
     progress: &(impl Fn(usize, usize) + Sync),
 ) -> Result<Solution, Error> {
     let total = validate(request)?;
+    let whole = request
+        .items
+        .iter()
+        .fold([0, 0], |sum, item| (0..item.quantity).fold(sum, |sum, _| plus(sum, load(item))));
+    if !fits(&request.sheet_limit, whole) {
+        return Err(Error(format!(
+            "these copies hold {} contours and {} lines and arcs; one sheet can prepare {} and {}",
+            whole[0], whole[1], request.sheet_limit.contours, request.sheet_limit.curves
+        )));
+    }
     check_cancelled(cancel)?;
     let geometry = geometry(request, cancel)?;
     // Shape preparation has its own bound; the requested duration is search time.
@@ -91,7 +128,8 @@ pub(crate) fn run(
     check_cancelled(cancel)?;
     let mut best = best.ok_or_else(|| Error(format!("no complete layout found ({} of {total} parts placed); try fewer copies, a larger container, less spacing, or different rotations", progress.most_placed)))?;
     if request.rectangular && request.cutouts.is_empty() && !budget.kill() {
-        best = compress(best, &geometry.items, &geometry.stock, &mut budget, &mut rng)?;
+        let mut quiet = DummySolListener;
+        best = compress(best, &geometry.items, &geometry.stock, &mut budget, &mut rng, &mut quiet)?;
     }
     check_cancelled(cancel)?;
     if !best.is_feasible() || best.placed_items.len() != total {
@@ -111,7 +149,8 @@ pub(crate) fn run_sheets(
     overflow: Option<&openlaser_core::geometry::Contour>,
     cancel: &AtomicBool,
     progress: &(impl Fn(usize, usize) + Sync),
-) -> Result<Vec<crate::SheetSolution>, Error> {
+    live: &mut Live<'_>,
+) -> Result<Vec<SheetSolution>, Error> {
     let total = validate(request)?;
     check_cancelled(cancel)?;
     let first = geometry(request, cancel)?;
@@ -123,8 +162,9 @@ pub(crate) fn run_sheets(
     }
     let blank = if overflow.is_some() { Some(geometry(&blank_request, cancel)?) } else { None };
     let next = blank.as_ref().unwrap_or(&first);
+    let stocks = Stocks { first: &first, next, request, blank: &blank_request };
     let deadline = Instant::now() + request.time_limit;
-    let budget = Budget { cancel, deadline, phase: deadline };
+    let mut budget = Budget { cancel, deadline, phase: deadline };
     let mut rng = Xoshiro256PlusPlus::seed_from_u64(request.seed);
     let mut order: Vec<usize> =
         first.items.iter().enumerate().flat_map(|(i, (_, q))| std::iter::repeat_n(i, *q)).collect();
@@ -132,6 +172,8 @@ pub(crate) fn run_sheets(
         first.items[*b].0.shape_cd.area.total_cmp(&first.items[*a].0.shape_cd.area)
     });
     let mut layouts = vec![Layout::new(first.stock.clone())];
+    // Each sheet's contours and curves, kept within what preparation accepts.
+    let mut loads = vec![[0, 0]];
     for (placed, id) in order.into_iter().enumerate() {
         check_cancelled(cancel)?;
         if budget.kill() {
@@ -139,15 +181,20 @@ pub(crate) fn run_sheets(
                 "nesting time limit reached ({placed} of {total} parts); increase search time"
             )));
         }
-        let mut fitted = false;
+        let copy = load(&request.items[id]);
+        let mut fitted = None;
         for (index, layout) in layouts.iter_mut().enumerate() {
+            if !fits(&request.sheet_limit, plus(loads[index], copy)) {
+                continue;
+            }
             let geometry = if index == 0 { &first } else { next };
             if place_one(layout, &geometry.items[id].0, &budget, &mut rng) {
-                fitted = true;
+                loads[index] = plus(loads[index], copy);
+                fitted = Some(index);
                 break;
             }
         }
-        if !fitted {
+        if fitted.is_none() {
             if budget.kill() {
                 return Err(Error(format!(
                     "nesting time limit reached ({placed} of {total} parts); increase search time"
@@ -161,38 +208,127 @@ pub(crate) fn run_sheets(
                 )));
             }
             layouts.push(layout);
+            loads.push(copy);
         }
         progress(placed + 1, total);
+        if live.due() {
+            (live.show)(&stocks.standing(&layouts), fitted.unwrap_or(layouts.len() - 1));
+        }
     }
     check_cancelled(cancel)?;
-    let mut counts = vec![0usize; request.items.len()];
-    let mut sheets = Vec::new();
-    for (index, layout) in layouts.into_iter().enumerate() {
-        if layout.placed_items.is_empty() {
-            continue;
-        }
-        if !layout.is_feasible() {
-            return Err(Error("a sheet failed its collision check".into()));
-        }
-        let geometry = if index == 0 { &first } else { next };
-        let input = if index == 0 { request } else { &blank_request };
-        let layout = solution(
-            input,
-            &layout,
-            &geometry.items,
-            geometry.origin,
-            &geometry.item_origins,
-            false,
-        )?;
-        for placement in &layout.placements {
-            counts[placement.item] += 1;
-        }
-        sheets.push(crate::SheetSolution { original: index == 0, layout });
+    let last = layouts.len() - 1;
+    let (geometry, input) = stocks.of(last);
+    // Every sheet before the last stays as it is while the last compacts.
+    let earlier = stocks.standing(&layouts[..last]);
+    let mut compacting = Compacting { earlier, input, geometry, original: last == 0, live };
+    compress_last(&mut layouts[last], geometry, input, &mut budget, &mut rng, &mut compacting);
+    check_cancelled(cancel)?;
+    stocks.finished(layouts)
+}
+
+/// Each sheet's geometry and request: the original stock for the first
+/// sheet, the overflow stock for the rest.
+struct Stocks<'a> {
+    first: &'a Geometry,
+    next: &'a Geometry,
+    request: &'a Request,
+    blank: &'a Request,
+}
+
+impl Stocks<'_> {
+    fn of(&self, index: usize) -> (&Geometry, &Request) {
+        if index == 0 { (self.first, self.request) } else { (self.next, self.blank) }
     }
-    if counts.iter().zip(&request.items).any(|(count, item)| *count != item.quantity) {
-        return Err(Error("multi-sheet nesting lost a requested copy".into()));
+
+    /// Every sheet as it stands, for showing.
+    fn standing(&self, layouts: &[Layout]) -> Vec<SheetSolution> {
+        layouts
+            .iter()
+            .enumerate()
+            .map(|(index, layout)| {
+                let (geometry, input) = self.of(index);
+                so_far(input, layout.placed_items.values(), geometry, index == 0)
+            })
+            .collect()
     }
-    Ok(sheets)
+
+    /// The finished sheets, each checked, with every requested copy placed.
+    fn finished(&self, layouts: Vec<Layout>) -> Result<Vec<SheetSolution>, Error> {
+        let mut counts = vec![0usize; self.request.items.len()];
+        let mut sheets = Vec::new();
+        for (index, layout) in layouts.into_iter().enumerate() {
+            if layout.placed_items.is_empty() {
+                continue;
+            }
+            if !layout.is_feasible() {
+                return Err(Error("a sheet failed its collision check".into()));
+            }
+            let (geometry, input) = self.of(index);
+            let layout = solution(
+                input,
+                &layout,
+                &geometry.items,
+                geometry.origin,
+                &geometry.item_origins,
+                false,
+            )?;
+            for placement in &layout.placements {
+                counts[placement.item] += 1;
+            }
+            sheets.push(SheetSolution { original: index == 0, layout });
+        }
+        if counts.iter().zip(&self.request.items).any(|(count, item)| *count != item.quantity) {
+            return Err(Error("multi-sheet nesting lost a requested copy".into()));
+        }
+        Ok(sheets)
+    }
+}
+
+/// Every sheet before the last is full. Compress the last one towards its
+/// start with the remaining time, so its offcut is left in one piece; a
+/// failed compression keeps the first-fit layout.
+fn compress_last(
+    layout: &mut Layout,
+    geometry: &Geometry,
+    input: &Request,
+    budget: &mut Budget<'_>,
+    rng: &mut Xoshiro256PlusPlus,
+    listener: &mut impl SolutionListener,
+) {
+    if !input.rectangular || !input.cutouts.is_empty() || budget.kill() {
+        return;
+    }
+    let mut copies: Vec<(Item, usize)> =
+        geometry.items.iter().map(|(item, _)| (item.clone(), 0)).collect();
+    for placed in layout.placed_items.values() {
+        copies[placed.item_id].1 += 1;
+    }
+    if let Ok(compressed) =
+        compress(layout.clone(), &copies, &geometry.stock, budget, rng, listener)
+    {
+        *layout = compressed;
+    }
+}
+
+/// Shows the last sheet each time compaction finds a tighter arrangement
+/// without overlaps, beside the sheets already full.
+struct Compacting<'a, 'b> {
+    earlier: Vec<SheetSolution>,
+    input: &'b Request,
+    geometry: &'b Geometry,
+    original: bool,
+    live: &'b mut Live<'a>,
+}
+
+impl SolutionListener for Compacting<'_, '_> {
+    fn report(&mut self, report: ReportType, solution: &SPSolution, _: &SPInstance) {
+        if matches!(report, ReportType::ExplFeas | ReportType::CmprFeas) && self.live.due() {
+            let placed = solution.layout_snapshot.placed_items.values();
+            let mut sheets = self.earlier.clone();
+            sheets.push(so_far(self.input, placed, self.geometry, self.original));
+            (self.live.show)(&sheets, sheets.len() - 1);
+        }
+    }
 }
 
 fn place_one(
@@ -315,10 +451,6 @@ fn fill_layout(
     }
 }
 
-#[allow(
-    clippy::cast_precision_loss,
-    reason = "at most 500 item quantities are exactly representable"
-)]
 fn solution(
     request: &Request,
     layout: &Layout,
@@ -329,35 +461,79 @@ fn solution(
 ) -> Result<Solution, Error> {
     let mut counts = vec![0; items.len()];
     let mut placements = Vec::new();
-    for pi in layout.placed_items.values() {
-        let item = &items[pi.item_id].0;
-        let dt = int_to_ext_transformation(&pi.d_transf, &item.shape_orig.pre_transform);
-        let (sin, cos) = rotation(dt.rotation(), request.settings.rotation);
-        let item_origin = item_origins[pi.item_id];
-        let (x, y) = dt.translation();
-        let transform = Transform([
-            cos,
-            sin,
-            -sin,
-            cos,
-            origin.x + f64::from(x) - cos * item_origin.x + sin * item_origin.y,
-            origin.y + f64::from(y) - sin * item_origin.x - cos * item_origin.y,
-        ]);
-        let original = &request.items[pi.item_id];
-        let moved: Vec<_> = original.contours.iter().map(|c| transform.contour(c)).collect();
+    for placed in layout.placed_items.values() {
+        let placement = placement(request, placed, items, origin, item_origins);
+        let original = &request.items[placement.item];
+        let moved: Vec<_> =
+            original.contours.iter().map(|c| placement.transform.contour(c)).collect();
         crate::check_region(&request.stock, &request.cutouts, &moved, request.settings.margin)?;
-        counts[pi.item_id] += 1;
-        placements.push(Placement { item: pi.item_id, transform });
+        counts[placement.item] += 1;
+        placements.push(placement);
     }
     if complete && counts.iter().zip(items).any(|(a, (_, b))| a != b) {
         return Err(Error("nesting result lost a requested copy".into()));
     }
+    Ok(Solution { placements, coverage: coverage(request, items, &counts) })
+}
+
+/// A sheet as a running search has it, for showing only: every copy clear
+/// of the others, not yet checked against the stock's own curves.
+fn so_far<'a>(
+    request: &Request,
+    placed: impl Iterator<Item = &'a PlacedItem>,
+    geometry: &Geometry,
+    original: bool,
+) -> SheetSolution {
+    let items = &geometry.items;
+    let placements: Vec<_> = placed
+        .map(|p| placement(request, p, items, geometry.origin, &geometry.item_origins))
+        .collect();
+    let mut counts = vec![0; items.len()];
+    for placement in &placements {
+        counts[placement.item] += 1;
+    }
+    SheetSolution {
+        original,
+        layout: Solution { coverage: coverage(request, items, &counts), placements },
+    }
+}
+
+/// Where a placed copy goes: a rigid transform of its item's contours.
+fn placement(
+    request: &Request,
+    placed: &PlacedItem,
+    items: &[(Item, usize)],
+    origin: Point,
+    item_origins: &[Point],
+) -> Placement {
+    let item = &items[placed.item_id].0;
+    let dt = int_to_ext_transformation(&placed.d_transf, &item.shape_orig.pre_transform);
+    let (sin, cos) = rotation(dt.rotation(), request.settings.rotation);
+    let item_origin = item_origins[placed.item_id];
+    let (x, y) = dt.translation();
+    let transform = Transform([
+        cos,
+        sin,
+        -sin,
+        cos,
+        origin.x + f64::from(x) - cos * item_origin.x + sin * item_origin.y,
+        origin.y + f64::from(y) - sin * item_origin.x - cos * item_origin.y,
+    ]);
+    Placement { item: placed.item_id, transform }
+}
+
+/// The share of the usable stock that `counts` copies of each item cover.
+#[allow(
+    clippy::cast_precision_loss,
+    reason = "at most 500 item quantities are exactly representable"
+)]
+fn coverage(request: &Request, items: &[(Item, usize)], counts: &[usize]) -> f64 {
     let area: f64 =
-        items.iter().zip(&counts).map(|((i, _), q)| f64::from(i.area()) * *q as f64).sum();
+        items.iter().zip(counts).map(|((i, _), q)| f64::from(i.area()) * *q as f64).sum();
     let available = (request.stock.signed_area().abs()
         - request.cutouts.iter().map(|c| c.signed_area().abs()).sum::<f64>())
     .max(area);
-    Ok(Solution { placements, coverage: (area / available).clamp(0., 1.) })
+    (area / available).clamp(0., 1.)
 }
 
 fn validate(request: &Request) -> Result<usize, Error> {
@@ -380,7 +556,26 @@ fn validate(request: &Request) -> Result<usize, Error> {
     {
         return Err(Error("invalid nesting time or machining clearance".into()));
     }
+    if request.items.iter().any(|item| !fits(&request.sheet_limit, load(item))) {
+        return Err(Error(format!(
+            "a part holds more than one sheet can prepare ({} contours, {} lines and arcs)",
+            request.sheet_limit.contours, request.sheet_limit.curves
+        )));
+    }
     Ok(total)
+}
+
+/// The contours and curves one copy of `item` adds to a sheet.
+fn load(item: &crate::Item) -> [usize; 2] {
+    [item.contours.len(), item.contours.iter().map(|c| c.curves.len()).sum()]
+}
+
+fn fits(limit: &crate::SheetLimit, load: [usize; 2]) -> bool {
+    load[0] <= limit.contours && load[1] <= limit.curves
+}
+
+fn plus(a: [usize; 2], b: [usize; 2]) -> [usize; 2] {
+    [a[0].saturating_add(b[0]), a[1].saturating_add(b[1])]
 }
 
 struct Geometry {
@@ -602,6 +797,7 @@ fn compress(
     stock: &Container,
     budget: &mut Budget<'_>,
     rng: &mut Xoshiro256PlusPlus,
+    listener: &mut impl SolutionListener,
 ) -> Result<Layout, Error> {
     let bbox = stock.outer_orig.shape.bbox;
     let strip = Strip::new(
@@ -620,28 +816,39 @@ fn compress(
         return Err(Error("rectangular warm start failed its collision check".into()));
     }
     let instance = SPInstance::new(items.to_vec(), strip);
-    let initial =
-        SPSolution { strip, layout_snapshot: layout.save(), time_stamp: jagua_rs::Instant::now() };
+    // Start from a strip fitted to the first fit, as Sparrow does after its
+    // own construction. From the whole sheet, it shrinks by a tenth of a
+    // percent per step and spends the search loosening a tight first fit.
+    let mut start = SPProblem::new(instance.clone());
+    start.restore(&SPSolution {
+        strip,
+        layout_snapshot: layout.save(),
+        time_stamp: jagua_rs::Instant::now(),
+    });
+    start.fit_strip();
+    let initial = start.save();
+    let fitted = initial.strip.width;
     let remaining = budget.deadline.saturating_duration_since(Instant::now());
     let mut config = DEFAULT_SPARROW_CONFIG;
     config.expl_cfg.time_limit = remaining.mul_f64(0.8);
     config.cmpr_cfg.time_limit = remaining.mul_f64(0.2);
     config.expl_cfg.separator_config.n_workers = 2;
     config.cmpr_cfg.separator_config.n_workers = 2;
-    let result = sparrow::optimizer::optimize(
-        instance,
-        rng.clone(),
-        &mut DummySolListener,
-        budget,
-        &config.expl_cfg,
-        &config.cmpr_cfg,
-        Some(&initial),
-    )
-    .map_err(err)?;
+    // Sparrow panics once it shrinks the strip below a part it must place,
+    // which a sheet of few parts can start close to. The first fit stands.
+    let optimized = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        sparrow::optimizer::optimize(
+            instance,
+            rng.clone(),
+            listener,
+            budget,
+            &config.expl_cfg,
+            &config.cmpr_cfg,
+            Some(&initial),
+        )
+    }));
+    let Ok(result) = optimized else { return Ok(layout) };
+    let result = result.map_err(err)?;
     let candidate = Layout::from_snapshot(&result.layout_snapshot);
-    if candidate.is_feasible() && result.strip.width <= strip.width {
-        Ok(candidate)
-    } else {
-        Ok(layout)
-    }
+    if candidate.is_feasible() && result.strip.width <= fitted { Ok(candidate) } else { Ok(layout) }
 }

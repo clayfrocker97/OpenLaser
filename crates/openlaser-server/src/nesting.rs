@@ -7,7 +7,7 @@ use crate::document::Preview;
 use crate::draft::Draft;
 use crate::{Error, Result};
 use openlaser_core::features::{CoolingPlacement, JointPlacement, OrderStrategy, Spot};
-use openlaser_core::geometry::{Bounds, Contour, Curve, Drawing, Placed, Point};
+use openlaser_core::geometry::{Bounds, Contour, Curve, Drawing, Placed, Point, Transform};
 use openlaser_core::nesting::{NestSettings, NestStock, Nesting};
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -80,8 +80,39 @@ pub struct NestView {
     pub coverage: Option<f64>,
     /// Prepared paths for a complete result, never an intermediate overlap.
     pub preview: Option<Arc<Preview>>,
+    /// Changes whenever the running search shows another arrangement.
+    pub live_serial: u64,
+    /// The arrangement as the running search stands, for watching; left out
+    /// of a status when the caller already has `live_serial`.
+    pub live: Option<Arc<NestLive>>,
     /// Error or unsuccessful-search explanation.
     pub error: Option<String>,
+}
+
+/// Where a running search has the draft's groups on the sheet it is filling
+/// or compacting: each copy clear of the others, not yet checked against the
+/// stock's own curves, and never applied.
+#[cfg_attr(feature = "typescript", derive(ts_rs::TS), ts(export))]
+#[derive(Clone, Debug, Serialize)]
+pub struct NestLive {
+    /// One-based number of the sheet shown: the one the search last changed.
+    pub sheet: usize,
+    /// The shown sheet's outer boundary.
+    pub stock_outline: Vec<[f64; 2]>,
+    /// Material already removed from the shown sheet.
+    pub stock_cutouts: Vec<Vec<[f64; 2]>>,
+    /// Every copy on the shown sheet.
+    pub copies: Vec<NestCopy>,
+}
+
+/// One copy of one of the draft's groups in a running search.
+#[cfg_attr(feature = "typescript", derive(ts_rs::TS), ts(export))]
+#[derive(Clone, Copy, Debug, Serialize)]
+pub struct NestCopy {
+    /// The group, as the draft lists its groups.
+    pub group: usize,
+    /// Moves the group from where it lies now to where the copy goes.
+    pub transform: Transform,
 }
 
 /// A compact summary in a nesting preview's sheet switcher.
@@ -263,8 +294,7 @@ pub async fn start(shared: &Shared, revision: u64, request: NestRequest) -> Resu
         ));
     }
     let draft = c.draft.clone().ok_or_else(|| Error::Refused("open a drawing first".into()))?;
-    let drawing = draft.drawing()?.clone();
-    let input = input(&drawing, &draft, &request)?;
+    let input = input(draft.drawing()?, &draft, &request)?;
     let id = NEXT_TASK.fetch_add(1, Ordering::Relaxed);
     let total = input.items.iter().map(|i| i.quantity).sum();
     let view = NestView {
@@ -278,6 +308,8 @@ pub async fn start(shared: &Shared, revision: u64, request: NestRequest) -> Resu
         total,
         coverage: None,
         preview: None,
+        live_serial: 0,
+        live: None,
         error: None,
     };
     let work =
@@ -287,11 +319,17 @@ pub async fn start(shared: &Shared, revision: u64, request: NestRequest) -> Resu
     drop(c);
     tokio::task::spawn_blocking(move || {
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            search_sheets(&draft, &drawing, &input, &cancel, request.settings, |placed, total| {
+            let progress = |placed, total| {
                 let mut work = lock(&work);
                 work.view.placed = placed;
                 work.view.total = total;
-            })
+            };
+            let live = |live| {
+                let mut work = lock(&work);
+                work.view.live_serial += 1;
+                work.view.live = Some(Arc::new(live));
+            };
+            search_sheets(&draft, &input, &cancel, request.settings, progress, live)
         }))
         .unwrap_or_else(|_| {
             Err(Error::Refused(
@@ -300,6 +338,7 @@ pub async fn start(shared: &Shared, revision: u64, request: NestRequest) -> Resu
         });
         let mut w = lock(&work);
         w.view.running = false;
+        w.view.live = None;
         match result {
             Ok((draft, sheets, previews)) if !cancel.load(Ordering::Relaxed) => {
                 w.view.coverage = sheets.first().map(|s| s.coverage);
@@ -321,12 +360,13 @@ pub async fn start(shared: &Shared, revision: u64, request: NestRequest) -> Resu
 
 fn search_sheets(
     draft: &Draft,
-    drawing: &Drawing,
     input: &openlaser_nest::Request,
     cancel: &AtomicBool,
     settings: NestSettings,
     progress: impl Fn(usize, usize) + Sync,
+    live: impl Fn(NestLive) + Sync,
 ) -> Result<(Draft, Vec<NestSheetSummary>, Vec<NestSheetPreview>)> {
+    let drawing = draft.drawing()?;
     let overflow =
         if draft.nesting.as_ref().is_some_and(|n| matches!(n.stock, NestStock::Remnant { .. })) {
             let bounds =
@@ -335,7 +375,26 @@ fn search_sheets(
         } else {
             None
         };
-    let solutions = openlaser_nest::nest_sheets(input, overflow.as_ref(), cancel, progress)
+    let outline = |c: &Contour| openlaser_nest::polygon(c).unwrap_or_default();
+    let first = (outline(&input.stock), input.cutouts.iter().map(outline).collect::<Vec<_>>());
+    let fresh = overflow.as_ref().map(|c| (outline(c), Vec::new()));
+    let show = |sheets: &[openlaser_nest::SheetSolution], changed: usize| {
+        let Some(shown) = sheets.get(changed) else { return };
+        let (stock_outline, stock_cutouts) =
+            if changed > 0 { fresh.as_ref().unwrap_or(&first) } else { &first };
+        live(NestLive {
+            sheet: changed + 1,
+            stock_outline: stock_outline.clone(),
+            stock_cutouts: stock_cutouts.clone(),
+            copies: shown
+                .layout
+                .placements
+                .iter()
+                .map(|p| NestCopy { group: p.item, transform: p.transform })
+                .collect(),
+        });
+    };
+    let solutions = openlaser_nest::nest_sheets(input, overflow.as_ref(), cancel, progress, show)
         .map_err(|e| Error::Refused(e.to_string()))?;
     let mut drafts = Vec::new();
     let mut sheets = Vec::new();
@@ -500,6 +559,10 @@ fn input(
             ..request.settings
         },
         machining_clearance: lead + kerf,
+        sheet_limit: openlaser_nest::SheetLimit {
+            contours: openlaser_prep::MAX_CONTOURS,
+            curves: 100_000,
+        },
         time_limit: Duration::from_secs(u64::from(request.seconds)),
         seed: 7,
     })

@@ -35,7 +35,7 @@
   $effect(() => { if (ui.tab === 'machine' && ui.checklistEditor) setting(1); });
 
   function back(): void {
-    if (section?.tab === 'setup') { ui.setupPanel = null; ui.picking = null; ui.nestPicking = false; ui.nestPreview = null; }
+    if (section?.tab === 'setup') { ui.setupPanel = null; ui.picking = null; ui.nestPicking = false; ui.nestPreview = null; ui.nestLive = null; }
     detail = null;
     if (ui.tab === 'materials') ui.tab = 'machine';
   }

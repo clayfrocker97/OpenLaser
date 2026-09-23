@@ -859,11 +859,22 @@ async fn nest_start(
     ))
 }
 
-async fn nest_status(State(shared): State<Shared>, Path(id): Path<u64>) -> Reply {
-    Ok(Json(
-        serde_json::to_value(crate::nesting::status(&shared, id).await?)
-            .map_err(|e| Error::Refused(e.to_string()))?,
-    ))
+/// The live arrangement a caller already has.
+#[derive(Deserialize)]
+struct LiveSince {
+    since: Option<u64>,
+}
+
+async fn nest_status(
+    State(shared): State<Shared>,
+    Path(id): Path<u64>,
+    Query(known): Query<LiveSince>,
+) -> Reply {
+    let mut view = crate::nesting::status(&shared, id).await?;
+    if known.since.is_some_and(|since| since >= view.live_serial) {
+        view.live = None;
+    }
+    Ok(Json(serde_json::to_value(view).map_err(|e| Error::Refused(e.to_string()))?))
 }
 
 async fn nest_cancel(State(shared): State<Shared>, Path(id): Path<u64>) -> Reply {

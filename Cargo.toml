@@ -77,3 +77,17 @@ missing_panics_doc = "allow"
 
 [profile.release]
 strip = "symbols"
+
+# Nesting runs in tests and debug builds as it does in release: optimized, and
+# without the geometry libraries' internal debug checks, one of which trips on
+# floating-point edge cases the release build passes. Every layout is still
+# checked for collisions and stock clearance before it can be applied.
+[profile.dev.package.jagua-rs]
+opt-level = 3
+debug-assertions = false
+overflow-checks = false
+
+[profile.dev.package.sparrow]
+opt-level = 3
+debug-assertions = false
+overflow-checks = false

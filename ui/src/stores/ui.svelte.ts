@@ -1,5 +1,5 @@
 // What the UI remembers for itself: the page, selections, and the bar.
-import type { Features, Pick, Preview } from '../api';
+import type { Features, NestLive, Pick, Preview } from '../api';
 import { SETTINGS_PAGES } from '../lib/navigation';
 
 export type Tab = 'parts' | 'setup' | 'run' | 'materials' | 'machine';
@@ -78,6 +78,11 @@ class Ui {
   setupPanel = $state<FeatureId | 'copy' | 'clipboard' | 'nest' | null>(null);
   nestPreview = $state<Preview | null>(null);
   nestStock = $state<{ outline: number[][]; cutouts: number[][][] } | null>(null);
+  /** Where a running nesting search has the parts, for the canvas. */
+  nestLive = $state<NestLive | null>(null);
+  /** A nesting result or a running search is on the canvas instead of the
+   *  drawing, which cannot be edited meanwhile. */
+  get nestShown(): boolean { return !!this.nestPreview || !!this.nestLive; }
   nestPicking = $state(false);
   selectionEpoch = $state(0);
   picking = $state<Picking | null>(null);

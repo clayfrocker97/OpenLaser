@@ -87,7 +87,8 @@ export const api = {
   writeMachineSettings: (expected: string) => post('/api/machine/settings/write', { expected }),
   setStock: (choice: StockChoice, revision?: number) => draftPost('/api/draft/stock', choice, revision),
   nest: (choice: NestRequest, revision: number) => post<NestView>(`/api/draft/nest?revision=${revision}`, choice),
-  nestStatus: (id: number) => request<NestView>('GET', `/api/draft/nest/${id}`),
+  /** `since` leaves out a live arrangement the caller already has. */
+  nestStatus: (id: number, since?: number) => request<NestView>('GET', `/api/draft/nest/${id}${since === undefined ? '' : `?since=${since}`}`),
   cancelNest: (id: number) => del(`/api/draft/nest/${id}`),
   applyNest: async (id: number) => {
     const reply = await post<DraftReply>(`/api/draft/nest/${id}/apply`);

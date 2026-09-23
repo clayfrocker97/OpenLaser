@@ -5,7 +5,7 @@
 
 use openlaser_core::geometry::{Contour, Curve, Point};
 use openlaser_core::nesting::{NestRotation, NestSettings, NestStock, Nesting};
-use openlaser_nest::{Item, Request, nest};
+use openlaser_nest::{Item, Request, SheetLimit, nest};
 use std::sync::atomic::AtomicBool;
 use std::time::Duration;
 
@@ -38,9 +38,14 @@ fn remnant_overflow_uses_fresh_stock_and_preserves_every_copy() {
         rotation: NestRotation::Fixed,
     };
     input.time_limit = Duration::from_secs(5);
-    let sheets =
-        openlaser_nest::nest_sheets(&input, Some(&input.stock), &AtomicBool::new(false), |_, _| {})
-            .unwrap();
+    let sheets = openlaser_nest::nest_sheets(
+        &input,
+        Some(&input.stock),
+        &AtomicBool::new(false),
+        |_, _| {},
+        |_, _| {},
+    )
+    .unwrap();
     assert!(sheets.len() > 1);
     assert!(sheets[0].original);
     assert!(sheets[0].layout.placements.len() < 4);
@@ -147,9 +152,136 @@ fn request() -> Request {
             rotation: NestRotation::HalfTurn,
         },
         machining_clearance: 0.,
+        sheet_limit: SheetLimit { contours: 5000, curves: 100_000 },
         time_limit: Duration::from_millis(1500),
         seed: 11,
     }
+}
+
+/// A sheet is full at the preparation limit even with room to spare, so the
+/// copies spread over more sheets; one sheet alone refuses them outright.
+#[test]
+fn copies_beyond_the_preparation_limit_start_a_new_sheet() {
+    let mut input = request();
+    input.items = vec![Item { contours: vec![rect(0., 0., 10., 10.)], quantity: 5 }];
+    input.sheet_limit = SheetLimit { contours: 2, curves: 100_000 };
+    let sheets =
+        openlaser_nest::nest_sheets(&input, None, &AtomicBool::new(false), |_, _| {}, |_, _| {})
+            .unwrap();
+    let counts: Vec<_> = sheets.iter().map(|s| s.layout.placements.len()).collect();
+    assert_eq!(counts, [2, 2, 1]);
+    assert!(nest(&input, &AtomicBool::new(false), |_, _| {}).is_err());
+    input.sheet_limit = SheetLimit { contours: 5000, curves: 7 };
+    let sheets =
+        openlaser_nest::nest_sheets(&input, None, &AtomicBool::new(false), |_, _| {}, |_, _| {})
+            .unwrap();
+    assert!(sheets.iter().all(|s| s.layout.placements.len() == 1), "4 lines per copy, 7 per sheet");
+    input.sheet_limit = SheetLimit { contours: 5000, curves: 3 };
+    assert!(
+        openlaser_nest::nest_sheets(&input, None, &AtomicBool::new(false), |_, _| {}, |_, _| {})
+            .is_err()
+    );
+}
+
+/// Compaction starts from the first fit's own width, so identical
+/// rectangles end at least as tight as the first fit packs them: two
+/// columns at most on a sheet taller than five of them.
+#[test]
+fn compaction_never_loosens_the_first_fit() {
+    let mut input = request();
+    input.stock = rect(0., 0., 600., 400.);
+    input.items = vec![Item { contours: vec![rect(0., 0., 120., 70.)], quantity: 8 }];
+    input.settings = NestSettings {
+        spacing: 3.,
+        margin: 3.,
+        remnant_clearance: 0.,
+        rotation: NestRotation::Any,
+    };
+    input.time_limit = Duration::from_secs(2);
+    let sheets =
+        openlaser_nest::nest_sheets(&input, None, &AtomicBool::new(false), |_, _| {}, |_, _| {})
+            .unwrap();
+    assert_eq!(sheets.len(), 1);
+    let right = sheets[0]
+        .layout
+        .placements
+        .iter()
+        .map(|p| p.transform.contour(&input.items[0].contours[0]).bounds().unwrap().max.x)
+        .fold(f64::MIN, f64::max);
+    assert!(right <= 3. + 120. + 3. + 120. + 1., "the copies reach x = {right}");
+}
+
+/// A sheet whose parts stand in one column cannot compact past its widest
+/// part; the search keeps the first fit instead of failing.
+#[test]
+fn a_single_column_sheet_keeps_its_first_fit() {
+    let mut input = request();
+    input.stock = rect(0., 0., 120., 80.);
+    input.items = vec![
+        Item { contours: vec![rect(0., 0., 40., 20.)], quantity: 1 },
+        Item { contours: vec![rect(0., 0., 30., 30.)], quantity: 1 },
+    ];
+    input.settings = NestSettings {
+        spacing: 3.,
+        margin: 3.,
+        remnant_clearance: 0.,
+        rotation: NestRotation::Fixed,
+    };
+    input.time_limit = Duration::from_secs(2);
+    let sheets =
+        openlaser_nest::nest_sheets(&input, None, &AtomicBool::new(false), |_, _| {}, |_, _| {})
+            .unwrap();
+    assert_eq!(sheets.iter().map(|s| s.layout.placements.len()).sum::<usize>(), 2);
+}
+
+/// A running search shows its sheets as they fill and compact, every copy
+/// inside the stock and clear of the others, never more copies than asked.
+#[test]
+fn a_running_search_shows_each_sheet_as_it_stands() {
+    let mut input = request();
+    input.items = vec![Item { contours: vec![rect(0., 0., 20., 12.)], quantity: 30 }];
+    input.time_limit = Duration::from_secs(2);
+    let shown = std::sync::Mutex::new(Vec::new());
+    let sheets = openlaser_nest::nest_sheets(
+        &input,
+        None,
+        &AtomicBool::new(false),
+        |_, _| {},
+        |s, changed| {
+            assert!(changed < s.len());
+            shown.lock().unwrap().push((std::time::Instant::now(), s.to_vec()));
+        },
+    )
+    .unwrap();
+    let shown = shown.into_inner().unwrap();
+    assert!(shown.len() > 1, "shown {} times", shown.len());
+    for pair in shown.windows(2) {
+        assert!(pair[1].0 - pair[0].0 >= openlaser_nest::LIVE_INTERVAL);
+    }
+    let stock = input.stock.bounds().unwrap();
+    for (_, sheets) in &shown {
+        assert!(sheets.iter().map(|s| s.layout.placements.len()).sum::<usize>() <= 30);
+        for sheet in sheets {
+            let copies: Vec<_> = sheet
+                .layout
+                .placements
+                .iter()
+                .map(|p| p.transform.contour(&input.items[0].contours[0]).bounds().unwrap())
+                .collect();
+            for (i, a) in copies.iter().enumerate() {
+                assert!(a.min.x >= stock.min.x - 1e-6 && a.max.x <= stock.max.x + 1e-6);
+                assert!(a.min.y >= stock.min.y - 1e-6 && a.max.y <= stock.max.y + 1e-6);
+                for b in &copies[i + 1..] {
+                    let apart = a.max.x <= b.min.x + 1e-6
+                        || b.max.x <= a.min.x + 1e-6
+                        || a.max.y <= b.min.y + 1e-6
+                        || b.max.y <= a.min.y + 1e-6;
+                    assert!(apart, "shown copies overlap: {a:?} {b:?}");
+                }
+            }
+        }
+    }
+    assert_eq!(sheets.iter().map(|s| s.layout.placements.len()).sum::<usize>(), 30);
 }
 
 #[test]
