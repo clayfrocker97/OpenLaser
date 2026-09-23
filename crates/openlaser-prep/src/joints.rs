@@ -15,6 +15,18 @@ use std::f64::consts::{PI, TAU};
 /// The most joints or stops one contour may carry.
 const MAX_POSITIONS: usize = 10_000;
 
+/// Contours smaller than this, in millimetres, never get automatic joints,
+/// whatever the recipe's minimum size says.
+const MIN_JOINTED_SIZE_MM: f64 = 2.;
+/// Nor do contours smaller than this many joint widths.
+const MIN_JOINTED_WIDTHS: f64 = 5.;
+/// On an open contour jointed across X or Y, a joint also goes at the start
+/// when the first one lies further along than this, in millimetres.
+const OPEN_START_JOINT_MM: f64 = 5.;
+/// Joints together may cover at most this share of the contour's span; a
+/// wider joint is narrowed to fit.
+const MAX_JOINTED_SHARE: f64 = 0.5;
+
 /// What the split needs to know about the contour it is given.
 pub(crate) struct Frame {
     /// Whether the contour is closed.
@@ -183,7 +195,14 @@ fn joint_ranges(
     }
     let Some(bounds) = contour.bounds() else { return Ok(Vec::new()) };
     let manual = matches!(joints.placement, JointPlacement::Manual(_));
-    if !manual && bounds.extent() < joints.minimum_size.0.max(2.).max(joints.width.0 * 5.) {
+    if !manual
+        && bounds.extent()
+            < joints
+                .minimum_size
+                .0
+                .max(MIN_JOINTED_SIZE_MM)
+                .max(joints.width.0 * MIN_JOINTED_WIDTHS)
+    {
         return Ok(Vec::new());
     }
     let mut width = joints.width.0;
@@ -192,13 +211,13 @@ fn joint_ranges(
     let (mut centers, span) = joint_centers(contour, joints, frame, length, from_start, bounds)?;
     if from_start
         && matches!(joints.placement, JointPlacement::AcrossX(_) | JointPlacement::AcrossY(_))
-        && centers.first().is_none_or(|first| *first > 5.)
+        && centers.first().is_none_or(|first| *first > OPEN_START_JOINT_MM)
     {
         centers.push(width);
         centers.sort_by(f64::total_cmp);
     }
     if !centers.is_empty() {
-        width = width.min(span * 0.5 / float(centers.len()));
+        width = width.min(span * MAX_JOINTED_SHARE / float(centers.len()));
     }
     Ok(centers
         .iter()
