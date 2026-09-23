@@ -14,6 +14,14 @@ use openlaser_controller::state::ProgramState;
 use openlaser_core::geometry::Point;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
+
+/// How close, in millimetres, the stopped head must lie to the execution
+/// path for a continuation to find its place: the strict limit recovered
+/// from the vendor host (see the module documentation).
+const RESTART_MATCH_MM: f64 = 0.2;
+/// Longest step, in millimetres, the operator may move a restart point
+/// along the path at once; a bound on the request, not a machine limit.
+const MAX_RECOVERY_DISTANCE_MM: f64 = 10_000.;
 use std::sync::Arc;
 
 /// Where a held program stopped within the current remainder.
@@ -56,7 +64,7 @@ pub fn locate(job: &Job, item: u32, position: [f64; 2]) -> Result<Checkpoint> {
         let t = ((p - a).dot(delta) / (length * length)).clamp(0., 1.);
         let error = p.distance(a.lerp(b, t));
         let distance = total + t * length;
-        if error < 0.2 {
+        if error < RESTART_MATCH_MM {
             match best {
                 None => {
                     best = Some((error, distance));
@@ -78,7 +86,9 @@ pub fn locate(job: &Job, item: u32, position: [f64; 2]) -> Result<Checkpoint> {
         total += length;
     }
     let (_, distance) = best.ok_or_else(|| {
-        Error::Refused("the stopped position is not within 0.2 mm of the execution path".into())
+        Error::Refused(format!(
+            "the stopped position is not within {RESTART_MATCH_MM} mm of the execution path"
+        ))
     })?;
     if ambiguous {
         return Err(Error::Refused(
@@ -345,7 +355,7 @@ impl Recovery {
     }
 
     fn offset(&self, current: Checkpoint, distance: f64, forward: bool) -> Result<Checkpoint> {
-        if !(distance.is_finite() && distance > 0. && distance <= 10_000.) {
+        if !(distance.is_finite() && distance > 0. && distance <= MAX_RECOVERY_DISTANCE_MM) {
             return Err(Error::Request(
                 "recovery distance must be above 0 and at most 10000 mm".into(),
             ));
@@ -680,7 +690,10 @@ impl Coordinator {
         let state = self.machine.state();
         if !state.session.homed
             || !state.feedback.is_some_and(|f| {
-                f.age_ms <= 1000 && f.stationary && f.table_stationary && f.head.command == 0
+                f.age_ms <= crate::coordinator::FRESH_FEEDBACK_MS
+                    && f.stationary
+                    && f.table_stationary
+                    && f.head.command == 0
             })
         {
             return Err(Error::Refused(

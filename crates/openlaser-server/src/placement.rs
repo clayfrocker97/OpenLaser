@@ -210,7 +210,9 @@ fn head_position(draft: &Draft, state: &openlaser_controller::State) -> Result<[
     let feedback = state
         .feedback
         .as_ref()
-        .filter(|f| f.age_ms <= 1000 && f.stationary && f.head.command == 0)
+        .filter(|f| {
+            f.age_ms <= crate::coordinator::FRESH_FEEDBACK_MS && f.stationary && f.head.command == 0
+        })
         .ok_or_else(|| {
             Error::Refused("set the origin with fresh feedback and the axes stationary".into())
         })?;

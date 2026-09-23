@@ -61,7 +61,9 @@ impl Coordinator {
 
     pub(crate) fn calibration_view(&self, state: &State) -> CalibrationView {
         let quality = state.session.calibration.filter(|_| {
-            state.feedback.as_ref().is_some_and(|f| f.head.referenced && f.age_ms <= 1000)
+            state.feedback.as_ref().is_some_and(|f| {
+                f.head.referenced && f.age_ms <= crate::coordinator::FRESH_FEEDBACK_MS
+            })
         });
         let current = matches!(quality, Some(Quality::Excellent | Quality::Good))
             && self

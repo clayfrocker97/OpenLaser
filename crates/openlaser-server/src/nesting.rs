@@ -488,14 +488,28 @@ fn task(c: &Coordinator, id: u64) -> Result<&Task> {
         .ok_or_else(|| Error::Missing("that nesting search is no longer available".into()))
 }
 
+/// Most copies one nesting request may ask for; the nesting crate's own
+/// limit.
+const MAX_NEST_COPIES: u32 = 500;
+/// Longest nesting search, in seconds, a request may ask for; the nesting
+/// crate's own limit.
+const MAX_NEST_SECONDS: u32 = 30;
+/// The random seed of every nesting search, fixed so the same request
+/// gives the same layout.
+const NEST_SEED: u64 = 7;
+
 fn input(
     drawing: &Drawing,
     draft: &Draft,
     request: &NestRequest,
 ) -> Result<openlaser_nest::Request> {
     request.settings.validate().map_err(Error::Request)?;
-    if !(1..=500).contains(&request.quantity) || !(1..=30).contains(&request.seconds) {
-        return Err(Error::Request("use 1–500 copies and a search time of 1–30 seconds".into()));
+    if !(1..=MAX_NEST_COPIES).contains(&request.quantity)
+        || !(1..=MAX_NEST_SECONDS).contains(&request.seconds)
+    {
+        return Err(Error::Request(format!(
+            "use 1–{MAX_NEST_COPIES} copies and a search time of 1–{MAX_NEST_SECONDS} seconds"
+        )));
     }
     if draft.preparing {
         return Err(Error::Refused("wait for drawing preparation".into()));
@@ -570,7 +584,7 @@ fn input(
             curves: openlaser_prep::MAX_CURVES,
         },
         time_limit: Duration::from_secs(u64::from(request.seconds)),
-        seed: 7,
+        seed: NEST_SEED,
     })
 }
 

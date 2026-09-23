@@ -133,11 +133,9 @@ pub async fn view(shared: &Shared) -> Result<View> {
         }
     }
     let state = c.machine.state();
-    let measured = c
-        .connected()
-        .then_some(state.observed_parameters)
-        .flatten()
-        .filter(|_| state.feedback.as_ref().is_some_and(|f| f.age_ms <= 1000));
+    let measured = c.connected().then_some(state.observed_parameters).flatten().filter(|_| {
+        state.feedback.as_ref().is_some_and(|f| f.age_ms <= crate::coordinator::FRESH_FEEDBACK_MS)
+    });
     let scale = measured.map_or(crate::bindings::OFFLINE_SCALE, |v| v.scale);
     let plan = initialization::Plan::from_document(doc, scale, c.mode.unwrap_or(LaserMode::Fiber));
     let (comparisons, problem) = match plan {

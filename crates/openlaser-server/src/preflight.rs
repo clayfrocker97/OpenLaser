@@ -337,11 +337,12 @@ impl Coordinator {
         let Some(draft) = &self.draft else { return false };
         // Position comparisons use the same one-pulse tolerance as travel. No action is
         // considered complete while feedback is old or any operation is active.
-        let Some(feedback) = state
-            .feedback
-            .as_ref()
-            .filter(|f| f.age_ms <= 1000 && f.scale > 0 && f.stationary && f.head.command == 0)
-        else {
+        let Some(feedback) = state.feedback.as_ref().filter(|f| {
+            f.age_ms <= crate::coordinator::FRESH_FEEDBACK_MS
+                && f.scale > 0
+                && f.stationary
+                && f.head.command == 0
+        }) else {
             return false;
         };
         let Ok(configuration) = self.acceptance() else { return false };

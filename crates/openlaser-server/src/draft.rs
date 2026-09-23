@@ -29,6 +29,10 @@ use openlaser_xml::recipe::Request;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
+/// Largest contour shift, in millimetres, on either axis: the older host's
+/// own domain for the setting.
+const MAX_CONTOUR_SHIFT_MM: f64 = 100_000.;
+
 /// How many edits can be undone.
 const HISTORY: usize = 100;
 
@@ -230,7 +234,7 @@ impl Prepared {
     /// the difference from what is applied, so a shift is never applied
     /// twice, and never further than its domain of 100 000 mm.
     pub fn shifted(&self, target: [f64; 2]) -> Result<Self> {
-        if target.iter().any(|v| !v.is_finite() || v.abs() > 100_000.) {
+        if target.iter().any(|v| !v.is_finite() || v.abs() > MAX_CONTOUR_SHIFT_MM) {
             return Err(crate::Error::Refused(
                 "the contour shift must be finite and within 100 000 mm".into(),
             ));

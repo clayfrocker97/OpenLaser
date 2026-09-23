@@ -248,6 +248,17 @@ async fn commit_import(
     Err(error)
 }
 
+/// Fastest table jog, in millimetres per second, a request may ask for.
+const MAX_TABLE_SPEED_MM_S: f64 = 100.;
+/// Longest single XY jog step, in millimetres.
+const MAX_JOG_STEP_MM: f64 = 1000.;
+/// Shortest and longest gas test, in milliseconds.
+const GAS_TEST_MS: std::ops::RangeInclusive<u64> = 50..=2000;
+/// How long a timed gas test's valves stay open without a lease renewal.
+/// Timed tests are not renewed from the UI; this is the controller's
+/// safety net if the server stops talking to it mid-test.
+const GAS_TEST_LEASE: Duration = Duration::from_secs(5);
+
 /// The fields whose controller banks do not match the machine files.
 fn parameter_mismatches(
     bundle: &openlaser_xml::Bundle,
@@ -475,7 +486,10 @@ pub async fn table(shared: &Shared, request: TableRequest, lease: Lease) -> Resu
 
 impl TableRequest {
     fn validate(&self) -> Result<()> {
-        if !(self.speed_mm_s.is_finite() && self.speed_mm_s > 0. && self.speed_mm_s <= 100.) {
+        if !(self.speed_mm_s.is_finite()
+            && self.speed_mm_s > 0.
+            && self.speed_mm_s <= MAX_TABLE_SPEED_MM_S)
+        {
             return Err(Error::Request("table speed must be above 0 and at most 100 mm/s".into()));
         }
         Ok(())
@@ -492,7 +506,7 @@ fn table_request(c: &crate::Coordinator, request: TableRequest) -> Result<(Reque
     request.validate()?;
     let feedback =
         c.machine.state().feedback.ok_or_else(|| Error::Refused("no table feedback".into()))?;
-    if feedback.age_ms > 1000 || !feedback.table_stationary {
+    if feedback.age_ms > crate::coordinator::FRESH_FEEDBACK_MS || !feedback.table_stationary {
         return Err(Error::Refused("wait for fresh stationary table feedback".into()));
     }
     let extent =
@@ -625,7 +639,7 @@ pub async fn jog(shared: &Shared, request: JogRequest, lease: Option<Lease>) -> 
             return Err(Error::Request("the axis must be 0 or 1".into()));
         }
         let step = match request.step_mm {
-            Some(step) if step.is_finite() && step > 0. && step <= 1000. => step,
+            Some(step) if step.is_finite() && step > 0. && step <= MAX_JOG_STEP_MM => step,
             Some(_) => return Err(Error::Request("the step must be up to 1000 mm".into())),
             None => 1.,
         };
@@ -748,7 +762,9 @@ fn positioning_request(
     let state = coordinator.machine.state();
     let feedback = state
         .feedback
-        .filter(|f| f.age_ms <= 1000 && f.stationary && f.head.command == 0)
+        .filter(|f| {
+            f.age_ms <= crate::coordinator::FRESH_FEEDBACK_MS && f.stationary && f.head.command == 0
+        })
         .ok_or_else(|| Error::Refused("wait for fresh, stationary machine feedback".into()))?;
     if !state.session.homed || feedback.referenced != [true, true] {
         return Err(Error::Refused("home the machine first".into()));
@@ -881,7 +897,10 @@ pub async fn gas_test(
 ) -> Result<()> {
     shared.ensure_running()?;
     // A fixed-pressure valve (including CO2 High Air) has no pressure command.
-    if !(selector <= 5 && (0. ..=100.).contains(&pressure) && (50..=2000).contains(&duration_ms)) {
+    if !(selector <= crate::gas::MAX_GAS_SELECTOR
+        && (0. ..=crate::gas::MAX_GAS_PRESSURE_BAR).contains(&pressure)
+        && GAS_TEST_MS.contains(&duration_ms))
+    {
         return Err(Error::Request("a gas test needs 0–5, 0–100 bar and 50–2000 ms".into()));
     }
     timed_gas(
@@ -900,7 +919,9 @@ pub async fn gas_test(
 /// fixed, longer duration; Stop ends it like any output.
 pub async fn gas_calibration(shared: &Shared, selector: u8, pressure: f64) -> Result<()> {
     shared.ensure_running()?;
-    if !(selector <= 5 && (0. ..=100.).contains(&pressure)) {
+    if !(selector <= crate::gas::MAX_GAS_SELECTOR
+        && (0. ..=crate::gas::MAX_GAS_PRESSURE_BAR).contains(&pressure))
+    {
         return Err(Error::Request("a gas flow test needs 0–5 and 0–100 bar".into()));
     }
     let duration = crate::gas::CALIBRATION_DURATION;
@@ -924,7 +945,7 @@ async fn timed_gas(
             name: name.into(),
             on: manual.on,
             off: manual.off,
-            lease: Duration::from_secs(5),
+            lease: GAS_TEST_LEASE,
             duration: Some(duration),
         }
     };
@@ -1247,7 +1268,7 @@ impl Execution {
         }
         let feedback =
             state.feedback.ok_or_else(|| Error::Refused("no machine feedback".into()))?;
-        if !feedback.stationary || feedback.age_ms > 1000 {
+        if !feedback.stationary || feedback.age_ms > crate::coordinator::FRESH_FEEDBACK_MS {
             return Err(Error::Refused("fresh stationary feedback is required".into()));
         }
         let bound = coordinator.bound()?;

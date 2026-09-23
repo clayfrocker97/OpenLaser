@@ -69,11 +69,14 @@ pub fn subsonic_ratio(absolute_bar: f64) -> f64 {
 /// conditions: `√(M_air / M_gas)`.
 #[must_use]
 pub fn gas_factor(gas: GasKind) -> f64 {
+    // Molar masses in g/mol: dry air, N₂ and O₂ (standard tables).
     const AIR: f64 = 28.965;
+    const NITROGEN: f64 = 28.014;
+    const OXYGEN: f64 = 31.998;
     match gas {
         GasKind::Air => 1.,
-        GasKind::Nitrogen => (AIR / 28.014).sqrt(),
-        GasKind::Oxygen => (AIR / 31.998).sqrt(),
+        GasKind::Nitrogen => (AIR / NITROGEN).sqrt(),
+        GasKind::Oxygen => (AIR / OXYGEN).sqrt(),
     }
 }
 

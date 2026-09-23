@@ -12,6 +12,10 @@ use openlaser_core::nesting::Nesting;
 use openlaser_library::{Anchor, Id};
 use serde::{Deserialize, Serialize};
 
+/// Most sheets one job set may hold, and most parts one saved sheet may
+/// list; the same bound as copies in one nesting search.
+const MAX_SHEETS: usize = 500;
+
 /// Geometry specific to a sheet; material and correction belong to the job set.
 ///
 /// These are the sheet-specific fields of the draft's
@@ -77,7 +81,7 @@ impl SheetLayout {
         if let Some(nesting) = &self.nesting {
             nesting.validate(count).map_err(Error::Refused)?;
         }
-        if self.parts > 500
+        if self.parts > MAX_SHEETS
             || self.placed.is_empty()
             || self.sheet_offset.is_some_and(|p| p.iter().any(|v| !v.is_finite()))
         {
@@ -99,7 +103,7 @@ pub struct SheetSet {
 impl SheetSet {
     /// Bound retained data before it is reopened.
     pub fn validate(&self, count: usize) -> Result<()> {
-        if !(2..=500).contains(&self.pages.len()) || self.active >= self.pages.len() {
+        if !(2..=MAX_SHEETS).contains(&self.pages.len()) || self.active >= self.pages.len() {
             return Err(Error::Refused("invalid saved sheet set".into()));
         }
         for page in &self.pages {
@@ -167,8 +171,8 @@ pub(crate) fn attach(original: &Draft, candidates: &[Draft]) -> Result<Draft> {
         |set| set.synchronized(original),
     );
     set.pages.splice(set.active..=set.active, replacements);
-    if set.pages.len() > 500 {
-        return Err(Error::Refused("a job set can contain at most 500 sheets".into()));
+    if set.pages.len() > MAX_SHEETS {
+        return Err(Error::Refused(format!("a job set can contain at most {MAX_SHEETS} sheets")));
     }
     result.current.sheets = (set.pages.len() > 1).then_some(set);
     Ok(result)

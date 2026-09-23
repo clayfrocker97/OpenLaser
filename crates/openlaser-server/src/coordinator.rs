@@ -157,6 +157,12 @@ pub struct Coordinator {
     publisher: watch::Sender<Document>,
 }
 
+/// Oldest controller feedback, in milliseconds, still taken as where the
+/// head is now. Twenty poll intervals (the controller polls every 50 ms,
+/// `openlaser_controller::config::POLL_INTERVAL`), so a few lost replies do
+/// not refuse work but a stalled link does.
+pub(crate) const FRESH_FEEDBACK_MS: u64 = 1000;
+
 /// The simulator's units per millimetre: `SCALE` in the controller's
 /// simulated plant.
 const SIMULATOR_SCALE: i32 = 1000;
@@ -962,7 +968,7 @@ impl Coordinator {
         if let Some(gas) =
             if new.laser == LaserMode::Co2 { Some(openlaser_xml::recipe::CO2_GAS) } else { new.gas }
         {
-            if gas > 5 {
+            if gas > crate::gas::MAX_GAS_SELECTOR {
                 return Err(Error::Request("the gas selection is 0 to 5".into()));
             }
             recipe.attributes.insert("CutGasType".into(), gas.to_string());
@@ -1516,7 +1522,7 @@ impl Coordinator {
         let state = self.machine.state();
         let feedback = state
             .feedback
-            .filter(|f| f.age_ms <= 1000 && f.stationary && f.head.command == 0)
+            .filter(|f| f.age_ms <= FRESH_FEEDBACK_MS && f.stationary && f.head.command == 0)
             .ok_or_else(|| {
                 Error::Refused("set the origin with fresh feedback and the axes stationary".into())
             })?;
