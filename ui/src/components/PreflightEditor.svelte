@@ -6,7 +6,7 @@
   import { server } from '../stores/server.svelte';
   import { ui } from '../stores/ui.svelte';
   import { mergePreferences, settingsEdits, withPostflight } from '../lib/settings-edits.svelte';
-  import { explain, laserLabel } from '../lib/format';
+  import { explain, laserLabel, plural } from '../lib/format';
   import type { Check, JobPreflight, LaserMode, PreflightPreferences } from '../api';
 
   let { scope, onclose }: { scope: 'defaults' | 'job' | 'pause' | 'postflight'; onclose: () => void } = $props();
@@ -81,7 +81,7 @@
       {#if choice === 'custom'}
         <CheckEditor bind:steps={custom} />
       {:else if choice === 'inherit'}
-        <p class="muted">{laserLabel(mode)} defaults · {preferences[mode].enabled ? `${preferences[mode].steps.length} checks` : 'checklist off'}</p>
+        <p class="muted">{laserLabel(mode)} defaults · {preferences[mode].enabled ? plural(preferences[mode].steps.length, 'check') : 'checklist off'}</p>
         {#if preferences[mode].enabled}<ul class="inherited">{#each preferences[mode].steps as step}<li>{step.text}</li>{/each}</ul>{/if}
       {:else}
         <p class="muted">This job's checklist is off.</p>

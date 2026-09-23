@@ -1,5 +1,6 @@
 <script lang="ts">
   import { quantity } from '../../lib/units.svelte';
+  import { plural } from '../../lib/format';
   // The Process options page: the optional behaviours as cards, each with
   // its state and a line on what it does, in the vendor's order. A card
   // opens its sheet.
@@ -23,7 +24,7 @@
       { id: 'head', title: 'Head movement', status: head === 'fixed' ? 'Fixed height' : head === 'absolute' ? 'Absolute height' : on('NoFollow') ? 'Following off' : 'Following', text: `${mm('UpHeight')} retract · ${on('ShortDistNoUp') ? 'keep height on short moves' : 'lift between contours'}${ed.a.gas && (on('ShortDistGasKeepOn') || on('NoCloseGasInManu')) ? ' · gas kept' : ''}` },
       { id: 'curves', title: 'Speed compensation', status: on('PowerAdjustWithSpeed') || on('FreqAdjustWithSpeed') ? 'On' : 'Off', text: 'Adjust duty and frequency as the speed changes' },
       { id: 'residue', title: 'Slag removal', status: on('CleanResidue_Enable') ? (m === 'staged' ? 'On' : 'Inactive') : 'Off', text: on('CleanResidue_Enable') ? `${mm('CleanResidue_WorkR')} radius · ${bare('CleanResidue_SpiralTimes', v['CleanResidue_SpiralTimes'] ?? '')} turns${m === 'staged' ? '' : ' · runs only after staged piercing'}` : 'A separate cleaning motion after piercing' },
-      { id: 'pre', title: 'Batch pre-piercing', status: on('PreDrill') ? (m === 'staged' ? 'On' : 'Inactive') : 'Off', text: on('PreDrill') ? `${caps?.pre_pierce_batch ?? '?'} contours per batch${m === 'staged' ? '' : ' · needs staged piercing'}` : 'Pierce a batch of contours before cutting them' },
+      { id: 'pre', title: 'Batch pre-piercing', status: on('PreDrill') ? (m === 'staged' ? 'On' : 'Inactive') : 'Off', text: on('PreDrill') ? `${caps?.pre_pierce_batch == null ? '? contours' : plural(caps.pre_pierce_batch, 'contour')} per batch${m === 'staged' ? '' : ' · needs staged piercing'}` : 'Pierce a batch of contours before cutting them' },
       { id: 'film', title: 'Film removal', status: on('WithFilm') ? 'On' : 'Off', text: on('WithFilm') ? (film ? `Film process: ${film.name} · ${quantity(film.thickness_mm, 'mm')} · ${film.gas}` : 'Choose a film process') : 'Run a separate pass before the cut' },
       { id: 'shift', title: 'Contour shift', status: on('EnableContourShift') ? 'On' : 'Off', text: on('EnableContourShift') ? `X ${mm('ContourShiftXDist')} · Y ${mm('ContourShiftYDist')}` : 'Apply an explicit X / Y offset' },
     ];

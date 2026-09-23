@@ -12,6 +12,12 @@ export const value = (text: string | null | undefined): string => {
   return Number.isFinite(n) ? String(Math.round(n * 100) / 100) : text;
 };
 
+/**
+ * A count with its noun, singular for exactly one: `plural(1, 'path')` is
+ * "1 path", `plural(3, 'path')` "3 paths", `plural(2, 'cut area')` "2 cut areas".
+ */
+export const plural = (count: number, singular: string, many = `${singular}s`): string => `${count} ${count === 1 ? singular : many}`;
+
 export const laserLabel = (laser: LaserMode | null | undefined): string => (laser === 'co2' ? 'CO₂' : laser === 'fiber' ? 'Fiber' : '—');
 
 export const recipeLabel = (recipe: Pick<RecipeView, 'name' | 'thickness_mm' | 'gas'> | null | undefined): string =>

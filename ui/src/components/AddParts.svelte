@@ -6,7 +6,7 @@
   import { api } from '../api/client';
   import { server } from '../stores/server.svelte';
   import { ui } from '../stores/ui.svelte';
-  import { explain, size } from '../lib/format';
+  import { explain, plural, size } from '../lib/format';
   import { fuzzyScore } from '../lib/search';
   import { togglePick } from '../lib/job-parts';
 
@@ -28,7 +28,7 @@
     busy = true;
     try {
       await api.addParts(picks);
-      ui.say(`Added ${picks.length} part${picks.length === 1 ? '' : 's'} beside the sheet · Undo takes them off`);
+      ui.say(`Added ${plural(picks.length, 'part')} beside the sheet · Undo takes them off`);
       onclose();
     } catch (error) {
       ui.say(explain(error), true);
@@ -48,7 +48,7 @@
       <button class="add-row" class:on={pick >= 0} disabled={already || busy} aria-pressed={pick >= 0} onclick={() => (picks = togglePick(picks, part.id))}>
         <span class="mark" class:on={pick >= 0} aria-hidden="true">{pick >= 0 ? pick + 1 : ''}</span>
         <Preview outline={part.outline} label={part.name} small />
-        <span class="name"><strong>{part.name}</strong><small>{already ? 'Already in this job' : `${size(part.bounds)} · ${part.contours} paths`}</small></span>
+        <span class="name"><strong>{part.name}</strong><small>{already ? 'Already in this job' : `${size(part.bounds)} · ${plural(part.contours, 'path')}`}</small></span>
       </button>
     {:else}
       <p class="muted">No parts match.</p>
@@ -56,7 +56,7 @@
   </div>
   <div class="actions">
     <button class="btn btn-ghost lg" disabled={busy} onclick={onclose}>Cancel</button>
-    <button class="btn btn-primary lg" disabled={busy || !picks.length} onclick={add}>{picks.length ? `Add ${picks.length} part${picks.length === 1 ? '' : 's'}` : 'Add parts'}</button>
+    <button class="btn btn-primary lg" disabled={busy || !picks.length} onclick={add}>{picks.length ? `Add ${plural(picks.length, 'part')}` : 'Add parts'}</button>
   </div>
 </Modal>
 

@@ -5,7 +5,7 @@
   import { api } from '../api/client';
   import { server } from '../stores/server.svelte';
   import { ui } from '../stores/ui.svelte';
-  import { explain, size } from '../lib/format';
+  import { explain, plural, size } from '../lib/format';
   import { livePicks, partsOf, togglePick } from '../lib/job-parts';
 
   /** The parts the page shows now, for picking them all at once. */
@@ -33,7 +33,7 @@
     }
   }
 
-  const count = (n: number) => `${n} part${n === 1 ? '' : 's'}`;
+  const count = (n: number) => plural(n, 'part');
   const setUp = () => run(() => api.openParts(picks), picks.length > 1 ? `${count(picks.length)} side by side · Nest parts fills a sheet` : 'Part opened');
   const add = () => run(() => api.addParts(picks), `Added ${count(picks.length)} beside the sheet · Undo takes them off`);
 </script>
@@ -47,14 +47,14 @@
         <li>
           <span class="order" aria-hidden="true">{i + 1}</span>
           <Preview outline={part.outline} label={part.name} small />
-          <span class="name"><strong>{part.name}</strong><small>{size(part.bounds)} · {part.contours} paths</small></span>
+          <span class="name"><strong>{part.name}</strong><small>{size(part.bounds)} · {plural(part.contours, 'path')}</small></span>
           <button class="btn btn-ghost icon-only" aria-label="Unpick {part.name}" onclick={() => (ui.partPicks = togglePick(picks, part.id))}><i class="ic ic-x"></i></button>
         </li>
       {/each}
     </ol>
   {/if}
   <div class="side-foot">
-    {#if rest.length}<button class="btn btn-ghost lg block" disabled={busy} onclick={() => (ui.partPicks = [...picks, ...rest])}>Pick all {shown.length} parts here</button>{/if}
+    {#if rest.length}<button class="btn btn-ghost lg block" disabled={busy} onclick={() => (ui.partPicks = [...picks, ...rest])}>Pick all {plural(shown.length, 'part')} here</button>{/if}
     {#if draft}
       <button class="btn btn-ghost lg block add" disabled={busy || !picks.length || inDraft.length > 0} onclick={add}>Add to {draft.name}</button>
       {#if inDraft.length}<p class="gate-reason">{inDraft[0]!.name} is already in {draft.name}; copy it on the sheet for more.</p>{/if}

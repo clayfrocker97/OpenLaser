@@ -6,7 +6,7 @@
   import { ui } from '../stores/ui.svelte';
   import { server } from '../stores/server.svelte';
   import { osk } from '../lib/osk.svelte';
-  import { explain } from '../lib/format';
+  import { explain, plural } from '../lib/format';
   import { boxOf, pathOf, viewBoxFor } from '../lib/svg';
 
   let { onclose }: { onclose: () => void } = $props();
@@ -89,7 +89,7 @@
     <div class="text-preview" aria-label="Text outline preview" aria-busy={pending}>
       {#if preview && box}
         <svg viewBox={viewBoxFor(box, 600, 190, 0.1)} role="img" aria-label="Cuttable text outlines"><path d={preview.outline.map((line) => pathOf(line)).join(' ')} fill-rule="evenodd" vector-effect="non-scaling-stroke" /></svg>
-        <div class="text-dimensions">{displayNumber(preview.width, 'mm', 1)} × {quantity(preview.height, 'mm', 1)} · {preview.contours} outlines</div>
+        <div class="text-dimensions">{displayNumber(preview.width, 'mm', 1)} × {quantity(preview.height, 'mm', 1)} · {plural(preview.contours, 'outline')}</div>
       {:else}<span class="muted">{pending ? 'Preparing text…' : 'Your text preview appears here.'}</span>{/if}
     </div>
     {#if error}<p class="warn-text" role="alert">{error}</p>{/if}

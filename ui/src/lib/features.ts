@@ -1,4 +1,5 @@
 import { quantity } from '../lib/units.svelte';
+import { plural } from './format';
 // The machining features as the tool bar shows them: which are on, their
 // one-line state, and sensible values when switched on.
 import type { Bridges, CommonEdges, Cooling, Features, Joints, Kerf, Leads } from '../api';
@@ -67,7 +68,7 @@ export function stateOf(features: Features, id: string): string {
     case 'cooling': { const c = features.cooling; if (!c) return 'Off'; return `${(c.dwell / 1000).toFixed(1)} s · ${'manual' in c.placement ? `${c.placement.manual.length} placed` : 'corners'}`; }
     case 'kerf': { const k = features.kerf; return k ? `${quantity(k.width, 'mm')}` : 'Off'; }
     case 'bridges': { const b = features.bridges; return b ? `${b.connections.length} × ${quantity(b.width, 'mm')}` : 'Off'; }
-    case 'common': { const c = features.common; return c ? `${c.contours.length} contours · ${quantity(c.tolerance, 'mm')}` : 'Off'; }
+    case 'common': { const c = features.common; return c ? `${plural(c.contours.length, 'contour')} · ${quantity(c.tolerance, 'mm')}` : 'Off'; }
     case 'order': { const o = features.order; return typeof o.strategy === 'string' ? (o.inner_first ? 'Inner first' : title(o.strategy)) : 'Manual'; }
     case 'start': { const s = features.start; const at = typeof s.position === 'string' ? title(s.position) : 'Manual'; return `${s.spots.length ? `${s.spots.length} chosen` : at} · ${title(s.direction)}`; }
     default: return '';

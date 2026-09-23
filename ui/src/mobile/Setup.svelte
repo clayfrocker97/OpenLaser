@@ -4,7 +4,7 @@
   import { server } from '../stores/server.svelte';
   import { ui, type FeatureId } from '../stores/ui.svelte';
   import { osk } from '../lib/osk.svelte';
-  import { explain, recipeLabel, size } from '../lib/format';
+  import { explain, plural, recipeLabel, size } from '../lib/format';
   import { plain } from '../lib/plain';
   import { TOOLS, isOn, stateOf } from '../lib/features';
   import Preview from './Preview.svelte';
@@ -67,12 +67,12 @@
         <button disabled={blocked} onclick={() => adding = true}><span>Parts<small>{draft.parts.length === 1 ? '1 part · Add more to cut them together' : `${draft.parts.length} parts side by side · Add more`}</small></span><i class="ic ic-plus"></i></button>
         <button disabled={blocked} onclick={() => texting = true}><span>Add text<small>Letters welded into cutting outlines</small></span><i class="ic ic-plus"></i></button>
         <button disabled={blocked} onclick={() => tools = true}><span>Machining<small>{active ? `${active} tools on` : 'Default settings'}</small></span><i class="ic ic-arrow-right"></i></button>
-        <button disabled={blocked} onclick={() => preflight = true}><span>Preflight<small>{draft.preflight.kind === 'inherit' ? 'Mode defaults' : draft.preflight.kind === 'off' ? 'Checklist off' : `${draft.preflight.steps.length} checks`}</small></span><i class="ic ic-arrow-right"></i></button>
+        <button disabled={blocked} onclick={() => preflight = true}><span>Preflight<small>{draft.preflight.kind === 'inherit' ? 'Mode defaults' : draft.preflight.kind === 'off' ? 'Checklist off' : plural(draft.preflight.steps.length, 'check')}</small></span><i class="ic ic-arrow-right"></i></button>
       </div>
     {:else}<div class="phone-empty"><i class="ic ic-folder"></i><h2>No part open</h2><p>Choose a part or saved job to set up, or start from text.</p><button class="phone-primary" onclick={() => ui.tab = 'parts'}>Go to Parts</button><button class="phone-text-action" onclick={() => texting = true}>Add text</button></div>{/if}
   </div>
   {#if draft}<div class="phone-run-footer">
-    <div class="phone-secondary-actions"><button class="btn btn-ghost" disabled={blocked || !draft.recipe} onclick={save}>{draft.sheets?.pages.some(p => !p.job) ? `Save ${draft.sheets.pages.length} sheets` : 'Save job'}</button><button class="btn btn-ghost" disabled={blocked || !doc.readiness.compile.ok} onclick={() => review(true)}>Dry run</button></div>
+    <div class="phone-secondary-actions"><button class="btn btn-ghost" disabled={blocked || !draft.recipe} onclick={save}>{draft.sheets?.pages.some(p => !p.job) ? `Save ${plural(draft.sheets.pages.length, 'sheet')}` : 'Save job'}</button><button class="btn btn-ghost" disabled={blocked || !doc.readiness.compile.ok} onclick={() => review(true)}>Dry run</button></div>
     <button class="phone-primary" disabled={blocked || !doc.readiness.compile.ok} onclick={() => review(false)}>{busy ? 'Preparing…' : 'Go to Run'}<i class="ic ic-arrow-right"></i></button>
     {#if !doc.readiness.compile.ok}<p class="phone-readiness">{plain(doc.readiness.compile.reason).text}</p>{/if}
   </div>{/if}

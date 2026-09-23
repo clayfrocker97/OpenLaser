@@ -2,7 +2,7 @@
   import { api } from '../api/client';
   import { server } from '../stores/server.svelte';
   import { ui } from '../stores/ui.svelte';
-  import { explain } from '../lib/format';
+  import { explain, plural } from '../lib/format';
   const sheets = $derived(server.doc?.draft?.sheets);
   let busy = $state(false);
   async function choose(index: number): Promise<void> {
@@ -17,7 +17,7 @@
 </script>
 
 {#if sheets && sheets.pages.length > 1}
-  <div class="sheet-strip"><span class="sheet-label">Sheets <small>{sheets.active + 1} / {sheets.pages.length}</small></span><div class="sheet-pages" role="group" aria-label="Numbered sheets">{#each sheets.pages as page, i}<button class:on={sheets.active === i} aria-pressed={sheets.active === i} disabled={busy || ui.nestShown} onclick={() => choose(i)}>Sheet {page.number}<small>{page.parts === null ? 'Saved job' : `${page.parts} parts`}</small></button>{/each}</div></div>
+  <div class="sheet-strip"><span class="sheet-label">Sheets <small>{sheets.active + 1} / {sheets.pages.length}</small></span><div class="sheet-pages" role="group" aria-label="Numbered sheets">{#each sheets.pages as page, i}<button class:on={sheets.active === i} aria-pressed={sheets.active === i} disabled={busy || ui.nestShown} onclick={() => choose(i)}>Sheet {page.number}<small>{page.parts === null ? 'Saved job' : plural(page.parts, 'part')}</small></button>{/each}</div></div>
 {/if}
 
 <style>
