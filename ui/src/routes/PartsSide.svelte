@@ -1,5 +1,4 @@
 <script lang="ts">
-  import ImportParts from '../components/ImportParts.svelte';
   import SimplifyPart from '../components/SimplifyPart.svelte';
   import { api } from '../api/client';
   import { server } from '../stores/server.svelte';
@@ -75,20 +74,17 @@
 
   const outline = $derived(item?.outline ?? []);
   let simplifying = $state(false);
-  const thumb = $derived.by(() => { const box = boxOf(outline); return box ? viewBoxFor(box, 100, 70) : '0 0 100 70'; });
+  const thumb = $derived.by(() => { const box = boxOf(outline); return box ? viewBoxFor(box, 160, 100) : '0 0 160 100'; });
 </script>
 
 <aside class="panel side">
   {#if !item}
     <h2>Start with a part</h2>
-    <p class="muted">Import DXF or SVG, or choose a library part. Add text on Setup.</p>
-    <div class="side-foot"><ImportParts /></div>
+    <p class="muted">Choose a library part, or import a DXF or SVG drawing with the import buttons at the top of Parts. Add text on Setup.</p>
   {:else}
     <div class="side-scroll">
+    <div class="side-preview"><svg viewBox={thumb} role="img" aria-label="Drawing of {item.name}">{#each outline as line}<path d={pathOf(line)} fill="none" stroke="var(--ink)" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>{/each}</svg></div>
     <div class="side-title">
-      <div class="thumb" style="width:64px;height:48px;border-radius:8px;background:var(--panel-2);display:grid;place-items:center">
-        <svg viewBox={thumb} style="width:80%">{#each outline as line}<path d={pathOf(line)} fill="none" stroke="var(--ink)" stroke-width="2.5" vector-effect="non-scaling-stroke"/>{/each}</svg>
-      </div>
       <div><h2>{item.name}</h2><div class="muted">{job ? 'Saved job' : 'Part'}{#if job} · {laserLabel(job.recipe.laser)}{/if} · updated {ago(item.updated)}</div></div>
     </div>
     <dl class="kv">
@@ -105,7 +101,7 @@
     <div class="item-meta">
       <button class="meta-notes" onclick={editNotes}><span class="meta-label">Notes<span class="edit-label">Edit</span></span><span class:placeholder={!item.notes}>{item.notes || 'Add a note'}</span></button>
     </div>
-    <div class="row">
+    <div class="item-actions">
       <button class="btn btn-ghost" onclick={duplicate}>Duplicate</button>
       <button class="btn btn-ghost" onclick={rename}>Rename</button>
       <button class="btn btn-ghost" onclick={remove}>Delete</button>
@@ -127,6 +123,11 @@
 
 <style>
   /* Details scroll on a short screen; the actions at the foot stay in reach. */
+  .side-preview { flex: none; height: clamp(140px, 24vh, 240px); border-radius: 12px; background: var(--panel-2); border: 1px solid var(--line); display: grid; place-items: center; padding: 12px; }
+  .side-preview svg { width: 100%; height: 100%; }
+  .side-title h2 { overflow-wrap: anywhere; }
+  .item-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .item-actions .btn { min-width: 0; padding: 0 6px; }
   .side-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 12px; }
   .item-meta { display: grid; gap: 10px; border-top: 1px solid var(--line); padding-top: 16px; }
   .meta-notes { appearance: none; display: grid; gap: 8px; width: 100%; text-align: left; padding: 14px 16px; font-size: var(--t-sm); border: 1px solid var(--line); border-radius: 12px; background: var(--panel-2); color: var(--ink); cursor: pointer; }

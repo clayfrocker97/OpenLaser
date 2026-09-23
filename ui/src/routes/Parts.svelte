@@ -11,7 +11,7 @@
   import { osk } from '../lib/osk.svelte';
   import { fuzzyScore } from '../lib/search';
   import { folderPath as pathOfFolder } from '../lib/folders';
-  import { explain, laserLabel, recipeLabel, size } from '../lib/format';
+  import { explain, laserLabel, plural, recipeLabel, size } from '../lib/format';
   import { boxOf, pathOf, viewBoxFor } from '../lib/svg';
   import { hasAllParts, togglePick } from '../lib/job-parts';
   import type { Folder, JobView } from '../api';
@@ -22,8 +22,25 @@
   /** A card: a part or a saved job. */
   type Card = { id: string; kind: 'part' | 'job'; name: string; search: string; folder: string | null; laser: 'fiber' | 'co2' | null; material: string; size: string; contours: number; favourite: boolean; updated: number; outline: number[][][]; parts: number };
 
-  let kindFilter = $state<'all' | 'part' | 'job' | 'fav' | 'sheet'>('all');
+  let kindFilter = $state<'all' | 'part' | 'job' | 'sheet'>('all');
   let laserFilter = $state<'all' | 'fiber' | 'co2'>('all');
+  let favourites = $state(false);
+  let filterOpen = $state(false);
+  let filterMenu = $state<HTMLDivElement | null>(null);
+  const LASERS = [['all', 'All lasers'], ['fiber', 'Fiber'], ['co2', 'CO₂']] as const;
+  const laserName = $derived(LASERS.find(([k]) => k === laserFilter)![1]);
+  const filtered = $derived(laserFilter !== 'all' || favourites);
+  const filterName = $derived(laserFilter !== 'all' ? laserName : 'Filter');
+
+  // The filter menu closes on a tap outside it or on Escape.
+  $effect(() => {
+    if (!filterOpen) return;
+    const away = (e: PointerEvent) => { if (filterMenu && !filterMenu.contains(e.target as Node)) filterOpen = false; };
+    const escape = (e: KeyboardEvent) => { if (e.key === 'Escape') filterOpen = false; };
+    document.addEventListener('pointerdown', away);
+    document.addEventListener('keydown', escape);
+    return () => { document.removeEventListener('pointerdown', away); document.removeEventListener('keydown', escape); };
+  });
   let page = $state(0);
   let historyOpen = $state(false);
 
@@ -39,14 +56,16 @@
   const folderPath = (id: string | null) => pathOfFolder(library.folders, id);
 
   const q = $derived(ui.search.trim());
+  // A search and the favourites look in every folder; otherwise the open folder.
+  const everywhere = $derived(!!q || favourites);
   const visible = $derived.by(() => {
-    let items = cards.filter((c) => (kindFilter === 'all' || (kindFilter === 'fav' ? c.favourite : c.kind === kindFilter)) && (laserFilter === 'all' || c.laser === laserFilter || (c.laser === null && kindFilter !== 'job')));
+    let items = cards.filter((c) => (kindFilter === 'all' || c.kind === kindFilter) && (!favourites || c.favourite) && (laserFilter === 'all' || c.laser === laserFilter || (c.laser === null && kindFilter !== 'job')));
     if (q) {
       return items.map((c) => [fuzzyScore(`${c.name} ${c.search} ${c.material} ${c.size} ${folderPath(c.folder).map((f) => f.name).join(' ')}`, q), c] as const).filter((x) => x[0] > 0).sort((a, b) => b[0] - a[0]).map((x) => x[1]);
     }
-    return items.filter((c) => (c.folder ?? null) === ui.folder);
+    return favourites ? items : items.filter((c) => (c.folder ?? null) === ui.folder);
   });
-  const folders = $derived(q ? [] : library.folders.filter((f) => (f.parent ?? null) === ui.folder).sort((a, b) => Number(b.favourite) - Number(a.favourite)));
+  const folders = $derived(q ? [] : favourites ? library.folders.filter((f) => f.favourite) : library.folders.filter((f) => (f.parent ?? null) === ui.folder).sort((a, b) => Number(b.favourite) - Number(a.favourite)));
 
   // Cards never scroll: as many as fit, the rest on further pages.
   let grid = $state<HTMLDivElement | null>(null);
@@ -59,6 +78,8 @@
       const rows = Math.max(1, Math.floor((rect.height - 24 + 12) / (172 + 12)));
       per = cols * rows;
       grid!.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+      // Rows share the spare height, so previews grow instead of leaving a gap.
+      grid!.style.gridAutoRows = `${Math.max(172, Math.floor((rect.height - 24 - (rows - 1) * 12) / rows))}px`;
     };
     measure();
     const observer = new ResizeObserver(measure);
@@ -104,26 +125,37 @@
 <section class="panel main" class:sheet-library-page={kindFilter === 'sheet'}>
   <div class="toolbar head-row parts-head">
     <h1>Parts</h1>
-    <div class="seg">
-      {#each [['all', 'All'], ['part', 'Parts'], ['job', 'Jobs'], ['sheet', 'Sheets']] as [k, label]}<button class:on={kindFilter === k} onclick={() => (kindFilter = k as typeof kindFilter)}>{label}</button>{/each}
-      <button class:on={kindFilter === 'fav'} onclick={() => (kindFilter = 'fav')} title="Favorites"><i class="ic ic-star"></i></button>
-    </div>
-    {#if kindFilter !== 'sheet'}<div class="seg">
-      {#each [['all', 'All'], ['fiber', 'Fiber'], ['co2', 'CO₂']] as [k, label]}<button class:on={laserFilter === k} onclick={() => (laserFilter = k as typeof laserFilter)}>{label}</button>{/each}
+    {#if kindFilter !== 'sheet'}<div class="parts-actions">
+      <button class="btn btn-ghost" class:on={picking} aria-pressed={picking} onclick={() => (ui.partPicks = picking ? null : [])}><i class="ic ic-check"></i>Pick parts</button>
+      <button class="btn btn-ghost" onclick={newFolder}><i class="ic ic-folder-plus"></i>Folder</button>
+      <ImportParts />
     </div>{/if}
   </div>
-  {#if kindFilter !== 'sheet'}<div class="toolbar parts-actions">
-    <div class="search"><i class="ic ic-search"></i><input placeholder="Search everything: name, material, size, folder…" bind:value={ui.search} onkeydown={(e) => { if (e.key === 'Escape') ui.search = ''; }}></div>
-    <button class="btn btn-ghost icon-btn" class:on={picking} aria-pressed={picking} onclick={() => (ui.partPicks = picking ? null : [])}><i class="ic ic-check"></i><span>Pick parts</span></button>
-    <button class="btn btn-ghost icon-btn" onclick={newFolder} title="New folder"><i class="ic ic-folder-plus"></i><span>Folder</span></button>
-    <ImportParts />
-  </div>{/if}
+  <div class="toolbar parts-filters">
+    <div class="seg" role="group" aria-label="Library type">
+      {#each [['all', 'All'], ['part', 'Parts'], ['job', 'Jobs'], ['sheet', 'Sheets']] as [k, label]}<button class:on={kindFilter === k} aria-pressed={kindFilter === k} onclick={() => (kindFilter = k as typeof kindFilter)}>{label}</button>{/each}
+    </div>
+    {#if kindFilter !== 'sheet'}
+      <div class="filter-menu" bind:this={filterMenu}>
+        <button class="btn btn-ghost filter-btn" class:on={filtered} aria-haspopup="true" aria-expanded={filterOpen} aria-label="Filter: {laserName}{favourites ? ', favorites only' : ''}" onclick={() => (filterOpen = !filterOpen)}>{filterName}{#if favourites}<i class="ic ic-star-fill"></i>{/if}<i class="ic ic-chev-down"></i></button>
+        {#if filterOpen}<div class="filter-pop" role="group" aria-label="Filter">
+          <span class="filter-label">Laser</span>
+          <div class="seg block">{#each LASERS as [k, label]}<button class:on={laserFilter === k} aria-pressed={laserFilter === k} onclick={() => (laserFilter = k)}>{k === 'all' ? 'All' : label}</button>{/each}</div>
+          <button class="btn btn-ghost block fav-toggle" class:on={favourites} aria-pressed={favourites} onclick={() => (favourites = !favourites)}><i class="ic {favourites ? 'ic-star-fill' : 'ic-star'}"></i>Favorites only</button>
+          {#if filtered}<button class="btn btn-ghost block" onclick={() => { laserFilter = 'all'; favourites = false; }}>Clear filter</button>{/if}
+        </div>{/if}
+      </div>
+      <label class="search"><i class="ic ic-search"></i><input type="search" aria-label="Search parts and jobs" placeholder="Search parts and jobs" bind:value={ui.search} onkeydown={(e) => { if (e.key === 'Escape') ui.search = ''; }}></label>
+    {/if}
+  </div>
 
   <SkippedFiles />
   {#if kindFilter === 'sheet'}<SheetLibrary />{:else}
   <div class="crumbs">
     {#if q}
       <span class="muted">Results everywhere for</span> <strong>“{q}”</strong>
+    {:else if favourites}
+      <span class="muted">Favorites in every folder</span>
     {:else}
       <button class="crumb-btn" onclick={() => (ui.folder = null)}>All parts</button>
       {#each folderPath(ui.folder) as f}<i class="ic ic-chev-right sm"></i><button class="crumb-btn" onclick={() => (ui.folder = f.id)}>{f.name}</button>{/each}
@@ -138,7 +170,7 @@
           <button class="fav" class:on={item.folder.favourite} aria-label="Star" onclick={(e) => { e.stopPropagation(); api.updateFolder(item.folder.id, { favourite: !item.folder.favourite }).catch((error) => ui.say(explain(error), true)); }}><i class="ic {item.folder.favourite ? 'ic-star-fill' : 'ic-star'}"></i></button>
           <div class="thumb"><i class="ic ic-folder lg"></i></div>
           <div class="title">{item.folder.name}</div>
-          <div class="sub">{n} item{n === 1 ? '' : 's'}</div>
+          <div class="sub">{plural(n, 'item')}</div>
         </div>
       {:else}
         {@const c = item.card}
@@ -148,22 +180,22 @@
           <button class="fav" class:on={c.favourite} aria-label="Star" onclick={(e) => { e.stopPropagation(); star(c); }}><i class="ic {c.favourite ? 'ic-star-fill' : 'ic-star'}"></i></button>
           <div class="thumb"><svg viewBox={thumb(c.outline)}>{#each c.outline as line}<path d={pathOf(line)} fill="none" stroke="var(--ink)" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>{/each}</svg></div>
           <div class="title">{c.name}</div>
-          <div class="sub">{#if q && c.folder}<i class="ic ic-folder sm"></i>{folderPath(c.folder).map((f) => f.name).join(' / ')} · {/if}{c.material ? `${c.material} · ` : ''}{c.size}</div>
+          <div class="sub">{#if everywhere && c.folder}<i class="ic ic-folder sm"></i>{`${folderPath(c.folder).map((f) => f.name).join(' / ')} · `}{/if}{c.material ? `${c.material} · ` : ''}{c.size}</div>
           <div class="tags">
             {#if c.laser}<span class="tag {c.laser}">{laserLabel(c.laser)}</span>{/if}
-            <span class="tag">{c.kind === 'job' ? (c.parts > 1 ? `Job · ${c.parts} parts` : 'Job') : 'Part'}</span>
-            <span class="tag">{c.contours} paths</span>
+            <span class="tag">{c.kind === 'job' ? (c.parts > 1 ? `Job · ${plural(c.parts, 'part')}` : 'Job') : 'Part'}</span>
+            <span class="tag">{plural(c.contours, 'path')}</span>
           </div>
         </div>
       {/if}
     {:else}
-      <div class="empty"><h2>{q ? 'Nothing matches' : 'Empty folder'}</h2>{q ? 'Try a shorter word, a material, a size, or a folder name.' : 'Import DXF or SVG, or move parts here.'}</div>
+      <div class="empty"><h2>{q || filtered ? 'Nothing matches' : 'Empty folder'}</h2>{q ? 'Try a shorter word, a material, a size, or a folder name.' : filtered ? 'Clear the filter to see everything.' : 'Import DXF or SVG, or move parts here.'}</div>
     {/each}
   </div>
 
   <div class="panel-foot">
     <button class="btn btn-ghost" onclick={() => (historyOpen = true)}>History</button>
-    <span class="muted">{q ? `${visible.length} result${visible.length === 1 ? '' : 's'}` : `${total} items`}</span>
+    <span class="muted">{q ? plural(visible.length, 'result') : plural(total, 'item')}</span>
     <div class="pager"><button onclick={() => (page = Math.max(0, page - 1))} disabled={page === 0} aria-label="Previous page"><i class="ic ic-chev-left"></i></button><span>{page + 1} / {pages}</span><button onclick={() => (page = Math.min(pages - 1, page + 1))} disabled={page >= pages - 1} aria-label="Next page"><i class="ic ic-chev-right"></i></button></div>
   </div>
 {/if}
@@ -174,11 +206,22 @@
 
 <style>
   .sheet-library-page { grid-column:1 / -1; }
-  .toolbar.parts-head { flex-wrap:wrap; flex-shrink:0; }
-  .parts-actions { flex-shrink:0; padding:12px 16px; border-bottom:1px solid var(--line); gap:8px; }
-  .parts-actions .search { min-width:120px; flex:1; }
-  .parts-actions input { min-width:0; width:0; }
-  .parts-actions .on { border-color:var(--accent); color:var(--accent); background:var(--accent-soft); }
+  .toolbar.parts-head { flex-shrink:0; justify-content:space-between; gap:12px; min-height:calc(var(--touch) + 25px); }
+  .parts-actions { display:flex; align-items:center; gap:8px; min-width:0; }
+  .parts-filters { flex-shrink:0; padding:12px 16px 0; gap:8px; }
+  .parts-filters .search { min-width:0; flex:1 1 200px; }
+  .parts-filters .seg button { padding:0 12px; }
+  .parts-filters input { min-width:0; width:0; text-overflow:ellipsis; }
+  .parts-head .on, .parts-filters .btn.on { border-color:var(--accent); color:var(--accent); background:var(--accent-soft); }
+  .filter-menu { position:relative; }
+  .filter-btn { padding:0 14px; gap:6px; }
+  .filter-btn .ic-chev-down { width:16px; height:16px; }
+  .filter-btn .ic-star-fill { width:18px; height:18px; }
+  .filter-pop { position:absolute; top:calc(100% + 8px); left:0; z-index:20; width:280px; display:grid; gap:8px; padding:12px; background:var(--panel); border:1px solid var(--line); border-radius:var(--r); box-shadow:var(--shadow); }
+  .filter-label { font-size:var(--t-sm); font-weight:600; color:var(--ink-3); }
+  .fav-toggle { justify-content:flex-start; }
+  .parts-grid .card { height:auto; min-height:0; }
+  .parts-grid .card .thumb { flex:1 1 64px; height:auto; min-height:64px; }
   .pick-mark { position:absolute; top:8px; left:8px; width:32px; height:32px; border-radius:50%; border:2px solid var(--ink-3); background:var(--panel); display:grid; place-items:center; font-weight:700; font-size:var(--t-sm); z-index:1; }
   .pick-mark.on { background:var(--accent); border-color:var(--accent); color:#fff; }
   .card.unpickable { opacity:.45; }
