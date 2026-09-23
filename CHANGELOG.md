@@ -2,6 +2,77 @@
 
 Versions use Semantic Versioning, with prerelease identifiers for alpha builds.
 
+## 0.1.0-alpha.3 — review candidate
+
+Local review candidate built on 2026-09-22. Not published.
+
+### Plate contact and pauses
+
+- A pause, from the Pause button or from an alarm such as the nozzle touching
+  the plate, now switches the laser off with the stop, raises the head to the
+  machine's safe height (`ZFSafeHeight` at `ZFUpSpeed`), and only then switches
+  the gas off. The head rises only when it is referenced, free of Z faults, not
+  under an emergency stop, and below the safe height. The
+  pause waits at most 3 s for the head, so a head controller that stays busy
+  after a touch no longer holds the screens in "running" until the pause
+  fails. Each step is written to `server.log`. Stop and
+  a pause after lost feedback still switch everything off at once and leave the
+  head where it is.
+- While a program cuts or frames, the head's alarm word is read between the
+  full feedback polls, so a touch pauses the program within a read or two
+  instead of up to a poll later. A controller that answers slowly falls back to
+  the ordinary poll.
+- A head jogged down onto the plate stops and rises to the safe height, and a
+  head touching the plate may be jogged up.
+
+### Jobs of several parts
+
+- Pick several parts on the Parts page (desktop and phone) and set them up as
+  one job: they open side by side in the order picked, wrapping at the bed's
+  width, each part its own shape for nesting.
+- Setup lists the job's parts; **Add parts** adds more beside the layout as one
+  undoable edit, and a part's shapes can be selected from the list. Removing
+  every shape of a part takes it out of the job; Undo brings it back.
+- A saved job keeps its parts in order. Jobs of one part are stored exactly as
+  before; a job of several parts is job schema 2, which earlier builds decline
+  to open. Retained working copies follow the same rule.
+- A part used by a saved job cannot be deleted, and the refusal names the job.
+  Saving nested sheets makes each sheet a job of only the parts on it.
+- When a saved job's parts change on two screens, its parts and layout merge
+  as one choice instead of value by value.
+
+### Nesting
+
+- The drawing shows a running search as it goes: each part as it is placed and
+  each tighter arrangement, on the sheet the search last changed, with that
+  sheet's own stock and cutouts. Only the checked result can be applied.
+- Nesting several parts onto a remnant and overflowing onto fresh sheets is
+  covered by an end-to-end test.
+
+### Drawings
+
+- **Simplify drawing** saves a part's drawing as a new part with runs of short
+  lines joined into arcs and lines within 0.01 to 0.1 mm, repeated contours on
+  the same layer and specks removed. The original part is unchanged.
+- One sheet now prepares up to 20 000 contours (was 5 000) and 200 000 lines
+  and arcs (was 100 000); heat spreading takes a full sheet and nearest-next
+  ordering 10 000 contours. Preparation measured about 0.3 s at 20 000 contours.
+  Limit messages name the limit and what to do.
+
+### Fixes
+
+- Nesting compacts from the first fit's own width, so a sheet is never
+  looser than its first arrangement; identical parts pack into a tight block
+  instead of spreading across the sheet.
+- Side panels scroll when their content is taller than the screen; Setup
+  keeps Save, Dry run and Go to Run in reach below its cards.
+- Re-nesting one sheet of an unsaved set numbers the new sheets from it.
+
+### Validation limits
+
+Automated checks and simulator runs only, including multi-part jobs, live
+nesting and nesting onto a remnant.
+
 ## 0.1.0-alpha.2 — review candidate
 
 Local review candidate built on 2026-09-22. Not published.

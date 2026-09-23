@@ -6,7 +6,7 @@ members = ["crates/*"]
 exclude = ["source", "reference"]
 
 [workspace.package]
-version = "0.1.0-alpha.2"
+version = "0.1.0-alpha.3"
 edition = "2024"
 rust-version = "1.97"
 license = "GPL-3.0-or-later"
@@ -15,19 +15,19 @@ publish = false
 [workspace.dependencies]
 # Workspace members. Every crate refers to a sibling through this table so the
 # dependency direction is declared in one place.
-openlaser-core = { path = "crates/openlaser-core", version = "0.1.0-alpha.2" }
-openlaser-correction = { path = "crates/openlaser-correction", version = "0.1.0-alpha.2" }
-openlaser-prep = { path = "crates/openlaser-prep", version = "0.1.0-alpha.2" }
-openlaser-nest = { path = "crates/openlaser-nest", version = "0.1.0-alpha.2" }
-openlaser-dxf = { path = "crates/openlaser-dxf", version = "0.1.0-alpha.2" }
-openlaser-svg = { path = "crates/openlaser-svg", version = "0.1.0-alpha.2" }
-openlaser-xml = { path = "crates/openlaser-xml", version = "0.1.0-alpha.2" }
-openlaser-protocol = { path = "crates/openlaser-protocol", version = "0.1.0-alpha.2" }
-openlaser-compiler = { path = "crates/openlaser-compiler", version = "0.1.0-alpha.2" }
-openlaser-controller = { path = "crates/openlaser-controller", version = "0.1.0-alpha.2" }
-openlaser-library = { path = "crates/openlaser-library", version = "0.1.0-alpha.2" }
-openlaser-network = { path = "crates/openlaser-network", version = "0.1.0-alpha.2" }
-openlaser-server = { path = "crates/openlaser-server", version = "0.1.0-alpha.2" }
+openlaser-core = { path = "crates/openlaser-core", version = "0.1.0-alpha.3" }
+openlaser-correction = { path = "crates/openlaser-correction", version = "0.1.0-alpha.3" }
+openlaser-prep = { path = "crates/openlaser-prep", version = "0.1.0-alpha.3" }
+openlaser-nest = { path = "crates/openlaser-nest", version = "0.1.0-alpha.3" }
+openlaser-dxf = { path = "crates/openlaser-dxf", version = "0.1.0-alpha.3" }
+openlaser-svg = { path = "crates/openlaser-svg", version = "0.1.0-alpha.3" }
+openlaser-xml = { path = "crates/openlaser-xml", version = "0.1.0-alpha.3" }
+openlaser-protocol = { path = "crates/openlaser-protocol", version = "0.1.0-alpha.3" }
+openlaser-compiler = { path = "crates/openlaser-compiler", version = "0.1.0-alpha.3" }
+openlaser-controller = { path = "crates/openlaser-controller", version = "0.1.0-alpha.3" }
+openlaser-library = { path = "crates/openlaser-library", version = "0.1.0-alpha.3" }
+openlaser-network = { path = "crates/openlaser-network", version = "0.1.0-alpha.3" }
+openlaser-server = { path = "crates/openlaser-server", version = "0.1.0-alpha.3" }
 
 # Third-party crates, pinned once for the whole workspace. Add a crate here
 # first, then use `name.workspace = true` in the member that needs it.
