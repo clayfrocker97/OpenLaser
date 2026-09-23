@@ -4,19 +4,19 @@ import type { PassView } from "./PassView";
 /**
  * One original pass and its observed execution intervals.
  */
-export type RecoveryStep = { 
+export type RecoveryStep = {
 /**
  * Original process and physical instances.
  */
-pass: PassView, 
+pass: PassView,
 /**
  * Length of its executed polyline; zero for preliminary points.
  */
-length_mm: number, 
+length_mm: number,
 /**
  * Pending, partial, completed or skipped.
  */
-status: string, 
+status: string,
 /**
  * Observed intervals as fractions of the original path.
  */

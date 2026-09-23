@@ -6,56 +6,56 @@ import type { Preview } from "./Preview";
 /**
  * Compact progress plus a complete preview once a search succeeds.
  */
-export type NestView = { 
+export type NestView = {
 /**
  * Numbered sheets in the result; geometry is fetched one page at a time.
  */
-sheets: Array<NestSheetSummary>, 
+sheets: Array<NestSheetSummary>,
 /**
  * Outer boundary of the first preview sheet.
  */
-stock_outline: Array<[number, number]>, 
+stock_outline: Array<[number, number]>,
 /**
  * Existing cutouts on the first preview sheet.
  */
-stock_cutouts: Array<Array<[number, number]>>, 
+stock_cutouts: Array<Array<[number, number]>>,
 /**
  * Search identity, used by Cancel and Apply.
  */
-id: number, 
+id: number,
 /**
  * Draft revision this result belongs to.
  */
-revision: number, 
+revision: number,
 /**
  * Whether the background worker is still searching.
  */
-running: boolean, 
+running: boolean,
 /**
  * Most parts placed in any attempt.
  */
-placed: number, 
+placed: number,
 /**
  * Required physical part count.
  */
-total: number, 
+total: number,
 /**
  * Area fraction of the entire stock, with part holes reserved.
  */
-coverage: number | null, 
+coverage: number | null,
 /**
  * Prepared paths for a complete result, never an intermediate overlap.
  */
-preview: Preview | null, 
+preview: Preview | null,
 /**
  * Changes whenever the running search shows another arrangement.
  */
-live_serial: number, 
+live_serial: number,
 /**
  * The arrangement as the running search stands, for watching; left out
  * of a status when the caller already has `live_serial`.
  */
-live: NestLive | null, 
+live: NestLive | null,
 /**
  * Error or unsuccessful-search explanation.
  */

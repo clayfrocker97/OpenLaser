@@ -6,31 +6,31 @@ import type { PostflightDefaults } from "./PostflightDefaults";
 /**
  * Application-wide preflight choices, persisted independently of job files.
  */
-export type PreflightPreferences = { 
+export type PreflightPreferences = {
 /**
  * File schema version.
  */
-version: number, 
+version: number,
 /**
  * Optimistic concurrency token for preference edits.
  */
-revision: number, 
+revision: number,
 /**
  * Fiber defaults.
  */
-fiber: Checklist, 
+fiber: Checklist,
 /**
  * CO2 defaults.
  */
-co2: Checklist, 
+co2: Checklist,
 /**
  * Legacy version-1 setting, migrated into editable checklist steps.
  */
-confirm_gas: boolean, 
+confirm_gas: boolean,
 /**
  * Checklists offered after confirmed job completion.
  */
-postflight: PostflightDefaults, 
+postflight: PostflightDefaults,
 /**
  * Checks offered after pausing and required before resuming.
  */

@@ -3,11 +3,11 @@
 /**
  * A browser instance and its monotonically increasing press number.
  */
-export type Lease = { 
+export type Lease = {
 /**
  * Random instance id, changed when the page is reloaded.
  */
-client: string, 
+client: string,
 /**
  * Increased for each press within that instance.
  */

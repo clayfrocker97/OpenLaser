@@ -4,11 +4,11 @@ import type { SheetView } from "./SheetView";
 /**
  * A page of sheet history, newest first.
  */
-export type SheetPage = { 
+export type SheetPage = {
 /**
  * Records on this page.
  */
-items: Array<SheetView>, 
+items: Array<SheetView>,
 /**
  * Cursor for older records.
  */

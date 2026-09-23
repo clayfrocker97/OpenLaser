@@ -3,19 +3,19 @@
 /**
  * One gas selection of the machine.
  */
-export type GasRouteView = { 
+export type GasRouteView = {
 /**
  * The selector, 0 to 5.
  */
-selector: number, 
+selector: number,
 /**
  * Its name.
  */
-name: string, 
+name: string,
 /**
  * Whether a valve is wired to it.
  */
-valve: boolean, 
+valve: boolean,
 /**
  * Whether its pressure is set electronically, through a proportional
  * output; otherwise it is set at the regulator.

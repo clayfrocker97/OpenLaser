@@ -3,23 +3,23 @@
 /**
  * A compact projection of the imported Soft INI.
  */
-export type SoftView = { 
+export type SoftView = {
 /**
  * Original filename, if imported.
  */
-name: string | null, 
+name: string | null,
 /**
  * Hash of the exact source bytes.
  */
-sha256: string | null, 
+sha256: string | null,
 /**
  * Follow/retract timeout in milliseconds.
  */
-follow_ms: number, 
+follow_ms: number,
 /**
  * Pierce-height timeout in milliseconds.
  */
-section_drill_ms: number, 
+section_drill_ms: number,
 /**
  * Minimum nonzero analog peak request.
  */

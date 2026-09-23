@@ -4,11 +4,11 @@ import type { Quality } from "./Quality";
 /**
  * Calibration status for the material selected in the current job.
  */
-export type CalibrationView = { 
+export type CalibrationView = {
 /**
  * The quality of a completed calibration on this connection.
  */
-quality: Quality | null, 
+quality: Quality | null,
 /**
  * That calibration still applies to the current material and bindings.
  */

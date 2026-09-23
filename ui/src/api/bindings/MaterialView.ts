@@ -4,19 +4,19 @@ import type { LaserMode } from "./LaserMode";
 /**
  * The material identity shown beside an immutable execution.
  */
-export type MaterialView = { 
+export type MaterialView = {
 /**
  * The material name.
  */
-name: string, 
+name: string,
 /**
  * Sheet thickness in millimetres.
  */
-thickness_mm: number, 
+thickness_mm: number,
 /**
  * The assist gas.
  */
-gas: string, 
+gas: string,
 /**
  * The laser this recipe uses.
  */

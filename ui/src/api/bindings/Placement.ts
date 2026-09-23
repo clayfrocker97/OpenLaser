@@ -3,7 +3,7 @@
 /**
  * How a new physical sheet is positioned on the machine.
  */
-export type Placement = { "kind": "head", } | { "kind": "fixed", 
+export type Placement = { "kind": "head", } | { "kind": "fixed",
 /**
  * Machine XY occupied by the sheet's reference point, in millimetres.
  */

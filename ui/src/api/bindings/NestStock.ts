@@ -6,31 +6,31 @@ import type { Placed } from "./Placed";
 /**
  * Stock is a reference boundary, never a cutting contour.
  */
-export type NestStock = { "kind": "rectangle", 
+export type NestStock = { "kind": "rectangle",
 /**
  * Sheet bounds.
  */
-bounds: Bounds, } | { "kind": "remnant", 
+bounds: Bounds, } | { "kind": "remnant",
 /**
  * Library identity for provenance; geometry remains usable independently.
  */
-reference: string, 
+reference: string,
 /**
  * Operator's sheet name.
  */
-name: string, 
+name: string,
 /**
  * Retained outer boundary in drawing coordinates.
  */
-outline: Contour, 
+outline: Contour,
 /**
  * Regions from which material has already been removed.
  */
-cutouts: Array<Contour>, 
+cutouts: Array<Contour>,
 /**
  * Conservative clearance for kerf and leads used by previous cuts.
  */
-clearance: number, } | { "kind": "outline", 
+clearance: number, } | { "kind": "outline",
 /**
  * Its source and placement before it was removed from cutting.
  */

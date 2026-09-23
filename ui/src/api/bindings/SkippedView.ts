@@ -3,11 +3,11 @@
 /**
  * A library file that could not be loaded, and why.
  */
-export type SkippedView = { 
+export type SkippedView = {
 /**
  * The file, relative to the data directory.
  */
-file: string, 
+file: string,
 /**
  * Why it was left out.
  */

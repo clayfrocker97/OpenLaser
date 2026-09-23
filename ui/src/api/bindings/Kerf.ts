@@ -5,11 +5,11 @@ import type { Side } from "./Side";
 /**
  * Kerf compensation: the path moves half the kerf into the waste.
  */
-export type Kerf = { 
+export type Kerf = {
 /**
  * The width the beam removes.
  */
-width: Millimeters, 
+width: Millimeters,
 /**
  * Which side the waste is on.
  */

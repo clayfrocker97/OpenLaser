@@ -4,7 +4,7 @@ import type { Check } from "./Check";
 /**
  * How a saved job chooses its checks. Old jobs inherit the mode defaults.
  */
-export type JobPreflight = { "kind": "inherit", } | { "kind": "off", } | { "kind": "custom", 
+export type JobPreflight = { "kind": "inherit", } | { "kind": "off", } | { "kind": "custom",
 /**
  * Checks in display order.
  */

@@ -4,15 +4,15 @@ import type { Id } from "./Id";
 /**
  * Where the features of a draft came from.
  */
-export type FeatureSource = { 
+export type FeatureSource = {
 /**
  * The job they were copied from.
  */
-job: Id, 
+job: Id,
 /**
  * Its name.
  */
-name: string, 
+name: string,
 /**
  * When that job was saved.
  */

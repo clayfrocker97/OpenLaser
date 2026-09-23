@@ -12,43 +12,43 @@ import type { Start } from "./Start";
 /**
  * Everything preparation needs beyond the drawing.
  */
-export type Features = { 
+export type Features = {
 /**
  * Entry and exit leads.
  */
-leads: Leads | null, 
+leads: Leads | null,
 /**
  * Micro-joints that hold parts in the sheet.
  */
-joints: Joints | null, 
+joints: Joints | null,
 /**
  * Cooling stops.
  */
-cooling: Cooling | null, 
+cooling: Cooling | null,
 /**
  * Kerf compensation.
  */
-kerf: Kerf | null, 
+kerf: Kerf | null,
 /**
  * Bridges between contours.
  */
-bridges: Bridges | null, 
+bridges: Bridges | null,
 /**
  * Share compatible coincident spans between these placed contours.
  */
-common: CommonEdges | null, 
+common: CommonEdges | null,
 /**
  * Where each contour starts and which way it runs.
  */
-start: Start, 
+start: Start,
 /**
  * How a closed contour's seam is treated.
  */
-seam: Seam, 
+seam: Seam,
 /**
  * The cutting order.
  */
-order: CutOrder, 
+order: CutOrder,
 /**
  * Drawing layers left uncut.
  */

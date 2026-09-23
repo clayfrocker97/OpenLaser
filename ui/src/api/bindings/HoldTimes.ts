@@ -3,11 +3,11 @@
 /**
  * Hold durations in milliseconds.
  */
-export type HoldTimes = { 
+export type HoldTimes = {
 /**
  * Moving the machine, firing the beam or switching an output on.
  */
-move_ms: number, 
+move_ms: number,
 /**
  * Setting an origin or a reference.
  */
