@@ -471,6 +471,68 @@ fn previous_clearance(draft: &Draft, prepared: &crate::draft::Prepared) -> f64 {
     }))
 }
 
+/// The draft's placed contours, moved by the recipe's contour shift as
+/// the machine will cut them.
+fn shifted_placement(draft: &Draft, drawing: &Drawing, machining_shift: [f64; 2]) -> Drawing {
+    let moved = Transform::translation(Point::from(machining_shift));
+    Drawing {
+        contours: crate::draft::place(drawing, &draft.current.placed)
+            .contours
+            .iter()
+            .map(|c| moved.contour(c))
+            .collect(),
+    }
+}
+
+/// The region of material each part removes, with the cutting passes that
+/// cut it out.
+fn cut_areas(draft: &Draft, placed: &Drawing, shift: &Transform) -> Vec<CutArea> {
+    let mut areas = Vec::new();
+    // Authored groups and bridges may join several disconnected outer
+    // shapes. Recover material regions from geometry, not selection groups.
+    for group in openlaser_prep::groups(&placed.contours) {
+        let passes = cutting_passes(draft, &group);
+        for outline in footprints(&placed.contours, &group) {
+            areas.push(CutArea { outline: shift.contour(&outline), passes: passes.clone() });
+        }
+    }
+    areas
+}
+
+/// The ordinals of the compiled cutting passes that cut any contour of
+/// `group`; none before the draft is compiled.
+fn cutting_passes(draft: &Draft, group: &[usize]) -> Vec<usize> {
+    let placed = &draft.current.placed;
+    let cuts_group = |instance: &crate::document::InstanceView| {
+        group
+            .iter()
+            .any(|i| placed[*i].source == instance.source && placed[*i].copy == instance.copy)
+    };
+    draft
+        .compiled
+        .as_ref()
+        .map(|c| {
+            c.view
+                .plan
+                .iter()
+                .filter(|p| p.kind == PassKind::Cut && p.instances.iter().any(cuts_group))
+                .map(|p| p.ordinal)
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// The saved remnant this sheet is cut from, if it is one.
+fn remnant_parent(draft: &Draft) -> Option<String> {
+    draft.current.nesting.as_ref().and_then(|n| {
+        if let NestStock::Remnant { reference, .. } = &n.stock {
+            Some(reference.clone())
+        } else {
+            None
+        }
+    })
+}
+
 impl Coordinator {
     /// Snapshot the active stock, outer part regions and open cut traces.
     pub(crate) fn sheet_plan(&self, draft: &Draft) -> Result<Option<Arc<SheetPlan>>> {
@@ -479,67 +541,18 @@ impl Coordinator {
         let drawing = draft.drawing()?;
         let machining_shift = command_shift(draft)?;
         let prepared = prepared.shifted(machining_shift)?;
-        let moved = Transform::translation(Point::from(machining_shift));
-        let placed = Drawing {
-            contours: crate::draft::place(drawing, &draft.current.placed)
-                .contours
-                .iter()
-                .map(|c| moved.contour(c))
-                .collect(),
-        };
-        let outline = if let Some(nesting) = &draft.current.nesting {
-            crate::nesting::stock(drawing, nesting)?
-        } else {
-            let extent =
-                self.extent().ok_or_else(|| Error::Refused("no sheet dimensions".into()))?;
-            let zero = Point::from(draft.current.sheet_offset.unwrap_or([0., 0.]));
-            rectangle(Bounds {
-                min: Point::new(extent[0][0], extent[1][0]) - zero,
-                max: Point::new(extent[0][1], extent[1][1]) - zero,
-            })?
-        };
+        let placed = shifted_placement(draft, drawing, machining_shift);
+        let outline = self.sheet_outline(draft, drawing)?;
+        // Sheet records keep the stock's lower-left corner at the origin.
         let shift = Transform::translation(
             Point::ORIGIN - outline.bounds().ok_or_else(|| fail("empty sheet"))?.min,
         );
-        let mut areas = Vec::new();
-        // Authored groups and bridges may join several disconnected outer
-        // shapes. Recover material regions from geometry, not selection groups.
-        for group in openlaser_prep::groups(&placed.contours) {
-            let passes: Vec<_> = draft
-                .compiled
-                .as_ref()
-                .map(|c| {
-                    c.view
-                        .plan
-                        .iter()
-                        .filter(|p| {
-                            p.kind == PassKind::Cut
-                                && p.instances.iter().any(|instance| {
-                                    group.iter().any(|i| {
-                                        draft.current.placed[*i].source == instance.source
-                                            && draft.current.placed[*i].copy == instance.copy
-                                    })
-                                })
-                        })
-                        .map(|p| p.ordinal)
-                        .collect()
-                })
-                .unwrap_or_default();
-            for outline in footprints(&placed.contours, &group) {
-                areas.push(CutArea { outline: shift.contour(&outline), passes: passes.clone() });
-            }
-        }
+        let areas = cut_areas(draft, &placed, &shift);
         if areas.is_empty() || prepared.contours.is_empty() {
             return Ok(None);
         }
         let name = self.draft_name(draft);
-        let parent = draft.current.nesting.as_ref().and_then(|n| {
-            if let NestStock::Remnant { reference, .. } = &n.stock {
-                Some(reference.clone())
-            } else {
-                None
-            }
-        });
+        let parent = remnant_parent(draft);
         Ok(Some(Arc::new(SheetPlan {
             id: Id::generate(),
             job: draft.job.clone(),
@@ -563,6 +576,20 @@ impl Coordinator {
             // by choosing a smaller margin in the nesting form.
             clearance: previous_clearance(draft, &prepared),
         })))
+    }
+
+    /// The stock in drawing coordinates: the nested stock, or else the
+    /// whole bed where the sheet lies.
+    fn sheet_outline(&self, draft: &Draft, drawing: &Drawing) -> Result<Contour> {
+        if let Some(nesting) = &draft.current.nesting {
+            return crate::nesting::stock(drawing, nesting);
+        }
+        let extent = self.extent().ok_or_else(|| Error::Refused("no sheet dimensions".into()))?;
+        let offset = Point::from(draft.current.sheet_offset.unwrap_or([0., 0.]));
+        rectangle(Bounds {
+            min: Point::new(extent[0][0], extent[1][0]) - offset,
+            max: Point::new(extent[0][1], extent[1][1]) - offset,
+        })
     }
 
     pub(crate) fn finish_sheet(&mut self, completed: bool) -> Result<()> {
