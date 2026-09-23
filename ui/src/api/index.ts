@@ -131,6 +131,8 @@ export type { RecoveryChange } from './bindings/RecoveryChange';
 export type { RecoveryStep } from './bindings/RecoveryStep';
 export type { RecoveryView } from './bindings/RecoveryView';
 export type { ReliefView } from './bindings/ReliefView';
+export type { Repair } from './bindings/Repair';
+export type { Repairs } from './bindings/Repairs';
 export type { ResetRecord } from './bindings/ResetRecord';
 export type { RouteChange } from './bindings/RouteChange';
 export type { RuleView } from './bindings/RuleView';
