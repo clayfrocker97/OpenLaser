@@ -19,6 +19,7 @@
 )]
 
 pub mod features;
+pub mod fit;
 pub mod geometry;
 pub mod grouping;
 pub mod nesting;
