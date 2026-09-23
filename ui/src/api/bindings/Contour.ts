@@ -4,11 +4,11 @@ import type { Curve } from "./Curve";
 /**
  * A chain of curves on one drawing layer.
  */
-export type Contour = { 
+export type Contour = {
 /**
  * The drawing layer the contour came from.
  */
-layer: string, 
+layer: string,
 /**
  * The curves, each starting where the previous one ends.
  */

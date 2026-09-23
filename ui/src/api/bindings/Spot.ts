@@ -4,11 +4,11 @@
  * A place along a drawing contour: the contour's index in the drawing and
  * the fraction of its length, as drawn.
  */
-export type Spot = { 
+export type Spot = {
 /**
  * The contour.
  */
-contour: number, 
+contour: number,
 /**
  * How far along it, 0 to 1.
  */

@@ -3,19 +3,19 @@
 /**
  * A stock choice is a separate, undoable authoring edit.
  */
-export type StockChoice = { "kind": "remnant", 
+export type StockChoice = { "kind": "remnant",
 /**
  * Sheet library identity.
  */
-id: string, } | { "kind": "rectangle", 
+id: string, } | { "kind": "rectangle",
 /**
  * Width in millimetres.
  */
-width: number, 
+width: number,
 /**
  * Height in millimetres.
  */
-height: number, } | { "kind": "outline", 
+height: number, } | { "kind": "outline",
 /**
  * Placed contour index.
  */

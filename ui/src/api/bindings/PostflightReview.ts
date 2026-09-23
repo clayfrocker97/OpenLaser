@@ -5,15 +5,15 @@ import type { PostflightNotice } from "./PostflightNotice";
 /**
  * Current completion checks. Checkbox state is never persisted.
  */
-export type PostflightReview = { 
+export type PostflightReview = {
 /**
  * Completion identity.
  */
-notice: PostflightNotice, 
+notice: PostflightNotice,
 /**
  * Defaults captured when the job finished.
  */
-steps: Array<Check>, 
+steps: Array<Check>,
 /**
  * Checks satisfied by fresh machine feedback.
  */

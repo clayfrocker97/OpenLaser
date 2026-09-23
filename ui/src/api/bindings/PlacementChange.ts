@@ -3,7 +3,7 @@
 /**
  * Explicit changes made in the Run positioning panel. None causes motion.
  */
-export type PlacementChange = { "kind": "head", } | { "kind": "set_origin", } | { "kind": "fixed_head", } | { "kind": "fixed", 
+export type PlacementChange = { "kind": "head", } | { "kind": "set_origin", } | { "kind": "fixed_head", } | { "kind": "fixed",
 /**
  * Machine millimetres from the homed zero.
  */

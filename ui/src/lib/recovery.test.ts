@@ -3,7 +3,7 @@ import { restartAt } from './recovery';
 import type { Compiled, RecoveryStep } from '../api';
 
 const step = (kind: 'cut' | 'film', status = 'pending'): RecoveryStep => ({ pass: { ordinal: 0, kind, instances: [], omitted_cooling: 0 }, status, length_mm: 20, executed: [] });
-const program = (moves: Compiled['moves']): Compiled => ({ dry_run: false, seconds: 1, plan: [], pierces: [], blocks: 1, moves });
+const program = (moves: Compiled['moves']): Compiled => ({ dry_run: false, seconds: 1, plan: [], pierces: [], blocks: 1, moves, usage: { laser: 0, gases: [], pierces: 0, cut: 0 } });
 
 describe('touch restart selection', () => {
   it('finds the fraction along actual runs without bridging a travel gap', () => {

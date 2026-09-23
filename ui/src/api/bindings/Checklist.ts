@@ -4,11 +4,11 @@ import type { Check } from "./Check";
 /**
  * A mode's default checklist.
  */
-export type Checklist = { 
+export type Checklist = {
 /**
  * Whether the checks are required before Start.
  */
-enabled: boolean, 
+enabled: boolean,
 /**
  * Checks in display order.
  */

@@ -5,6 +5,7 @@
   import MatrixCalibration from '../components/MatrixCalibration.svelte';
   import MachineSettings from '../components/MachineSettings.svelte';
   import MachineFiles from '../components/MachineFiles.svelte';
+  import GasCosts from '../components/GasCosts.svelte';
   import HoldButton from '../components/HoldButton.svelte';
   import { holdSeconds, MAX_HOLD_MS, MIN_HOLD_MS } from '../lib/hold-confirm';
   import { SETTINGS_PAGES } from '../lib/navigation';
@@ -74,6 +75,8 @@
         <MachineSettings />
       {:else if group === 'matrix'}
         <MatrixCalibration />
+      {:else if group === 'gas'}
+        <GasCosts />
       {:else if group === 'process'}
         <MachineFiles kind="soft" disabled={!!machine.operation} />
       {:else if group === 'checklists'}

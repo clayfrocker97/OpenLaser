@@ -4,6 +4,10 @@ import type { PostflightReview, ExecutionView, RecoveryChange, TableRequest, Pre
 import { server } from '../stores/server.svelte';
 import type { SheetPage, SheetView, SaveRemnant, NestSheetPreview, CorrectionView, CorrectionChange, NestRequest, NestView, StockChoice } from './index';
 import type { PlacementChange, SimplifyView } from './index';
+import type { Calibration, FlowEstimate, GasCosts, GasKind, Nozzle, RunRecord } from './index';
+
+/** A flow test: gas, gauge pressure, nozzle and seconds open. */
+export type FlowTest = { gas: GasKind; pressure: number; nozzle: Nozzle; seconds: number };
 import type { MachineSettings, XmlField } from '../lib/machine-settings';
 import { deviceName, pageId } from '../lib/identity';
 
@@ -57,7 +61,7 @@ async function openDraft(path: string, body?: unknown): Promise<DraftReply> {
 }
 
 /** The machine actions the server accepts. */
-export type MachineAction = 'pulse' | 'gas-test' | 'table' | 'connect' | 'cancel' | 'disconnect' | 'home' | 'calibrate' | 'jog' | 'go-origin' | 'go-xy' | 'frame' | 'release' | 'heartbeat' | 'outputs' | 'mode' | 'relieve' | 'run' | 'resume' | 'hold' | 'stop';
+export type MachineAction = 'pulse' | 'gas-test' | 'gas-calibration' | 'table' | 'connect' | 'cancel' | 'disconnect' | 'home' | 'calibrate' | 'jog' | 'go-origin' | 'go-xy' | 'frame' | 'release' | 'heartbeat' | 'outputs' | 'mode' | 'relieve' | 'run' | 'resume' | 'hold' | 'stop';
 
 export interface TextOptions {
   value: string;
@@ -122,6 +126,10 @@ export const api = {
   savePreflightPreferences: (preferences: PreflightPreferences) => post('/api/preflight/preferences', preferences),
   /** Hold times for every screen, refused if they changed since `expected` was read. */
   saveHoldTimes: (hold: HoldTimes, expected: HoldTimes) => post('/api/touch', { hold, expected }),
+  saveGasCosts: (costs: GasCosts, expected: GasCosts) => post('/api/gas/costs', { costs, expected }),
+  gasFlow: (test: FlowTest) => post<FlowEstimate>('/api/gas/flow', test),
+  calibrateGas: (test: FlowTest & { measured: number }) => post<Calibration>('/api/gas/calibrate', test),
+  gasRuns: (key: string, job: string | null) => request<RunRecord[]>('GET', `/api/gas/runs?key=${encodeURIComponent(key)}${job ? `&job=${encodeURIComponent(job)}` : ''}`),
   setPreflight: (policy: JobPreflight, revision?: number) => draftPost('/api/draft/preflight', policy, revision),
   preflightAction: (token: string, step: number) => post('/api/preflight/action', { token, step }),
   importSoft: (name: string, bytes: ArrayBuffer, expected?: string) => request<{ ok: true }>('POST', `/api/machine/soft?name=${encodeURIComponent(name)}${expected === undefined ? '' : `&expected=${encodeURIComponent(expected)}`}`, undefined, bytes),
@@ -186,7 +194,7 @@ export const api = {
 
   /** The adapter, controller address or computer address the next Connect uses. */
   setRoute: (change: RouteChange) => post('/api/machine/route', change),
-  machine: (action: MachineAction, body: { pulse?: { duration_ms: number; power: number }; gas_test?: { selector: number; pressure: number; duration_ms: number }; table?: TableRequest; preflight?: PreflightConfirmation; lease?: Lease; jog?: JogRequest; output?: OutputRequest; mode?: LaserMode; alarm?: number | null; xy?: [number, number]; fast?: boolean } = {}) => post(`/api/machine/${action}`, body),
+  machine: (action: MachineAction, body: { pulse?: { duration_ms: number; power: number }; gas_test?: { selector: number; pressure: number; duration_ms: number }; gas_calibration?: { selector: number; pressure: number }; table?: TableRequest; preflight?: PreflightConfirmation; lease?: Lease; jog?: JogRequest; output?: OutputRequest; mode?: LaserMode; alarm?: number | null; xy?: [number, number]; fast?: boolean } = {}) => post(`/api/machine/${action}`, body),
 };
 
 /**

@@ -30,6 +30,8 @@ pub struct Document {
     pub soft: crate::soft_settings::SoftView,
     /// How long held controls must be held, the same on every screen.
     pub hold: crate::touch::HoldTimes,
+    /// Gas prices and the current job's estimate.
+    pub gas: Arc<crate::gas::GasView>,
     /// Changes with every publication.
     pub revision: u64,
     /// The controller task's state.
@@ -109,6 +111,7 @@ impl Serialize for Patch<'_> {
         map.serialize_entry("alarm_history", &d.alarm_history)?;
         map.serialize_entry("soft", &d.soft)?;
         map.serialize_entry("hold", &d.hold)?;
+        map.serialize_entry("gas", &d.gas)?;
         map.serialize_entry("machine", &d.machine)?;
         map.serialize_entry("calibration", &d.calibration)?;
         map.serialize_entry("mode", &d.mode)?;
@@ -949,6 +952,12 @@ pub struct Compiled {
     pub blocks: usize,
     /// The travel and cut moves for the run page, in drawing coordinates.
     pub moves: Vec<Move>,
+    /// Laser time, gas time, pierces and cut length of one run.
+    pub usage: crate::gas::Usage,
+    /// The same split by pass, to count what a stopped run spent.
+    #[serde(skip)]
+    #[cfg_attr(feature = "typescript", ts(skip))]
+    pub pass_usage: Arc<crate::gas::JobUsage>,
 }
 
 /// A physical contour instance before feature preparation.
@@ -1128,6 +1137,8 @@ mod tests {
                 pass: Some(0),
                 points: vec![[12.345, 67.890]; 100_000],
             }],
+            usage: crate::gas::Usage::default(),
+            pass_usage: Arc::default(),
         }));
         let document = Document { draft: Some(Arc::new(draft)), ..Document::default() };
         let full = serde_json::to_vec(&Patch { document: &document, previous: None }).unwrap();

@@ -6,51 +6,51 @@ import type { RecoveryStep } from "./RecoveryStep";
 /**
  * Recovery state for the original job, independent of a mutable draft.
  */
-export type RecoveryView = { 
+export type RecoveryView = {
 /**
  * Revision required when changing a selection.
  */
-revision: number, 
+revision: number,
 /**
  * Original execution identity.
  */
-id: number, 
+id: number,
 /**
  * Original job name.
  */
-name: string, 
+name: string,
 /**
  * Current program state.
  */
-state: ProgramState, 
+state: ProgramState,
 /**
  * Whether stopped-job preparation is still needed.
  */
-ready: boolean, 
+ready: boolean,
 /**
  * Selected original pass/fraction.
  */
-selected: Checkpoint | null, 
+selected: Checkpoint | null,
 /**
  * Selected position in machine coordinates.
  */
-position: [number, number] | null, 
+position: [number, number] | null,
 /**
  * Last settled pause position.
  */
-last_pause: Checkpoint | null, 
+last_pause: Checkpoint | null,
 /**
  * Exact settled machine XY, retained while the operator moves the head.
  */
-pause_position: [number, number] | null, 
+pause_position: [number, number] | null,
 /**
  * Operator's known-good point.
  */
-good: Checkpoint | null, 
+good: Checkpoint | null,
 /**
  * Original pass statuses, including skipped physical contours.
  */
-steps: Array<RecoveryStep>, 
+steps: Array<RecoveryStep>,
 /**
  * A checkpoint that could not be located, requiring explicit selection.
  */

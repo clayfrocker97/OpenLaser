@@ -10,6 +10,7 @@
   import SheetPosition from '../components/SheetPosition.svelte';
   import GoToXy from '../components/GoToXy.svelte';
   import HoldButton from '../components/HoldButton.svelte';
+  import GasLaserCard from '../components/GasLaserCard.svelte';
   import { api } from '../api/client';
   import { server } from '../stores/server.svelte';
   import { ui } from '../stores/ui.svelte';
@@ -155,6 +156,7 @@
     {:else}<p class="muted auxiliary-hint">W table motion is not enabled in the loaded machine configuration.</p>{/if}
   {:else if !headEnabled}<p class="muted auxiliary-hint">No head controller configured.</p>
   {:else if readiness.head_recovery}<p class="muted auxiliary-hint" role="status">Z limit recovery: hold the available direction to move up to 1 mm at 1 mm/s or slower. Release between presses. Once clear, use Home.</p>{/if}
+  {#if doc.draft}<GasLaserCard />{/if}
  </div>
 </aside>
 {#if goingTo}<GoToXy onclose={() => (goingTo = false)} />{/if}

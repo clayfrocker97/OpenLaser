@@ -17,126 +17,126 @@ import type { SheetNavigation } from "./SheetNavigation";
 /**
  * The job being set up.
  */
-export type DraftView = { 
+export type DraftView = {
 /**
  * Working-copy identity, distinct from the source part.
  */
-key: string, 
+key: string,
 /**
  * Selected run type, including while its preview is rebuilding.
  */
-dry_run: boolean, 
+dry_run: boolean,
 /**
  * Saved positioning method and the current run's placement state.
  */
-placement: PlacementView, 
+placement: PlacementView,
 /**
  * Numbered sheets available without duplicating their canvas paths.
  */
-sheets: SheetNavigation | null, 
+sheets: SheetNavigation | null,
 /**
  * Frozen matrix correction, if applied to this job.
  */
-correction: Profile | null, 
+correction: Profile | null,
 /**
  * Nominal, uncorrected calibration coupons.
  */
-calibration: boolean, 
+calibration: boolean,
 /**
  * Stock reference polyline, excluded from cutting and hit selection.
  */
-stock_outline: Array<[number, number]>, 
+stock_outline: Array<[number, number]>,
 /**
  * Previously removed material in the stock.
  */
-stock_cutouts: Array<Array<[number, number]>>, 
+stock_cutouts: Array<Array<[number, number]>>,
 /**
  * Stock reference and the last applied nesting settings.
  */
-nesting: Nesting | null, 
+nesting: Nesting | null,
 /**
  * Operator checklist policy.
  */
-preflight: JobPreflight, 
+preflight: JobPreflight,
 /**
  * Identifies this opening of a part or saved job, across its edits.
  */
-generation: number, 
+generation: number,
 /**
  * Identity required when editing or picking geometry.
  */
-revision: number, 
+revision: number,
 /**
  * The saved job's name, or the name of what it cuts.
  */
-name: string, 
+name: string,
 /**
  * The parts it cuts, in the order of its drawing.
  */
-parts: Array<DraftPart>, 
+parts: Array<DraftPart>,
 /**
  * The saved job it was opened from, if any.
  */
-job: Id | null, 
+job: Id | null,
 /**
  * The recipe, once chosen.
  */
-recipe: RecipeView | null, 
+recipe: RecipeView | null,
 /**
  * The film process the recipe refers to, as snapshotted with it.
  */
-film: RecipeView | null, 
+film: RecipeView | null,
 /**
  * The machining features.
  */
-features: Features, 
+features: Features,
 /**
  * Where they came from.
  */
-feature_source: FeatureSource | null, 
+feature_source: FeatureSource | null,
 /**
  * The drawing's contours on the sheet, copies and all.
  */
-placed: Array<Placed>, 
+placed: Array<Placed>,
 /**
  * The contours that move together: an outline with what it encloses,
  * joined across bridges.
  */
-groups: Array<Array<number>>, 
+groups: Array<Array<number>>,
 /**
  * The origin in machine coordinates: where the anchor point lies,
  * once the layout is prepared.
  */
-origin: [number, number] | null, 
+origin: [number, number] | null,
 /**
  * What the machine adds to a drawing coordinate, once the sheet is
  * placed.
  */
-zero: [number, number] | null, 
+zero: [number, number] | null,
 /**
  * Which point of the placed part the origin stands for.
  */
-anchor: Anchor, 
+anchor: Anchor,
 /**
  * The anchor point in drawing coordinates, once prepared.
  */
-dock: [number, number] | null, 
+dock: [number, number] | null,
 /**
  * How many edits can be undone.
  */
-past: number, 
+past: number,
 /**
  * How many undone edits can be redone.
  */
-future: number, 
+future: number,
 /**
  * The prepared toolpath, for the canvas.
  */
-preview: Preview | null, 
+preview: Preview | null,
 /**
  * The compiled program, once compiled.
  */
-compiled: Compiled | null, 
+compiled: Compiled | null,
 /**
  * Why preparation or compilation failed.
  */

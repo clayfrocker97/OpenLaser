@@ -5,31 +5,31 @@ import type { MaterialView } from "./MaterialView";
 /**
  * The view belongs to the admitted operation, even if the draft changes.
  */
-export type ExecutionView = { 
+export type ExecutionView = {
 /**
  * Admission identity.
  */
-id: number, 
+id: number,
 /**
  * Whether this is a frame, whose motion never turns on the laser.
  */
-frame: boolean, 
+frame: boolean,
 /**
  * The part or saved job being executed.
  */
-name: string, 
+name: string,
 /**
  * The material snapshot used by this program.
  */
-material: MaterialView | null, 
+material: MaterialView | null,
 /**
  * The selected job anchor in machine coordinates at admission.
  */
-origin: [number, number], 
+origin: [number, number],
 /**
  * The machine-coordinate offset captured at admission.
  */
-zero: [number, number], 
+zero: [number, number],
 /**
  * The cut job's preview and pass identities. Framing keeps this same
  * geometry visible while its separate laser-off motion runs.

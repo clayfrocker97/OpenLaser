@@ -4,15 +4,15 @@ import type { CheckAction } from "./CheckAction";
 /**
  * A short operator check, optionally with an explicitly invoked setup action.
  */
-export type Check = { 
+export type Check = {
 /**
  * Text beside the checkbox.
  */
-text: string, 
+text: string,
 /**
  * An available action; never executed by checking the box.
  */
-action: CheckAction | null, 
+action: CheckAction | null,
 /**
  * Check automatically only while the current state satisfies the action.
  */

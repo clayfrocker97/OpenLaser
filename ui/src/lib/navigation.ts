@@ -17,4 +17,5 @@ export const SETTINGS_PAGES: ReadonlyArray<{ id: number; label: string; groups: 
   { id: 4, label: 'Axes & homing', groups: ['axes'] },
   { id: 5, label: 'Safety I/O', groups: ['safety'] },
   { id: 6, label: 'Outputs', groups: ['outputs'] },
+  { id: 8, label: 'Gas costs', groups: ['gas'] },
 ];

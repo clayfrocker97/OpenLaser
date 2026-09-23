@@ -103,6 +103,8 @@ pub struct Coordinator {
     pub soft: crate::soft_settings::SoftSettings,
     /// How long every screen's held controls must be held.
     pub hold: crate::touch::HoldTimes,
+    /// Gas prices, the run history and the run being recorded.
+    pub gas: crate::gas::Store,
     /// Read-only historical alarm recording.
     pub history: crate::alarm_history::History,
     /// The configuration.
@@ -239,6 +241,7 @@ impl Coordinator {
             postflight: None,
             soft,
             hold: crate::touch::HoldTimes::open(&config.data_dir),
+            gas: crate::gas::Store::open(&config.data_dir),
             history,
             mode: config.mode,
             link: connect::Link::open(&config),
@@ -364,6 +367,7 @@ impl Coordinator {
             if let Err(error) = self.finish_sheet(false) {
                 self.sheet_persistence_error = Some(error.to_string());
             }
+            self.record_gas(false);
             self.completed_postflight();
             self.held = None;
             self.message = Some(Message {
@@ -400,6 +404,7 @@ impl Coordinator {
             alarm_history: self.history.status(),
             soft: self.soft.view(),
             hold: self.hold,
+            gas: self.gas.view(self.revisions.draft, self.draft_view.as_deref()),
             revision: self.revision,
             calibration: self.calibration_view(&machine),
             machine,

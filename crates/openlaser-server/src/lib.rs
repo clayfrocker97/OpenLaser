@@ -28,6 +28,7 @@ pub mod document;
 pub mod draft;
 mod envelope;
 mod font_store;
+pub mod gas;
 mod imports;
 pub mod job_parts;
 mod lan;

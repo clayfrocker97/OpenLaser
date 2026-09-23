@@ -6,35 +6,35 @@ import type { LinkPhase } from "./LinkPhase";
  * The computer's side of the machine link: where the connect workflow
  * stands and the route it uses.
  */
-export type LinkView = { 
+export type LinkView = {
 /**
  * The step in progress, or how the last attempt ended.
  */
-phase: LinkPhase, 
+phase: LinkPhase,
 /**
  * What the step is doing, or why the attempt failed.
  */
-detail: string, 
+detail: string,
 /**
  * The adapter towards the machine, once found.
  */
-adapter: AdapterView | null, 
+adapter: AdapterView | null,
 /**
  * The address spoken from, once known.
  */
-host: string | null, 
+host: string | null,
 /**
  * The computer's address for the adapter, `ip/prefix`.
  */
-computer: string, 
+computer: string,
 /**
  * The controller's endpoint, `ip:port`.
  */
-controller: string, 
+controller: string,
 /**
  * Adapter selected for the next connection; empty means automatic.
  */
-remembered_adapter: string, 
+remembered_adapter: string,
 /**
  * The adapters to choose from when more than one could be the
  * machine's.

@@ -3,11 +3,11 @@
 /**
  * Recording health and the revision used to refresh an open history panel.
  */
-export type HistoryStatus = { 
+export type HistoryStatus = {
 /**
  * Changes after every recorded transition or reset result.
  */
-revision: number, 
+revision: number,
 /**
  * A storage failure; never silently represented as successful recording.
  */

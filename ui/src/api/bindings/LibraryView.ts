@@ -8,23 +8,23 @@ import type { SkippedView } from "./SkippedView";
 /**
  * The library, summarised.
  */
-export type LibraryView = { 
+export type LibraryView = {
 /**
  * Every folder.
  */
-folders: Array<Folder>, 
+folders: Array<Folder>,
 /**
  * Every part.
  */
-parts: Array<PartView>, 
+parts: Array<PartView>,
 /**
  * Every recipe.
  */
-recipes: Array<RecipeView>, 
+recipes: Array<RecipeView>,
 /**
  * Every job.
  */
-jobs: Array<JobView>, 
+jobs: Array<JobView>,
 /**
  * Library files left out when it opened, untouched on disk.
  */

@@ -3,19 +3,19 @@
 /**
  * A manual output request from the UI.
  */
-export type OutputRequest = { "kind": "pointer" } | { "kind": "shutter" } | { "kind": "gas", 
+export type OutputRequest = { "kind": "pointer" } | { "kind": "shutter" } | { "kind": "gas",
 /**
  * The selector, 0 to 5.
  */
-selector: number, 
+selector: number,
 /**
  * The pressure in bar.
  */
-pressure: number, } | { "kind": "head_jog", 
+pressure: number, } | { "kind": "head_jog",
 /**
  * Up or down.
  */
-up: boolean, 
+up: boolean,
 /**
  * Fast or slow.
  */

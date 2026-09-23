@@ -4,11 +4,11 @@ import type { Checklist } from "./Checklist";
 /**
  * Mode-specific checklists offered after a completed or stopped job.
  */
-export type PostflightDefaults = { 
+export type PostflightDefaults = {
 /**
  * Fiber completion checks.
  */
-fiber: Checklist, 
+fiber: Checklist,
 /**
  * CO2 completion checks.
  */

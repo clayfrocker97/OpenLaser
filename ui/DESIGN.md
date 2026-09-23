@@ -132,5 +132,9 @@ shows the values that are set.
 | Amber | Hold, alarms, caution, gas and shutter outputs |
 | Orange | Selection and primary actions |
 
+Gas figures use their own colours so a mix reads at a glance: blue for
+nitrogen, red for oxygen and grey-green for air (`--gas-n2`, `--gas-o2`,
+`--gas-air`). They label figures only and never mark a control.
+
 Tokens live in `:root` in `src/app.css`, and the dark theme overrides them.
 Stylesheet rules stay one per line, in cascade order.

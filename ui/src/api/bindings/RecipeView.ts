@@ -6,67 +6,67 @@ import type { RecipeSummary } from "./RecipeSummary";
 /**
  * A recipe with the fields the operator reads off a card.
  */
-export type RecipeView = { 
+export type RecipeView = {
 /**
  * Its id.
  */
-id: Id, 
+id: Id,
 /**
  * The material.
  */
-name: string, 
+name: string,
 /**
  * Which laser.
  */
-laser: LaserMode, 
+laser: LaserMode,
 /**
  * The sheet thickness.
  */
-thickness_mm: number, 
+thickness_mm: number,
 /**
  * The assist gas.
  */
-gas: string, 
+gas: string,
 /**
  * The vendor layer bank.
  */
-layer: number, 
+layer: number,
 /**
  * The key jobs share features by.
  */
-key: string, 
+key: string,
 /**
  * The recipe the film pass runs with, when film removal is on.
  */
-film: Id | null, 
+film: Id | null,
 /**
  * The headline values every screen summarises the recipe with.
  */
-summary: RecipeSummary, 
+summary: RecipeSummary,
 /**
  * Every attribute, for the editor.
  */
-attributes: { [key in string]: string }, 
+attributes: { [key in string]: string },
 /**
  * The vendor's note.
  */
-note: string, 
+note: string,
 /**
  * The process words from the vendor's file name.
  */
-tags: Array<string>, 
+tags: Array<string>,
 /**
  * The file it was imported from.
  */
-file_name: string | null, 
+file_name: string | null,
 /**
  * The hash of its sample cut photo, served at `/api/photos/{hash}`.
  */
-photo: string | null, 
+photo: string | null,
 /**
  * Whether it is starred.
  */
-favourite: boolean, 
+favourite: boolean,
 /**
  * When it last changed.
  */

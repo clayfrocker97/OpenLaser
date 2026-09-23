@@ -557,6 +557,8 @@ pub async fn pulse(shared: &Shared, duration_ms: u32, power: u8) -> Result<()> {
                 pierces: vec![binding.position],
                 blocks: 1,
                 moves: Vec::new(),
+                usage: crate::gas::Usage::default(),
+                pass_usage: Arc::default(),
             }),
         });
         Ok(Built { program: upload, held: None, execution, fresh: false })
@@ -841,21 +843,52 @@ pub async fn gas_test(
     if !(selector <= 5 && (0. ..=100.).contains(&pressure) && (50..=2000).contains(&duration_ms)) {
         return Err(Error::Request("a gas test needs 0–5, 0–100 bar and 50–2000 ms".into()));
     }
+    timed_gas(
+        shared,
+        selector,
+        pressure,
+        Duration::from_millis(duration_ms),
+        "gas test",
+        "Gas test",
+    )
+    .await
+}
+
+/// The 60-second flow test that calibrates a gas's consumption estimate
+/// (Settings → Gas costs). It is the gas test's bounded valve plan with a
+/// fixed, longer duration; Stop ends it like any output.
+pub async fn gas_calibration(shared: &Shared, selector: u8, pressure: f64) -> Result<()> {
+    shared.epoch()?;
+    if !(selector <= 5 && (0. ..=100.).contains(&pressure)) {
+        return Err(Error::Request("a gas flow test needs 0–5 and 0–100 bar".into()));
+    }
+    let duration = crate::gas::CALIBRATION_DURATION;
+    timed_gas(shared, selector, pressure, duration, "gas flow test", "Gas flow test").await
+}
+
+async fn timed_gas(
+    shared: &Shared,
+    selector: u8,
+    pressure: f64,
+    duration: Duration,
+    name: &str,
+    label: &'static str,
+) -> Result<()> {
     let requested = Instant::now();
     let plan = {
         let coordinator = shared.lock().await;
         coordinator.idle()?;
         let manual = coordinator.bound()?.outputs.gas(selector, pressure)?;
         Plan {
-            name: "gas test".into(),
+            name: name.into(),
             on: manual.on,
             off: manual.off,
             lease: Duration::from_secs(5),
-            duration: Some(Duration::from_millis(duration_ms)),
+            duration: Some(duration),
         }
     };
     let completed = shared.machine.start_outputs(plan, None, requested).await?;
-    spawn(shared, "Gas test", completed.finished());
+    spawn(shared, label, completed.finished());
     Ok(())
 }
 
@@ -1341,6 +1374,7 @@ impl crate::Coordinator {
                         execution.clone(),
                         hash,
                     ));
+                    self.begin_gas_run(execution.id);
                 } else if let Some(recovery) = &mut self.recovery {
                     recovery.dispatched(current.clone(), execution.id);
                 }
@@ -1379,16 +1413,21 @@ impl crate::Coordinator {
             }
             other => match other {
                 Ok(Ending::Completed) => {
+                    self.record_gas(true);
                     self.completed_postflight();
                     self.held = None;
                     self.note(format!("{label} finished"), false);
                 }
                 Ok(_) => {
+                    self.record_gas(false);
                     self.completed_postflight();
                     self.held = None;
                     self.note(format!("{label} stopped"), false);
                 }
-                Err(error) => self.note(format!("{label} failed: {error}"), true),
+                Err(error) => {
+                    self.record_gas(false);
+                    self.note(format!("{label} failed: {error}"), true);
+                }
             },
         }
     }

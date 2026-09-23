@@ -252,7 +252,17 @@ async fn browser_commands_reject_foreign_origins_and_rebound_hostnames() {
 #[tokio::test]
 async fn independent_machine_routes_preserve_errors_and_shutdown_admission() {
     let mut server = Server::start().await;
-    for action in ["jog", "table", "pulse", "gas-test", "release", "heartbeat", "outputs", "mode"] {
+    for action in [
+        "jog",
+        "table",
+        "pulse",
+        "gas-test",
+        "gas-calibration",
+        "release",
+        "heartbeat",
+        "outputs",
+        "mode",
+    ] {
         let (status, body) =
             server.request("POST", &format!("/api/machine/{action}"), Some("{}"), &[]).await;
         assert_eq!(status, 400, "{action}: {body}");

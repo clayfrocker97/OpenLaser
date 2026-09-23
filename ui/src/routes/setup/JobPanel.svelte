@@ -12,6 +12,7 @@
   import { TOOLS, isOn } from '../../lib/features';
   import AddParts from '../../components/AddParts.svelte';
   import CreateText from '../../components/CreateText.svelte';
+  import GasLaserCard from '../../components/GasLaserCard.svelte';
 
   const doc = $derived(server.doc!);
   const draft = $derived(doc.draft!);
@@ -98,6 +99,7 @@
   <p class="muted">{draft.compiled.plan.reduce((n, pass) => n + pass.omitted_cooling, 0)} cooling points skipped within {quantity(0.2, 'mm')} of endpoints.</p>
 {/if}
 {#if draft.error}<div class="warn-text" style="font-size:var(--t-sm)">{draft.error}</div>{/if}
+<GasLaserCard />
 </div>
 
 <div class="stack">

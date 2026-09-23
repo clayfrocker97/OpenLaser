@@ -5,11 +5,11 @@ import type { Measurement } from "./Measurement";
 /**
  * A reproducible measurement set in machine coordinates.
  */
-export type Profile = { 
+export type Profile = {
 /**
  * Bed bounds used to place the measured squares.
  */
-bed: Bounds, 
+bed: Bounds,
 /**
  * Bottom row first, left to right, then middle and top rows.
  */
