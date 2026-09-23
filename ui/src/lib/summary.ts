@@ -10,6 +10,7 @@
 
 import type { LaserMode, RecipeSummary } from '../api';
 import { GAS, isOn, stageCount, shown, type Values } from './recipe';
+import { plural } from './format';
 
 /** What a summary is made from: a recipe, a machine bank, a running program's material or an import preview. */
 export interface SummarySource {
@@ -58,7 +59,7 @@ export function nozzleText(diameter: string | null | undefined, kind: string | n
 export function pierceText(summary: Pick<RecipeSummary, 'pierce_stages' | 'smooth_pierce'>): string {
   if (summary.smooth_pierce) return 'Smooth';
   const n = summary.pierce_stages;
-  return n ? `${n} stage${n === 1 ? '' : 's'}` : 'None';
+  return n ? plural(n, 'stage') : 'None';
 }
 
 /** Every summary value in order; `—` where the recipe does not say. */

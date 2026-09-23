@@ -15,7 +15,7 @@
   import { server } from '../../stores/server.svelte';
   import { ui } from '../../stores/ui.svelte';
   import { osk } from '../../lib/osk.svelte';
-  import { ago, explain, laserLabel } from '../../lib/format';
+  import { ago, explain, laserLabel, plural } from '../../lib/format';
   import { pictureOf, materialKey } from '../../lib/materials';
   import { available, field, num, numeric, refused, toggled, type Editor, type Values } from '../../lib/recipe';
   import type { RecipeView } from '../../api';
@@ -142,7 +142,7 @@
     {/if}
   </div>
   <div class="panel-foot">
-    <span class="changes" class:some={pending}>{pending ? `${pending} unsaved change${pending === 1 ? '' : 's'}` : 'No unsaved changes'}</span>
+    <span class="changes" class:some={pending}>{pending ? plural(pending, 'unsaved change') : 'No unsaved changes'}</span>
     <div class="actions">
       <button class="link" onclick={() => (sheet = 'review')} disabled={!pending}>Review changes</button>
       <button class="btn btn-ghost" onclick={ondiscard} disabled={!pending || saving}>Discard</button>

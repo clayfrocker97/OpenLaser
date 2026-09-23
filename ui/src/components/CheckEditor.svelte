@@ -4,7 +4,27 @@
   import type { Check } from '../api';
   import { ACTIONS, BED_POINTS, canAutoCheck, movesMachine } from '../lib/preflight';
   let { steps = $bindable<Check[]>([]), phase = 'preflight' }: { steps: Check[]; phase?: 'preflight' | 'pause' | 'postflight' } = $props();
-  const actions = $derived(phase === 'postflight' ? ACTIONS.filter(([kind]) => ['none', 'move_to', 'move_xy'].includes(kind)) : phase === 'pause' ? ACTIONS.filter(([kind]) => ['none', 'job_gas_test'].includes(kind)) : ACTIONS);
+  const actions = $derived(
+    phase === 'postflight' ? ACTIONS.filter(([kind]) => ['none', 'move_to', 'move_xy'].includes(kind))
+    : phase === 'pause' ? ACTIONS.filter(([kind]) => ['none', 'job_gas_test'].includes(kind))
+    : ACTIONS,
+  );
+  /** Bed points laid out back row first, as they sit on the bed. */
+  const BED_GRID = [...BED_POINTS.slice(6), ...BED_POINTS.slice(3, 6), ...BED_POINTS.slice(0, 3)];
+  /** The step's action kind as the choices name it; a legacy gas test shows as the job gas test. */
+  const actionKind = (step: Check): string | undefined =>
+    step.action?.kind === 'gas_test' ? 'job_gas_test' : step.action?.kind;
+  const actionTitle = (step: Check): string | undefined =>
+    step.action ? ACTIONS.find(([kind]) => kind === actionKind(step))?.[1] : 'Optional action';
+  function addStep(): void {
+    steps = [...steps, { text: '', action: null, auto_check: false }];
+  }
+  function removeStep(i: number): void {
+    steps = steps.filter((_, index) => index !== i);
+  }
+  function editCoordinate(action: { x: number; y: number }, axis: 'x' | 'y'): void {
+    osk.number(`${axis.toUpperCase()} position`, action[axis], 'mm', value => { if (Number.isFinite(value)) action[axis] = value; });
+  }
   function setAction(step: Check, kind: string): void {
     switch (kind) {
       case 'home': case 'origin': case 'calibrate': step.action = { kind }; break;
@@ -23,20 +43,36 @@
       <div class="check-text">
         <span class="muted">{i + 1}</span>
         <textarea aria-label="Check {i + 1}" rows="2" maxlength="500" bind:value={step.text}></textarea>
-        <button class="btn btn-ghost icon-only" aria-label="Remove check {i + 1}" onclick={() => (steps = steps.filter((_, index) => index !== i))}><i class="ic ic-x"></i></button>
+        <button class="btn btn-ghost icon-only" aria-label="Remove check {i + 1}" onclick={() => removeStep(i)}><i class="ic ic-x"></i></button>
       </div>
       <details>
-        <summary>{step.action ? ACTIONS.find(([kind]) => kind === (step.action?.kind === 'gas_test' ? 'job_gas_test' : step.action?.kind))?.[1] : 'Optional action'}{#if movesMachine(step.action)}<span class="motion-label">Moves machine</span>{/if}</summary>
+        <summary>{actionTitle(step)}{#if movesMachine(step.action)}<span class="motion-label">Moves machine</span>{/if}</summary>
         <div class="action-fields">
-          <fieldset class="choices"><legend>Action</legend><div class="choice-grid">{#each actions as [kind, title]}<button class="choice" aria-pressed={(step.action?.kind === 'gas_test' ? 'job_gas_test' : step.action?.kind ?? 'none') === kind} onclick={() => setAction(step, kind)}>{title}</button>{/each}</div></fieldset>
+          <fieldset class="choices">
+            <legend>Action</legend>
+            <div class="choice-grid">
+              {#each actions as [kind, title]}
+                <button class="choice" aria-pressed={(actionKind(step) ?? 'none') === kind} onclick={() => setAction(step, kind)}>{title}</button>
+              {/each}
+            </div>
+          </fieldset>
           {#if step.action?.kind === 'move_to'}
             {@const action = step.action}
-            <fieldset class="choices"><legend>Bed point</legend><div class="choice-grid bed-points">{#each [...BED_POINTS.slice(6), ...BED_POINTS.slice(3, 6), ...BED_POINTS.slice(0, 3)] as [point, title]}<button class="choice" aria-pressed={action.point === point} onclick={() => (action.point = point)}>{title}</button>{/each}</div></fieldset>
+            <fieldset class="choices">
+              <legend>Bed point</legend>
+              <div class="choice-grid bed-points">
+                {#each BED_GRID as [point, title]}
+                  <button class="choice" aria-pressed={action.point === point} onclick={() => (action.point = point)}>{title}</button>
+                {/each}
+              </div>
+            </fieldset>
           {/if}
           {#if step.action?.kind === 'move_xy'}
             {@const action = step.action}
             {#each ['x', 'y'] as axis}
-              <label>{axis.toUpperCase()} · {unitLabel('mm')}<button class="coordinate" onclick={() => osk.number(`${axis.toUpperCase()} position`, action[axis as 'x' | 'y'], 'mm', value => { if (Number.isFinite(value)) action[axis as 'x' | 'y'] = value; })}>{distance(action[axis as 'x' | 'y'])}</button></label>
+              <label>{axis.toUpperCase()} · {unitLabel('mm')}<button class="coordinate" onclick={() => editCoordinate(action, axis as 'x' | 'y')}>
+                {distance(action[axis as 'x' | 'y'])}
+              </button></label>
             {/each}
           {/if}
           {#if step.action?.kind === 'job_gas_test' || step.action?.kind === 'gas_test'}
@@ -50,7 +86,7 @@
       </details>
     </div>
   {/each}
-  <button class="btn btn-ghost" disabled={steps.length >= 50} onclick={() => (steps = [...steps, { text: '', action: null, auto_check: false }])}><i class="ic ic-plus"></i>Add check</button>
+  <button class="btn btn-ghost" disabled={steps.length >= 50} onclick={addStep}><i class="ic ic-plus"></i>Add check</button>
 </div>
 
 <style>

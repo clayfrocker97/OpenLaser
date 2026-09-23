@@ -5,7 +5,7 @@
   // folder adds every recipe file and the photo of the same name beside it.
   import MaterialSummary from '../../components/MaterialSummary.svelte';
   import { ui } from '../../stores/ui.svelte';
-  import { explain, laserLabel } from '../../lib/format';
+  import { explain, laserLabel, plural } from '../../lib/format';
   import { pictureOf, materialsOf, materialKey, type Material } from '../../lib/materials';
   import { droppedFiles, picked, type Picked } from '../../lib/recipe-import';
   import ImportRecipes from './ImportRecipes.svelte';
@@ -18,7 +18,6 @@
   const opened = $derived(open ?? (selected ? materialKey(selected) : null));
   const materials = $derived(materialsOf(recipes).filter((m) => m.name.toLowerCase().includes(search.trim().toLowerCase())));
   const lasers = $derived((['fiber', 'co2'] as const).filter((laser) => materials.some((m) => m.laser === laser)));
-  const count = (n: number, what: string) => `${n} ${what}${n === 1 ? '' : 's'}`;
   const thicknessRange = (m: Material) => {
     const sizes = m.recipes.map(r => r.thickness_mm).filter(t => t > 0);
     if (!sizes.length) return 'Thickness not set';
@@ -70,7 +69,7 @@
         {@const art = pictureOf(m.name, m.photo)}
         <button class="mat" class:open={opened === m.key} aria-expanded={opened === m.key} onclick={() => tap(m)}>
           {#if art}<img class="art" src={art} alt="" loading="lazy">{:else}<span class="art blank"><i class="ic ic-layers"></i></span>{/if}
-          <span class="mat-info"><span class="name">{m.name}</span><span class="mat-meta">{count(m.recipes.length, 'recipe')}</span><span class="mat-meta">{thicknessRange(m)}</span></span><i class="ic ic-chev-right mat-chevron"></i>
+          <span class="mat-info"><span class="name">{m.name}</span><span class="mat-meta">{plural(m.recipes.length, 'recipe')}</span><span class="mat-meta">{thicknessRange(m)}</span></span><i class="ic ic-chev-right mat-chevron"></i>
         </button>
         {#if opened === m.key}
           {#each gasesOf(m) as gas (gas)}
@@ -90,7 +89,7 @@
       <label class="btn btn-ghost">Import files<input type="file" multiple accept=".xml,.png,.jpg,.jpeg" hidden onchange={chosen}></label>
       <label class="btn btn-ghost">Import folder<input type="file" multiple webkitdirectory hidden onchange={chosen}></label>
     </div>
-    <span class="muted">{dragging ? 'Drop recipe files or folders to review them' : `${count(materials.length, 'material')} · ${count(recipes.length, 'recipe')} · or drop files here`}</span>
+    <span class="muted">{dragging ? 'Drop recipe files or folders to review them' : `${plural(materials.length, 'material')} · ${plural(recipes.length, 'recipe')} · or drop files here`}</span>
   </div>
 </aside>
 

@@ -5,8 +5,9 @@
   import { api } from '../api/client';
   import { server } from '../stores/server.svelte';
   import { ui } from '../stores/ui.svelte';
-  import { explain, plural, size } from '../lib/format';
+  import { plural, size } from '../lib/format';
   import { livePicks, partsOf, togglePick } from '../lib/job-parts';
+  import { withBusy } from '../lib/busy';
 
   /** The parts the page shows now, for picking them all at once. */
   let { shown = [] }: { shown?: string[] } = $props();
@@ -20,17 +21,12 @@
 
   async function run(action: () => Promise<unknown>, done: string): Promise<void> {
     if (busy) return;
-    busy = true;
-    try {
+    await withBusy((b) => (busy = b), async () => {
       await action();
       ui.partPicks = null;
       ui.tab = 'setup';
       ui.say(done);
-    } catch (error) {
-      ui.say(explain(error), true);
-    } finally {
-      busy = false;
-    }
+    });
   }
 
   const count = (n: number) => plural(n, 'part');

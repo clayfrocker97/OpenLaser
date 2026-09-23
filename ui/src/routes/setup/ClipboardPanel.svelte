@@ -1,7 +1,7 @@
 <script lang="ts">
   import { displayNumber, quantity, unitLabel } from '../../lib/units.svelte';
   import { osk } from '../../lib/osk.svelte';
-  import { fmt } from '../../lib/format';
+  import { fmt, plural } from '../../lib/format';
   import type { CopiedShapes, PasteDirection, PasteSettings } from '../../lib/copy-paste';
   import { ui } from '../../stores/ui.svelte';
 
@@ -28,14 +28,14 @@
 
 <div class="feat-head"><h2>Copy / paste</h2><button class="btn btn-ghost" onclick={() => (ui.setupPanel = null)}>Close</button></div>
 {#if clipboard}
-  <p class="feat-desc">Each copy contains {clipboard.grouping.length} {clipboard.grouping.length === 1 ? 'group' : 'groups'} · {clipboard.contours.length} {clipboard.contours.length === 1 ? 'contour' : 'contours'}.</p>
+  <p class="feat-desc">Each copy contains {plural(clipboard.grouping.length, 'group')} · {plural(clipboard.contours.length, 'contour')}.</p>
   <fieldset disabled={pasting}>
     <div class="copy-row"><span>Number of copies</span><button class="num" aria-label="Number of copies" onclick={copies}>{settings.count}</button></div>
     <div class="copy-row"><span>Gap between copies</span><button class="num" aria-label="Gap between copies" onclick={gap}>{displayNumber(settings.gap, 'mm')} <small>{unitLabel('mm')}</small></button></div>
     <p class="direction-label" id="paste-direction">Paste direction</p>
     <div class="directions" role="group" aria-labelledby="paste-direction">{#each directions as direction}<button class="choice" aria-pressed={settings.direction === direction.value} onclick={() => (settings.direction = direction.value)}>{direction.label}</button>{/each}</div>
   </fieldset>
-  <button class="btn btn-primary lg block paste" disabled={disabled || pasting} onclick={onpaste}>{pasting ? 'Pasting…' : `Paste ${settings.count} ${settings.count === 1 ? 'copy' : 'copies'}`}</button>
+  <button class="btn btn-primary lg block paste" disabled={disabled || pasting} onclick={onpaste}>{pasting ? 'Pasting…' : `Paste ${plural(settings.count, 'copy', 'copies')}`}</button>
   <p class="muted copy-note">Each paste continues from the last copy. Undo removes the whole batch.</p>
 {:else}
   <p class="muted">Select shapes on the drawing, then tap Copy.</p>

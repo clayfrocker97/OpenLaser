@@ -2,17 +2,17 @@
   import { api } from '../api/client';
   import { server } from '../stores/server.svelte';
   import { ui } from '../stores/ui.svelte';
-  import { explain, plural } from '../lib/format';
+  import { plural } from '../lib/format';
+  import { withBusy } from '../lib/busy';
   const sheets = $derived(server.doc?.draft?.sheets);
   let busy = $state(false);
   async function choose(index: number): Promise<void> {
     if (busy || !sheets || index === sheets.active) return;
-    busy = true;
-    try {
-      const page = sheets.pages[index]!;
+    const page = sheets.pages[index]!;
+    await withBusy((b) => (busy = b), async () => {
       if (page.job) await api.openJob(page.job); else await api.selectSheet(index);
       ui.selectionEpoch++; ui.setupPanel = null; ui.tab = 'setup';
-    } catch (error) { ui.say(explain(error), true); } finally { busy = false; }
+    });
   }
 </script>
 

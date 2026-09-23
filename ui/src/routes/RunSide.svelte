@@ -27,13 +27,20 @@
   const readiness = $derived.by(() => {
     if (access.canControl) return doc.readiness;
     const closed = { ok: false, reason: 'Take control to move the machine' };
-    return { ...doc.readiness, home: closed, position: closed, calibrate: closed, jog: closed, xy_jog: [[closed, closed], [closed, closed]], head_up: closed, head_down: closed, frame: closed };
+    return {
+      ...doc.readiness, home: closed, position: closed, calibrate: closed, jog: closed,
+      xy_jog: [[closed, closed], [closed, closed]], head_up: closed, head_down: closed, frame: closed,
+    };
   });
   const headEnabled = $derived(doc.bindings?.head_enabled ?? false);
   const headJog = $derived(doc.bindings?.outputs.head_jog ?? false);
   const fresh = $derived(doc.machine.connection.state === 'connected' && !!feedback && feedback.age_ms <= 1000);
   const homed = $derived(fresh && doc.machine.session.homed && feedback?.referenced.every(Boolean));
   const headHomed = $derived(fresh && feedback?.head.referenced);
+  const sourceLabel = $derived(doc.mode === 'fiber' ? 'Fiber' : doc.mode === 'co2' ? 'CO₂' : 'Not selected');
+  const headLabel = $derived(!headEnabled ? 'Not used' : headHomed ? 'Homed' : 'Home needed');
+  const calibrationLabel = $derived(!headEnabled ? 'Not used'
+    : doc.calibration.current ? 'Calibrated' : doc.calibration.quality ? 'Material changed' : 'Needed');
 
   const work = $derived.by(() => {
     if (!feedback) return null;
@@ -57,7 +64,12 @@
     release: (lease) => api.machine('release', { lease }),
   }, (error) => ui.say(explain(error), true), () => server.link && access.canControl);
   onMount(() => held.mount());
-  $effect(() => { if (!server.link || !access.canControl) { held.cancel(); keys.cancel(); } });
+  $effect(() => {
+    if (!server.link || !access.canControl) {
+      held.cancel();
+      keys.cancel();
+    }
+  });
   // X/Y keys step on a tap and jog while held, like a pendant: a tap moves
   // one bounded step; past CONTINUOUS_AFTER_MS the press becomes a deadman
   // jog that stops on release (DESIGN.md rule 5). Z and W are deadman only.
@@ -88,6 +100,15 @@
   const canJog = $derived(readiness.xy_jog.some(axis => axis.some(direction => direction.ok)));
   const jogTitle = $derived(canJog ? '' : plain(readiness.jog.reason).text);
   const jogSpeed = $derived(doc.bindings?.jog_speed[ui.jogFast ? 1 : 0]);
+  const jogSpeedText = $derived(jogSpeed != null
+    ? quantity(readiness.xy_recovery ? Math.min(1, jogSpeed) : jogSpeed, 'mm/s')
+    : 'tap to switch');
+  /** The arrow's rotation on a diagonal jog key, in degrees. */
+  const cornerTurn = (xPositive: boolean, yPositive: boolean): number =>
+    yPositive ? (xPositive ? 45 : -45) : (xPositive ? 135 : -135);
+  function editTableSpeed(): void {
+    osk.number('Table speed', tableSpeed, 'mm/s', v => { if (v > 0 && v <= 100) tableSpeed = v; });
+  }
 </script>
 
 {#snippet key(axis: Axis, positive: boolean, icon: string, label: string, enabled: boolean)}
@@ -95,19 +116,30 @@
 {/snippet}
 {#snippet corner(xPositive: boolean, yPositive: boolean)}
   {@const label = `${xPositive ? 'X+' : 'X−'} ${yPositive ? 'Y+' : 'Y−'}`}
-  <button class="diagonal" style:--turn="{yPositive ? (xPositive ? 45 : -45) : (xPositive ? 135 : -135)}deg" aria-label="Jog {label}" onpointerdown={(event) => press(event, 0, xPositive, yPositive)} disabled={!diagonalOk(xPositive, yPositive)}><i class="ic ic-arrow-up"></i><small>{label}</small></button>
+  <button
+    class="diagonal"
+    style:--turn="{cornerTurn(xPositive, yPositive)}deg"
+    aria-label="Jog {label}"
+    onpointerdown={(event) => press(event, 0, xPositive, yPositive)}
+    disabled={!diagonalOk(xPositive, yPositive)}
+  ><i class="ic ic-arrow-up"></i><small>{label}</small></button>
 {/snippet}
 
 <aside class="panel side run-side">
  <div class="run-side-scroll">
   <div class="setup-state" role="status" aria-label="Machine setup">
-    <span><small>Source</small><strong>{doc.mode === 'fiber' ? 'Fiber' : doc.mode === 'co2' ? 'CO₂' : 'Not selected'}</strong></span>
+    <span><small>Source</small><strong>{sourceLabel}</strong></span>
     <span class:ready={homed}><small>XY reference</small><strong>{homed ? 'Homed' : 'Home needed'}</strong></span>
-    <span class:ready={headHomed}><small>Z reference</small><strong>{!headEnabled ? 'Not used' : headHomed ? 'Homed' : 'Home needed'}</strong></span>
-    <span class:ready={doc.calibration.current} title={doc.calibration.quality ?? 'Height calibration'}><small>Calibration</small><strong>{!headEnabled ? 'Not used' : doc.calibration.current ? 'Calibrated' : doc.calibration.quality ? 'Material changed' : 'Needed'}</strong></span>
+    <span class:ready={headHomed}><small>Z reference</small><strong>{headLabel}</strong></span>
+    <span class:ready={doc.calibration.current} title={doc.calibration.quality ?? 'Height calibration'}>
+      <small>Calibration</small><strong>{calibrationLabel}</strong>
+    </span>
   </div>
   {#if machine.program?.state === 'held' && doc.recovery?.pause_position}
-    <div class="pause-position" role="status"><strong>Paused at X {distance(doc.recovery.pause_position[0])} · Y {distance(doc.recovery.pause_position[1])} {unitLabel('mm')}</strong><span>You can move the head. Resume returns to this saved position.</span></div>
+    <div class="pause-position" role="status">
+      <strong>Paused at X {distance(doc.recovery.pause_position[0])} · Y {distance(doc.recovery.pause_position[1])} {unitLabel('mm')}</strong>
+      <span>You can move the head. Resume returns to this saved position.</span>
+    </div>
   {/if}
   {#if !machine.program || !['running', 'finishing', 'held'].includes(machine.program.state)}<SheetPosition compact />{/if}
   <div class="dro">
@@ -122,42 +154,92 @@
   </div>
 
   <div class="row motion-actions">
-    <HoldButton class="btn btn-move" onhold={() => call(() => api.machine('home'))} disabled={!readiness.home.ok} title={plain(readiness.home.reason).text}><i class="ic ic-home"></i>Home</HoldButton>
-    <HoldButton class="btn btn-move" onhold={() => call(() => api.machine('go-origin', { fast: ui.jogFast }))} disabled={!originGate.ok} title={plain(originGate.reason).text}>Go origin</HoldButton>
-    <HoldButton class="btn btn-move" label="Calibrate head" onhold={() => call(() => api.machine('calibrate'))} disabled={!readiness.calibrate.ok} title={plain(readiness.calibrate.reason).text}>Calibrate</HoldButton>
+    <HoldButton
+      class="btn btn-move"
+      onhold={() => call(() => api.machine('home'))}
+      disabled={!readiness.home.ok}
+      title={plain(readiness.home.reason).text}
+    ><i class="ic ic-home"></i>Home</HoldButton>
+    <HoldButton
+      class="btn btn-move"
+      onhold={() => call(() => api.machine('go-origin', { fast: ui.jogFast }))}
+      disabled={!originGate.ok}
+      title={plain(originGate.reason).text}
+    >Go origin</HoldButton>
+    <HoldButton
+      class="btn btn-move"
+      label="Calibrate head"
+      onhold={() => call(() => api.machine('calibrate'))}
+      disabled={!readiness.calibrate.ok}
+      title={plain(readiness.calibrate.reason).text}
+    >Calibrate</HoldButton>
   </div>
   <div class="frame-row">
-    <HoldButton class="btn btn-move frame-action" onhold={() => call(() => api.machine('frame'))} disabled={!readiness.frame.ok} title={plain(readiness.frame.reason).text}><i class="ic ic-frame"></i>Frame · laser off</HoldButton>
-    <button class="btn btn-ghost go-xy" disabled={!readiness.position.ok} title={plain(readiness.position.reason).text} onclick={() => (goingTo = true)}>Go to X/Y…</button>
+    <HoldButton
+      class="btn btn-move frame-action"
+      onhold={() => call(() => api.machine('frame'))}
+      disabled={!readiness.frame.ok}
+      title={plain(readiness.frame.reason).text}
+    ><i class="ic ic-frame"></i>Frame · laser off</HoldButton>
+    <button class="btn btn-ghost go-xy" disabled={!readiness.position.ok} title={plain(readiness.position.reason).text} onclick={() => (goingTo = true)}>
+      Go to X/Y…
+    </button>
   </div>
 
   <div class="jog-steps">
     <span class="step-label"><strong>Step · {unitLabel('mm')}</strong><small>Hold a key to jog</small></span>
     <div class="seg" role="group" aria-label="Jog step">
-      {#each STEPS as step (step)}<button class:on={ui.jogStep === step} aria-pressed={ui.jogStep === step} onclick={() => ui.setJogStep(step)}>{stepLabel(step)}</button>{/each}
+      {#each STEPS as step (step)}
+        <button class:on={ui.jogStep === step} aria-pressed={ui.jogStep === step} onclick={() => ui.setJogStep(step)}>{stepLabel(step)}</button>
+      {/each}
     </div>
   </div>
   <div class="jogblock">
     <div class="jog" class:disabled={!canJog} title={jogTitle}>
       {@render corner(false, true)}{@render key(1, true, 'ic-arrow-up', 'Y+', readiness.xy_jog[1]![1]!.ok)}{@render corner(true, true)}
       {@render key(0, false, 'ic-arrow-left', 'X−', readiness.xy_jog[0]![0]!.ok)}
-      <button class="hub" onclick={() => (ui.jogFast = !ui.jogFast)} title="Tap to switch speed"><strong>{ui.jogFast ? 'Fast' : 'Slow'}</strong><small>{jogSpeed != null ? quantity(readiness.xy_recovery ? Math.min(1, jogSpeed) : jogSpeed, 'mm/s') : 'tap to switch'}</small></button>
+      <button class="hub" onclick={() => (ui.jogFast = !ui.jogFast)} title="Tap to switch speed">
+        <strong>{ui.jogFast ? 'Fast' : 'Slow'}</strong>
+        <small>{jogSpeedText}</small>
+      </button>
       {@render key(0, true, 'ic-arrow-right', 'X+', readiness.xy_jog[0]![1]!.ok)}
       {@render corner(false, false)}{@render key(1, false, 'ic-arrow-down', 'Y−', readiness.xy_jog[1]![0]!.ok)}{@render corner(true, false)}
     </div>
     <div class="zcol">
       {@render key(auxiliary, true, 'ic-arrow-up', auxiliary === 'z' ? 'Z up' : 'W+', auxiliaryUp)}
-      <button class="hub" onclick={() => selectAuxiliary(auxiliary === 'z' ? 'w' : 'z')} aria-label={auxiliary === 'z' ? 'Z head; switch to W table' : 'W table; switch to Z head'} title={auxiliary === 'z' ? 'Tap for W table' : 'Tap for Z head'}><strong>{auxiliary.toUpperCase()}</strong><small>{auxiliary === 'z' ? 'Head' : 'Table'}</small><small>Tap for {auxiliary === 'z' ? 'W' : 'Z'}</small></button>
+      <button
+        class="hub"
+        onclick={() => selectAuxiliary(auxiliary === 'z' ? 'w' : 'z')}
+        aria-label={auxiliary === 'z' ? 'Z head; switch to W table' : 'W table; switch to Z head'}
+        title={auxiliary === 'z' ? 'Tap for W table' : 'Tap for Z head'}
+      >
+        <strong>{auxiliary.toUpperCase()}</strong>
+        <small>{auxiliary === 'z' ? 'Head' : 'Table'}</small>
+        <small>Tap for {auxiliary === 'z' ? 'W' : 'Z'}</small>
+      </button>
       {@render key(auxiliary, false, 'ic-arrow-down', auxiliary === 'z' ? 'Z down' : 'W−', auxiliaryDown)}
     </div>
   </div>
-  {#if readiness.xy_recovery}<p class="muted auxiliary-hint" role="status">X/Y limit recovery: hold an available direction to move away up to 1 mm at 1 mm/s or slower. Release between presses. Once clear, use Home.</p>{/if}
+  {#if readiness.xy_recovery}
+    <p class="muted auxiliary-hint" role="status">
+      X/Y limit recovery: hold an available direction to move away up to 1 mm at 1 mm/s or slower.
+      Release between presses. Once clear, use Home.
+    </p>
+  {/if}
   {#if auxiliary === 'w'}
     {#if tableEnabled}
-      <div class="table-readout"><span>W <strong>{quantity(feedback?.table_mm, 'mm')}</strong></span><button class="btn btn-ghost" onclick={() => osk.number('Table speed', tableSpeed, 'mm/s', v => { if (v > 0 && v <= 100) tableSpeed = v; })}>{quantity(tableSpeed, 'mm/s')}</button></div>
+      <div class="table-readout">
+        <span>W <strong>{quantity(feedback?.table_mm, 'mm')}</strong></span>
+        <button class="btn btn-ghost" onclick={editTableSpeed}>{quantity(tableSpeed, 'mm/s')}</button>
+      </div>
     {:else}<p class="muted auxiliary-hint">W table motion is not enabled in the loaded machine configuration.</p>{/if}
   {:else if !headEnabled}<p class="muted auxiliary-hint">No head controller configured.</p>
-  {:else if readiness.head_recovery}<p class="muted auxiliary-hint" role="status">Z limit recovery: hold the available direction to move up to 1 mm at 1 mm/s or slower. Release between presses. Once clear, use Home.</p>{/if}
+  {:else if readiness.head_recovery}
+    <p class="muted auxiliary-hint" role="status">
+      Z limit recovery: hold the available direction to move up to 1 mm at 1 mm/s or slower.
+      Release between presses. Once clear, use Home.
+    </p>
+  {/if}
   {#if doc.draft}<GasLaserCard />{/if}
   <button class="btn btn-ghost machine-tests" onclick={() => (testing = true)}>Machine tests · laser, gas, outputs, mode…</button>
  </div>

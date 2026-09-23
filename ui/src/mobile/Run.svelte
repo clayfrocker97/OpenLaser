@@ -15,6 +15,7 @@
   import StatusLine from '../components/StatusLine.svelte';
   import HoldButton from '../components/HoldButton.svelte';
   import { onlyPart } from '../lib/job-parts';
+  import { withBusy } from '../lib/busy';
 
   let { controls, review }: { controls:() => void; review:(restart?: boolean) => void } = $props();
   const doc = $derived(server.doc!);
@@ -26,7 +27,9 @@
     const id = doc.recovery?.id;
     if (id && original?.id !== id) untrack(() => {
       if (execution?.id === id) original = execution;
-      else api.recoveryProgram().then(reply => { if (server.doc?.recovery?.id === reply.execution.id) original = reply.execution; }).catch(error => ui.say(explain(error), true));
+      else api.recoveryProgram()
+        .then(reply => { if (server.doc?.recovery?.id === reply.execution.id) original = reply.execution; })
+        .catch(error => ui.say(explain(error), true));
     });
   });
   const retained = $derived(execution && !execution.frame && original?.id === doc.recovery?.id ? original : null);
@@ -39,17 +42,28 @@
   const completed = $derived(!!execution && !execution.frame && program?.state === 'completed');
   const recovering = $derived(!!doc.recovery && ['held','stopped','failed'].includes(doc.recovery.state));
   const total = $derived(compiled?.plan.length ?? 0);
-  const done = $derived(retained ? doc.recovery?.steps.filter(step => step.status === 'completed').length ?? 0 : execution ? doc.progress?.completed ?? 0 : 0);
+  const done = $derived(retained ? doc.recovery?.steps.filter(step => step.status === 'completed').length ?? 0
+    : execution ? doc.progress?.completed ?? 0 : 0);
   const percent = $derived(total ? Math.min(100,Math.round(done / total * 100)) : 0);
-  const outline = $derived(execution ? compiled!.moves.filter(m => m.kind === 'cut').map(m => m.points) : draft?.preview?.contours.flatMap(c => c.paths.filter(p => p.kind === 'cut').map(p => p.points)) ?? part?.outline ?? []);
+  const outline = $derived(execution ? compiled!.moves.filter(m => m.kind === 'cut').map(m => m.points)
+    : draft?.preview?.contours.flatMap(c => c.paths.filter(p => p.kind === 'cut').map(p => p.points)) ?? part?.outline ?? []);
+  /** The badge beside the title: what the loaded program is doing or will do. */
+  const modeLabel = $derived.by(() => {
+    if (!compiled) return '';
+    if (completed) return 'Finished';
+    if (running) return execution?.frame ? 'Frame' : compiled.dry_run ? 'Dry run' : 'Running';
+    if (paused) return 'Paused';
+    if (program?.state === 'stopped') return 'Stopped';
+    if (program?.state === 'failed') return 'Interrupted';
+    return compiled.dry_run ? 'Dry run' : 'Cut';
+  });
   let busy = $state(false);
   let preflight = $state<PreflightReview | null>(null);
   const blocked = $derived(!access.canControl || busy || !server.link);
+  const compileBlocked = $derived(blocked || !doc.readiness.compile.ok || !!doc.machine.operation);
   async function perform(action:() => Promise<unknown>): Promise<void> {
     if (busy) return;
-    busy = true;
-    try { await action(); } catch (error) { ui.say(explain(error),true); }
-    finally { busy = false; }
+    await withBusy((b) => (busy = b), action);
   }
   function act(action:'run' | 'resume' | 'hold' | 'stop'): void {
     void perform(async () => {
@@ -61,30 +75,68 @@
 
 <div class="phone-run">
   <div class="phone-run-scroll">
-    <div class="phone-page-title"><h1>Run</h1>{#if compiled}<span class="phone-mode">{completed ? 'Finished' : running ? execution?.frame ? 'Frame' : compiled.dry_run ? 'Dry run' : 'Running' : paused ? 'Paused' : program?.state === 'stopped' ? 'Stopped' : program?.state === 'failed' ? 'Interrupted' : compiled.dry_run ? 'Dry run' : 'Cut'}</span>{/if}</div>
+    <div class="phone-page-title"><h1>Run</h1>{#if compiled}<span class="phone-mode">{modeLabel}</span>{/if}</div>
     {#if draft}
       {#if !running && !recovering}
         <div class="seg phone-run-choice" role="group" aria-label="Run type">
-          <button class:on={!draft.dry_run} disabled={blocked || !doc.readiness.compile.ok || !!doc.machine.operation} onclick={() => perform(() => api.compile(false))}>Cut</button>
-          <button class:on={draft.dry_run} disabled={blocked || !doc.readiness.compile.ok || !!doc.machine.operation} onclick={() => perform(() => api.compile(true))}>Dry run</button>
+          <button class:on={!draft.dry_run} disabled={compileBlocked} onclick={() => perform(() => api.compile(false))}>Cut</button>
+          <button class:on={draft.dry_run} disabled={compileBlocked} onclick={() => perform(() => api.compile(true))}>Dry run</button>
         </div>
       {/if}
       <section class="phone-job-card">
-        <div class="phone-job-heading"><div><h2>{name}</h2><p class="phone-job-material">{material ? recipeLabel(material) : 'No material'}</p>{#if material}<p class="phone-job-summary"><MaterialSummary source={material} variant="line" /></p>{/if}</div></div>
+        <div class="phone-job-heading">
+          <div>
+            <h2>{name}</h2>
+            <p class="phone-job-material">{material ? recipeLabel(material) : 'No material'}</p>
+            {#if material}<p class="phone-job-summary"><MaterialSummary source={material} variant="line" /></p>{/if}
+          </div>
+        </div>
         <button class="phone-preview-button" aria-label="View toolpath" onclick={() => review()}><Preview {outline} /></button>
-        {#if compiled}<div class="phone-progress"><div><strong>{percent}<small>%</small></strong><span>{done} / {total} passes</span><span>{seconds(compiled.seconds * (1 - percent / 100))}<small>{running ? 'estimated left' : 'estimated time'}</small></span></div><progress aria-label="Job progress" max="100" value={percent}></progress></div>{/if}
+        {#if compiled}
+          <div class="phone-progress">
+            <div>
+              <strong>{percent}<small>%</small></strong>
+              <span>{done} / {total} passes</span>
+              <span>{seconds(compiled.seconds * (1 - percent / 100))}<small>{running ? 'estimated left' : 'estimated time'}</small></span>
+            </div>
+            <progress aria-label="Job progress" max="100" value={percent}></progress>
+          </div>
+        {/if}
       </section>
-      {#if paused && doc.recovery?.pause_position}<p class="phone-pause-position" role="status">Paused at X {quantity(doc.recovery.pause_position[0], 'mm')} · Y {quantity(doc.recovery.pause_position[1], 'mm')}. Use Controls to move the head. Resume returns here.</p>{/if}
+      {#if paused && doc.recovery?.pause_position}
+        <p class="phone-pause-position" role="status">
+          Paused at X {quantity(doc.recovery.pause_position[0], 'mm')} · Y {quantity(doc.recovery.pause_position[1], 'mm')}.
+          Use Controls to move the head. Resume returns here.
+        </p>
+      {/if}
       {#if recovering}<button class="phone-review-restart" onclick={() => review(true)}>Adjust restart…<i class="ic ic-arrow-right"></i></button>{/if}
-    {:else}<div class="phone-empty"><i class="ic ic-folder"></i><h2>No part open</h2><p>Choose a part or saved job to begin.</p><button class="phone-primary" onclick={() => ui.tab = 'parts'}>Go to Parts</button></div>{/if}
+    {:else}
+      <div class="phone-empty">
+        <i class="ic ic-folder"></i>
+        <h2>No part open</h2>
+        <p>Choose a part or saved job to begin.</p>
+        <button class="phone-primary" onclick={() => ui.tab = 'parts'}>Go to Parts</button>
+      </div>
+    {/if}
   </div>
   <div class="phone-run-footer">
     {#if draft}
       <RunControls onaction={act} {busy} showStop={false} explain={false} />
       {#if !draft.recipe && !recovering}<button class="phone-text-action phone-setup-link" onclick={() => ui.tab = 'setup'}>Choose material</button>
-      {:else if !running && !completed && !recovering}<StatusLine status={draft.error ?? doc.readiness.run.reason ?? 'Ready. Hold Start to run.'} gates={[['Start', doc.readiness.run], ['Frame', doc.readiness.frame]]} tone={doc.readiness.run.ok ? 'ready' : 'info'} />{/if}
+      {:else if !running && !completed && !recovering}
+        <StatusLine
+          status={draft.error ?? doc.readiness.run.reason ?? 'Ready. Hold Start to run.'}
+          gates={[['Start', doc.readiness.run], ['Frame', doc.readiness.frame]]}
+          tone={doc.readiness.run.ok ? 'ready' : 'info'}
+        />
+      {/if}
     {/if}
-    <div class="phone-run-tools"><button onclick={controls}><i class="ic ic-target"></i>Controls</button><HoldButton class="" disabled={blocked || !doc.readiness.frame.ok} onhold={() => perform(() => api.machine('frame'))}><i class="ic ic-frame"></i>Frame</HoldButton></div>
+    <div class="phone-run-tools">
+      <button onclick={controls}><i class="ic ic-target"></i>Controls</button>
+      <HoldButton class="" disabled={blocked || !doc.readiness.frame.ok} onhold={() => perform(() => api.machine('frame'))}>
+        <i class="ic ic-frame"></i>Frame
+      </HoldButton>
+    </div>
   </div>
 </div>
 {#if preflight}<FlightChecklist initial={preflight} onclose={() => preflight = null} />{/if}
