@@ -12,7 +12,7 @@
   import EditHistory from '../components/EditHistory.svelte';
   import PartsSide from '../routes/PartsSide.svelte';
   import { api } from '../api/client';
-  import { explain } from '../lib/format';
+  import { explain, plural } from '../lib/format';
   import { livePicks, togglePick } from '../lib/job-parts';
 
   let kind = $state<'all' | 'parts' | 'jobs' | 'sheets'>('all');
@@ -49,7 +49,7 @@
       const n = picks.length;
       ui.partPicks = null;
       ui.tab = 'setup';
-      ui.say(add ? `Added ${n} part${n === 1 ? '' : 's'} beside the sheet · Undo takes them off` : n > 1 ? `${n} parts side by side · Nest parts fills a sheet` : 'Part opened');
+      ui.say(add ? `Added ${plural(n, 'part')} beside the sheet · Undo takes them off` : n > 1 ? `${n} parts side by side · Nest parts fills a sheet` : 'Part opened');
     } catch (error) {
       ui.say(explain(error), true);
     } finally {
@@ -78,7 +78,7 @@
 
 {#if picking}
   <div class="phone-picks-bar">
-    <p>{picks.length ? `${picks.length} part${picks.length === 1 ? '' : 's'} picked · laid out in this order` : 'Tap the parts to cut together.'}</p>
+    <p>{picks.length ? `${plural(picks.length, 'part')} picked · laid out in this order` : 'Tap the parts to cut together.'}</p>
     {#if doc.draft}<button class="btn btn-ghost" disabled={busy || blocked || !picks.length || inDraft} onclick={() => finish(true)}>Add to {doc.draft.name}</button>{#if inDraft}<p class="gate-reason">A picked part is already in {doc.draft.name}.</p>{/if}{/if}
     <button class="phone-primary" disabled={busy || blocked || !picks.length} onclick={() => finish(false)}>{picks.length > 1 ? `Set up job with ${picks.length} parts` : 'Set up job'}<i class="ic ic-arrow-right"></i></button>
   </div>

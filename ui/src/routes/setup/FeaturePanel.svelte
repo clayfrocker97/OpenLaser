@@ -7,7 +7,7 @@
   import { server } from '../../stores/server.svelte';
   import { ui, type FeatureId } from '../../stores/ui.svelte';
   import { osk } from '../../lib/osk.svelte';
-  import { ago, explain, recipeLabel } from '../../lib/format';
+  import { ago, explain, plural, recipeLabel } from '../../lib/format';
   import { TOOLS, WORDS, defaultBridges, defaultCommon, defaultCooling, defaultJoints, defaultKerf, defaultLeads, isOn } from '../../lib/features';
   import CutOrderPreview from './CutOrderPreview.svelte';
   import type { Features, Lead, Spot } from '../../api';
@@ -168,7 +168,7 @@
     <div class="param"><div class="lbl">Tap two contours to join, or one contour twice to split.</div><button class="btn btn-ghost" onclick={() => set((f) => { f.bridges!.connections.pop(); })} disabled={!on || bridges.connections.length === 0}>Undo last</button></div>
   {:else if id === 'common'}
     {@const common = features.common ?? defaultCommon(selectedContours)}
-    <div class="param"><div class="lbl">{features.common ? `${common.contours.length} contours in this common-edge group` : 'Select adjacent contours on the drawing, then switch on common edges.'}</div></div>
+    <div class="param"><div class="lbl">{features.common ? `${plural(common.contours.length, 'contour')} in this common-edge group` : 'Select adjacent contours on the drawing, then switch on common edges.'}</div></div>
     <button class="btn btn-soft" disabled={!on || selectedContours.length < 2 || !!ui.picking} onclick={() => set(f => { if (f.common) f.common.contours = [...selectedContours]; })}>Use selected contours ({selectedContours.length})</button>
     {@render stepper('Matching tolerance', common.tolerance, 'mm', 0.01, (v) => set(f => { f.common!.tolerance = v; }))}
     {@render toggle('Allow overcut between remaining spans', common.allow_overcut, (v) => set(f => { f.common!.allow_overcut = v; }))}

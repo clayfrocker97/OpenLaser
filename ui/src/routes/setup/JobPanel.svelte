@@ -8,7 +8,7 @@
   import { server } from '../../stores/server.svelte';
   import { ui } from '../../stores/ui.svelte';
   import { osk } from '../../lib/osk.svelte';
-  import { ago, explain, laserLabel, seconds, size } from '../../lib/format';
+  import { ago, explain, laserLabel, plural, seconds, size } from '../../lib/format';
   import { TOOLS, isOn } from '../../lib/features';
   import AddParts from '../../components/AddParts.svelte';
   import CreateText from '../../components/CreateText.svelte';
@@ -61,7 +61,7 @@
       {#each draft.parts as part (part.id)}
         {@const here = draft.placed.filter((p) => p.source >= part.first && p.source < part.first + part.contours).length}
         {@const copies = Math.max(1, Math.round(here / Math.max(1, part.contours)))}
-        <li><button class="job-part" disabled={!onselectpart || !here} onclick={() => onselectpart?.(part.first, part.contours)}><span>{nameOf(part.id)}</span><small>{!here ? 'Not on this sheet' : copies > 1 ? `${copies} copies · Select` : `${part.contours} path${part.contours === 1 ? '' : 's'} · Select`}</small></button></li>
+        <li><button class="job-part" disabled={!onselectpart || !here} onclick={() => onselectpart?.(part.first, part.contours)}><span>{nameOf(part.id)}</span><small>{!here ? 'Not on this sheet' : copies > 1 ? `${copies} copies · Select` : `${plural(part.contours, 'path')} · Select`}</small></button></li>
       {/each}
     </ul>
     <p class="muted">Delete a part's shapes on the drawing to take it out of the job.</p>
@@ -104,7 +104,7 @@
 
 <div class="stack">
   <div class="row">
-    <button class="btn btn-ghost lg" onclick={save} disabled={!recipe}>{draft.sheets?.pages.some(p => !p.job) ? `Save ${draft.sheets.pages.length} sheets` : 'Save job'}</button>
+    <button class="btn btn-ghost lg" onclick={save} disabled={!recipe}>{draft.sheets?.pages.some(p => !p.job) ? `Save ${plural(draft.sheets.pages.length, 'sheet')}` : 'Save job'}</button>
     <button class="btn btn-ghost lg" onclick={() => review(true)} disabled={!doc.readiness.compile.ok} title={doc.readiness.compile.reason ?? ''}>Dry run</button>
   </div>
   <button class="btn btn-primary xl block" onclick={() => review(false)} disabled={!doc.readiness.compile.ok} title={doc.readiness.compile.reason ?? ''}>Go to Run →</button>

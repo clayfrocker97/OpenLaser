@@ -7,7 +7,7 @@
   import { server } from '../../stores/server.svelte';
   import { ui } from '../../stores/ui.svelte';
   import { osk } from '../../lib/osk.svelte';
-  import { explain } from '../../lib/format';
+  import { explain, plural } from '../../lib/format';
   let { selectedContours, onselectall }: { selectedContours: number[]; onselectall: () => void } = $props();
   const draft = $derived(server.doc!.draft!);
   const effectiveSelection = $derived(selectedContours.length ? selectedContours : draft.groups.length === 1 ? draft.groups[0]! : []);
@@ -70,7 +70,7 @@
   async function cancel(): Promise<void> { if (!result) return; cancelling = true; try { await api.cancelNest(result.id); live = null; ui.nestPreview = null; ui.nestStock = null; ui.nestLive = null; } catch (e) { error = explain(e); cancelling = false; } }
   async function apply(): Promise<void> {
     if (!result || stale || busy) return; busy = true;
-    try { const count = result.total, sheets = result.sheets.length; await api.applyNest(result.id); invalidate(); ui.selectionEpoch++; ui.setupPanel = null; ui.say(`${count} parts on ${sheets} sheet${sheets === 1 ? '' : 's'} · Undo restores the previous layout`); }
+    try { const count = result.total, sheets = result.sheets.length; await api.applyNest(result.id); invalidate(); ui.selectionEpoch++; ui.setupPanel = null; ui.say(`${plural(count, 'part')} on ${plural(sheets, 'sheet')} · Undo restores the previous layout`); }
     catch (e) { error = explain(e); } finally { busy = false; }
   }
   onDestroy(() => { active = false; clearTimeout(timer); ui.nestPreview = null; ui.nestStock = null; ui.nestLive = null; ui.nestPicking = false; if (result) void api.cancelNest(result.id).catch(() => undefined); });
@@ -80,8 +80,8 @@
 <div class="feat-head"><h2>{ready ? 'Review sheets' : 'Nest parts'}</h2><button class="btn btn-ghost" onclick={() => ui.setupPanel = null}>Close</button></div>
 <div class="nest-scroll">
 {#if ready && result}
-  <div class="result-summary"><strong>{result.total} parts</strong><span>Across {result.sheets.length} sheet{result.sheets.length === 1 ? '' : 's'} · every requested copy placed</span></div>
-  <div class="preview-pages" role="group" aria-label="Nesting preview sheets">{#each result.sheets as sheet, i}<button class:on={page === i} aria-pressed={page === i} disabled={busy} onclick={() => show(i)}><strong>Sheet {first + sheet.number}</strong><span>{sheet.parts} parts · {Math.round(sheet.coverage * 100)}%</span>{#if sheet.fresh}<small>Fresh sheet</small>{/if}</button>{/each}</div>
+  <div class="result-summary"><strong>{plural(result.total, 'part')}</strong><span>Across {plural(result.sheets.length, 'sheet')} · every requested copy placed</span></div>
+  <div class="preview-pages" role="group" aria-label="Nesting preview sheets">{#each result.sheets as sheet, i}<button class:on={page === i} aria-pressed={page === i} disabled={busy} onclick={() => show(i)}><strong>Sheet {first + sheet.number}</strong><span>{plural(sheet.parts, 'part')} · {Math.round(sheet.coverage * 100)}%</span>{#if sheet.fresh}<small>Fresh sheet</small>{/if}</button>{/each}</div>
   <p class="nest-note">Review each sheet on the drawing. After applying, switch sheets above the canvas and save the set in one folder.</p>
 {:else if result?.running}
   <div class="searching" role="status"><strong>{cancelling ? 'Cancelling…' : 'Arranging your sheets'}</strong><p>{result.placed} of {result.total} parts placed</p><progress value={result.placed} max={result.total}></progress><p>{live ? `The drawing shows sheet ${first + live.sheet} as the search improves it; the result is checked before you can apply it.` : 'Overflow goes onto the next sheet.'}</p><button class="btn lg block" disabled={cancelling} onclick={cancel}>Cancel nesting</button></div>
