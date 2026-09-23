@@ -81,7 +81,11 @@ pub struct Held {
     pub view: Arc<crate::document::Compiled>,
 }
 
-/// The coordinator.
+/// The coordinator: the one owner of the server's state. It holds the
+/// library, the machine files and bindings, the draft being set up, the
+/// run being executed and its recovery, and publishes all of it as the
+/// [`Document`] every client streams. HTTP handlers take its lock for short
+/// transactions; slow work runs off the lock and checks back in.
 pub struct Coordinator {
     pub(crate) sheet_store: crate::stock_store::Store,
     pub(crate) sheet_persistence_error: Option<String>,

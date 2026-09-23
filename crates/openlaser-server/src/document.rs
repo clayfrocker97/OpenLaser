@@ -231,7 +231,7 @@ pub struct Readiness {
     pub resume: Gate,
     /// Hold the running program.
     pub hold: Gate,
-    /// The stop sequence.
+    /// Stop whatever runs.
     pub stop: Gate,
     /// Switch the laser mode.
     pub mode: Gate,

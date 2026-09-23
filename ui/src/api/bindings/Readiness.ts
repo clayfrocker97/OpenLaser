@@ -71,7 +71,7 @@ resume: Gate,
  */
 hold: Gate,
 /**
- * The stop sequence.
+ * Stop whatever runs.
  */
 stop: Gate,
 /**

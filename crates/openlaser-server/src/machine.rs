@@ -1065,7 +1065,8 @@ pub fn relieve(shared: &Shared, id: Option<u32>) -> Result<()> {
     Ok(())
 }
 
-/// The stop sequence.
+/// Stops whatever runs: bumps the stop epoch first, so work being built
+/// off the lock gives up, then asks the controller task to stop.
 pub async fn stop(shared: &Shared) -> Result<()> {
     shared.stop_epoch.fetch_add(1, Ordering::AcqRel);
     let machine = shared.machine.clone();
@@ -1561,7 +1562,7 @@ pub(crate) async fn prepare_input(
 ) -> Result<std::sync::Arc<crate::document::DraftView>> {
     let input = work(move || {
         input.draft.prepare(&input.drawing);
-        input.draft.settle(input.extent);
+        input.draft.restore_placement(input.extent);
         Ok(input)
     })
     .await?;

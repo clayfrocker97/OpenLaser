@@ -36,7 +36,8 @@ const MAX_CONTOUR_SHIFT_MM: f64 = 100_000.;
 /// How many edits can be undone.
 const HISTORY: usize = 100;
 
-/// The draft.
+/// The job being set up: its parts placed on the sheet, the recipe and
+/// features, the edit history, and what was prepared and compiled from them.
 ///
 /// Everything an edit can change, and so everything undo and redo restore,
 /// lives in [`Snapshot`] as [`Draft::current`]. The other fields are the
@@ -407,7 +408,7 @@ impl Draft {
 
     /// The anchor point in drawing coordinates, once the layout is prepared.
     #[must_use]
-    pub fn dock(&self) -> Option<[f64; 2]> {
+    pub fn anchor_point(&self) -> Option<[f64; 2]> {
         let bounds = crate::placement::reference_bounds(self)?;
         Some(self.current.anchor.on(bounds.min.into(), bounds.max.into()))
     }
@@ -420,30 +421,34 @@ impl Draft {
     /// The origin in machine coordinates: where the anchor point lies.
     #[must_use]
     pub fn origin(&self) -> Option<[f64; 2]> {
-        let (zero, dock) = (self.current.sheet_offset?, self.dock()?);
+        let (zero, dock) = (self.current.sheet_offset?, self.anchor_point()?);
         Some([zero[0] + dock[0], zero[1] + dock[1]])
     }
 
     /// Puts the anchor point at `origin`, in machine coordinates.
-    pub fn pin(&mut self, origin: [f64; 2]) -> Result<()> {
-        let dock = self.dock().ok_or_else(|| crate::Error::Refused("nothing prepared".into()))?;
+    pub fn place_anchor_at(&mut self, origin: [f64; 2]) -> Result<()> {
+        let dock =
+            self.anchor_point().ok_or_else(|| crate::Error::Refused("nothing prepared".into()))?;
         self.current.sheet_offset = Some([origin[0] - dock[0], origin[1] - dock[1]]);
         Ok(())
     }
 
-    /// Restore an explicit fixture or migrate legacy coordinates. Head-now
-    /// drafts remain unpositioned until a physical run captures the head.
-    pub fn settle(&mut self, bed: Option<[[f64; 2]; 2]>) {
+    /// Places the sheet again from the saved placement. A fixed origin is
+    /// put back where it was. A legacy draft without a placement keeps its
+    /// sheet offset, or starts at the bed's corner of least X and Y, and is given
+    /// a fixed placement at that origin. A "where the head is" placement
+    /// stays unplaced until a run captures the head's position.
+    pub fn restore_placement(&mut self, bed: Option<[[f64; 2]; 2]>) {
         use openlaser_library::placement::Placement;
         match self.current.placement.clone() {
             Some(Placement::Head {}) => {}
             Some(Placement::Fixed { origin }) => {
-                let _ = self.pin(origin);
+                let _ = self.place_anchor_at(origin);
             }
             None => {
                 if self.current.sheet_offset.is_none() {
                     let corner = bed.map_or([0., 0.], |b| [b[0][0], b[1][0]]);
-                    let _ = self.pin(corner);
+                    let _ = self.place_anchor_at(corner);
                 }
                 if let Some(origin) = self.origin() {
                     self.current.placement = Some(Placement::Fixed { origin });
@@ -836,7 +841,7 @@ impl Draft {
             origin: self.origin(),
             sheet_offset: self.current.sheet_offset,
             anchor: self.current.anchor,
-            dock: self.dock(),
+            dock: self.anchor_point(),
             past: self.past.len(),
             future: self.future.len(),
             preview: self.preview.clone(),
@@ -1561,13 +1566,13 @@ mod tests {
         let moved = Drawing { contours: vec![square_at([30., 40.])] };
         let mut draft = Draft::of(moved.clone());
         draft.prepare(&moved);
-        assert_eq!(draft.dock(), Some([30., 40.]));
+        assert_eq!(draft.anchor_point(), Some([30., 40.]));
         assert!(draft.sheet_offset().is_err(), "not placed yet");
-        draft.pin([500., 300.]).unwrap();
+        draft.place_anchor_at([500., 300.]).unwrap();
         let zero = draft.sheet_offset().unwrap();
         assert!((zero[0] - 470.).abs() < 1e-9 && (zero[1] - 260.).abs() < 1e-9, "{zero:?}");
         draft.current.anchor = Anchor::Center;
-        assert_eq!(draft.dock(), Some([35., 45.]));
+        assert_eq!(draft.anchor_point(), Some([35., 45.]));
         assert_eq!(draft.origin(), Some([505., 305.]), "the marker moves, the part stays");
         draft.transform(&[0], Some(Transform::translation(Point::new(10., 0.)))).unwrap();
         draft.prepare(&moved);
@@ -1579,12 +1584,12 @@ mod tests {
         assert_eq!(draft.origin(), Some([515., 305.]));
         let mut fresh = Draft::of(moved.clone());
         fresh.prepare(&moved);
-        fresh.settle(Some([[0., 1300.], [0., 900.]]));
+        fresh.restore_placement(Some([[0., 1300.], [0., 900.]]));
         assert_eq!(fresh.origin(), None, "head mode waits for a physical capture");
-        fresh.settle(None);
+        fresh.restore_placement(None);
         assert_eq!(fresh.origin(), None);
         fresh.current.placement = None;
-        fresh.settle(Some([[0., 1300.], [0., 900.]]));
+        fresh.restore_placement(Some([[0., 1300.], [0., 900.]]));
         assert_eq!(fresh.origin(), Some([0., 0.]), "legacy placement is preserved");
     }
 
@@ -1601,7 +1606,7 @@ mod tests {
         let preview = draft.preview.as_ref().unwrap();
         assert_eq!(preview.contours.len(), 2);
         assert_eq!(preview.contours[1].sources, vec![1]);
-        assert_eq!(draft.dock(), Some([0., 0.]));
+        assert_eq!(draft.anchor_point(), Some([0., 0.]));
     }
 
     /// Preparation yields the compiler's contours and a preview with the

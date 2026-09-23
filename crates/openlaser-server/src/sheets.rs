@@ -69,7 +69,7 @@ impl SheetLayout {
         current.features.clone_from(&self.features);
         current.sheet_offset = self.sheet_offset;
         current.anchor = self.anchor;
-        crate::placement::fresh(draft);
+        crate::placement::forget_capture(draft);
     }
 
     fn validate(&self, count: usize) -> Result<()> {

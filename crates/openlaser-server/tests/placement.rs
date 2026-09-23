@@ -82,7 +82,7 @@ async fn offline_head_jobs_save_intent_and_fixed_jobs_save_homed_xy() {
     let d = c.draft.as_ref().unwrap();
     assert!(d.current.sheet_offset.is_none(), "offline compilation must not invent a bed location");
     assert!(d.compiled.is_some());
-    assert_eq!(d.dock(), Some([100., 80.]));
+    assert_eq!(d.anchor_point(), Some([100., 80.]));
     let head = c.save_job("Loose sheets").unwrap();
     let saved = c.library.job(&head.id).unwrap();
     assert_eq!(saved.placement, Some(Placement::Head {}));
@@ -112,7 +112,7 @@ async fn offline_head_jobs_save_intent_and_fixed_jobs_save_homed_xy() {
     let mut c = shared.lock().await;
     let d = c.draft.as_ref().unwrap();
     assert_eq!(d.origin(), Some([300., 200.]));
-    assert_eq!(d.dock(), Some([0., 0.]));
+    assert_eq!(d.anchor_point(), Some([0., 0.]));
     assert!(d.view().placement.saved);
     c.change_placement(PlacementChange::NewRun {}).unwrap();
     assert_eq!(c.draft.as_ref().unwrap().origin(), Some([300., 200.]));

@@ -215,7 +215,7 @@ impl Coordinator {
         draft.complete_history();
         draft.validate_saved(|parts| self.library.job_drawing(parts).ok().map(|d| d.contours()))?;
         self.attach(&mut draft)?;
-        crate::placement::fresh(&mut draft);
+        crate::placement::forget_capture(&mut draft);
         Ok(Some(draft))
     }
 
