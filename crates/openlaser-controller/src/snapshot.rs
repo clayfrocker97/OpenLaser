@@ -15,6 +15,35 @@ use openlaser_protocol::requests::Read;
 use std::collections::VecDeque;
 use std::time::Instant;
 
+/// Head alarm bit 12: the head needs homing (see `alarm_text`). It alone
+/// may accompany homing and manual positioning.
+pub(crate) const HEAD_NEEDS_HOMING: u32 = 1 << 12;
+/// Every head alarm bit except [`HEAD_NEEDS_HOMING`]; only the low 16 bits
+/// of the head alarm word carry alarms.
+pub(crate) const HEAD_ALARMS_BUT_HOMING: u32 = 0xefff;
+/// Head alarm bits 0 and 2: the head on its top limit switch or past its
+/// top travel limit. Moving down leaves them.
+const HEAD_TOP_LIMITS: u32 = 0b0101;
+/// Head alarm bits 1, 3 and 5: the head on its bottom limit switch, past
+/// its bottom travel limit, or the nozzle touching the sheet. Moving up
+/// leaves them.
+const HEAD_BOTTOM_LIMITS: u32 = 0b10_1010;
+/// The four limit bits, hardware and software, upper and lower, of the head
+/// alarm word and of an axis record's status.
+const LIMIT_BITS: u32 = 0xf;
+/// Axis record status bits 0 and 2: the hardware and software limits in
+/// the positive direction. A negative move leaves them.
+const AXIS_POSITIVE_LIMITS: u32 = 0b0101;
+/// Axis record status bits 1 and 3: the limits in the negative direction.
+const AXIS_NEGATIVE_LIMITS: u32 = 0b1010;
+/// Axis record status bits 0 to 5, the ones that report faults.
+const AXIS_FAULT_BITS: u32 = 0x3f;
+/// Controller alarm group 1 bit 24, which summarises head faults.
+pub(crate) const GROUP1_HEAD_SUMMARY: u32 = 1 << 24;
+/// Controller alarm group 1 bits 0 and 1, which summarise the X and Y
+/// axis records.
+const GROUP1_XY_SUMMARY: u32 = 0b11;
+
 /// The controller's feedback at one moment.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Snapshot {
@@ -103,10 +132,10 @@ impl Snapshot {
     /// Every other head fault and both controller fault groups still block.
     #[must_use]
     pub const fn positioning_alarms_clear(&self) -> bool {
-        self.head.alarm_word() & 0xefff == 0
+        self.head.alarm_word() & HEAD_ALARMS_BUT_HOMING == 0
             && self.status.alarm_group_1()
-                & if !self.head.referenced() || self.head.alarm_word() & (1 << 12) != 0 {
-                    !(1 << 24)
+                & if !self.head.referenced() || self.head.alarm_word() & HEAD_NEEDS_HOMING != 0 {
+                    !GROUP1_HEAD_SUMMARY
                 } else {
                     u32::MAX
                 }
@@ -122,23 +151,25 @@ impl Snapshot {
     pub const fn head_jog_alarms_clear(&self, up: bool) -> bool {
         let head = self.head.alarm_word();
         // Up also moves away from a nozzle touching the plate, head bit 5.
-        let limits = if up { 0b10_1010 } else { 0b0101 };
-        let accompanied = !self.head.referenced() || head & ((1 << 12) | limits) != 0;
-        head & !((1 << 12) | limits) == 0
-            && self.status.alarm_group_1() & if accompanied { !(1 << 24) } else { u32::MAX } == 0
+        let limits = if up { HEAD_BOTTOM_LIMITS } else { HEAD_TOP_LIMITS };
+        let accompanied = !self.head.referenced() || head & (HEAD_NEEDS_HOMING | limits) != 0;
+        head & !(HEAD_NEEDS_HOMING | limits) == 0
+            && self.status.alarm_group_1()
+                & if accompanied { !GROUP1_HEAD_SUMMARY } else { u32::MAX }
+                == 0
             && self.status.alarm_group_2() == 0
     }
 
     /// The head's hardware and software upper/lower limit bits.
     #[must_use]
     pub const fn head_limit_alarms(&self) -> u32 {
-        self.head.alarm_word() & 0xf
+        self.head.alarm_word() & LIMIT_BITS
     }
 
     /// Whether either real X/Y record reports a hardware or software limit.
     #[must_use]
     pub const fn xy_limit_alarms(&self) -> bool {
-        (self.axes.axis(0).status | self.axes.axis(1).status) & 0xf != 0
+        (self.axes.axis(0).status | self.axes.axis(1).status) & LIMIT_BITS != 0
     }
 
     /// A manual X/Y jog may recover known limits. Other X/Y limits may stay
@@ -153,19 +184,20 @@ impl Snapshot {
             return self.positioning_alarms_clear()
                 && self.axes.all().iter().all(|record| record.status.trailing_zeros() >= 6);
         }
-        let head_summary = if !self.head.referenced() || self.head.alarm_word() & (1 << 12) != 0 {
-            1 << 24
-        } else {
-            0
-        };
-        if self.head.alarm_word() & 0xefff != 0
-            || self.status.alarm_group_1() & !(3 | head_summary) != 0
+        let head_summary =
+            if !self.head.referenced() || self.head.alarm_word() & HEAD_NEEDS_HOMING != 0 {
+                GROUP1_HEAD_SUMMARY
+            } else {
+                0
+            };
+        if self.head.alarm_word() & HEAD_ALARMS_BUT_HOMING != 0
+            || self.status.alarm_group_1() & !(GROUP1_XY_SUMMARY | head_summary) != 0
             || self.status.alarm_group_2() != 0
         {
             return false;
         }
         for index in 0..5 {
-            let faults = self.axes.axis(index).status & 0x3f;
+            let faults = self.axes.axis(index).status & AXIS_FAULT_BITS;
             let summary = self.status.alarm_group_1() & (1 << index) != 0;
             if index > 1 {
                 if faults != 0 {
@@ -173,14 +205,17 @@ impl Snapshot {
                 }
                 continue;
             }
-            if faults & !0xf != 0 || (faults & 0b0101 != 0 && faults & 0b1010 != 0) {
+            if faults & !LIMIT_BITS != 0
+                || (faults & AXIS_POSITIVE_LIMITS != 0 && faults & AXIS_NEGATIVE_LIMITS != 0)
+            {
                 return false;
             }
             if summary && faults == 0 {
                 return false;
             }
             if index == axis {
-                let away_limits = if positive { 0b1010 } else { 0b0101 };
+                let away_limits =
+                    if positive { AXIS_NEGATIVE_LIMITS } else { AXIS_POSITIVE_LIMITS };
                 if faults & !away_limits != 0 || (faults == 0 && !recovering) {
                     return false;
                 }

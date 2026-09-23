@@ -17,6 +17,16 @@ use openlaser_protocol::sequences;
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 
+/// Fastest speed, in the head's tenths, of a head jog admitted while the
+/// head reports a limit: the command's `speed_tenths` word is capped here.
+const LIMIT_RECOVERY_SPEED_TENTHS: u32 = 10;
+/// Largest travel, in the head controller's move units, of a head jog
+/// admitted while the head reports a limit; a normal held jog asks for
+/// 1 000 000 and relies on release to stop.
+const LIMIT_RECOVERY_TRAVEL: i32 = 1000;
+/// How long a limit-recovery head jog may run before it is ended.
+const LIMIT_RECOVERY_TIME: Duration = Duration::from_secs(2);
+
 /// A manual output plan.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Plan {
@@ -169,11 +179,13 @@ impl Outputs {
                     let Some(sequences::Step::Write(mut write)) = self.queue.pop_front() else {
                         return Err("invalid head jog".into());
                     };
-                    write.words[1] = write.words[1].min(10);
-                    write.words[2] =
-                        write.words[2].cast_signed().clamp(-1000, 1000).cast_unsigned();
+                    write.words[1] = write.words[1].min(LIMIT_RECOVERY_SPEED_TENTHS);
+                    write.words[2] = write.words[2]
+                        .cast_signed()
+                        .clamp(-LIMIT_RECOVERY_TRAVEL, LIMIT_RECOVERY_TRAVEL)
+                        .cast_unsigned();
                     self.queue.push_front(sequences::Step::Write(write));
-                    self.recovery_deadline = Some(now + Duration::from_secs(2));
+                    self.recovery_deadline = Some(now + LIMIT_RECOVERY_TIME);
                 }
             } else {
                 admit(snapshot, blocked, 0)?;

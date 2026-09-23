@@ -29,6 +29,14 @@ const SETTLE_TIMEOUT: Duration = Duration::from_secs(10);
 /// How long a pause waits for the head to finish rising before it ends
 /// with the head still busy.
 const RAISE_WAIT: Duration = Duration::from_secs(3);
+/// A run's deadline is this many times its predicted duration, plus
+/// [`RUN_DEADLINE_MARGIN_S`], so a slow but progressing run is never cut
+/// short.
+const RUN_DEADLINE_FACTOR: f64 = 3.;
+/// Seconds added to every run's deadline, and its shortest deadline.
+const RUN_DEADLINE_MARGIN_S: f64 = 60.;
+/// Longest deadline of any run, in seconds: one day.
+const RUN_DEADLINE_MAX_S: f64 = 86_400.;
 
 /// A program ready to run.
 #[derive(Clone, Debug, PartialEq)]
@@ -120,8 +128,10 @@ impl Run {
         if capacity < records::MIN_FIFO_CAPACITY {
             return Err("the FIFO capacity is below the vendor's minimum".into());
         }
-        let deadline =
-            Duration::from_secs_f64((program.expected_seconds * 3. + 60.).clamp(60., 86_400.));
+        let deadline = Duration::from_secs_f64(
+            (program.expected_seconds * RUN_DEADLINE_FACTOR + RUN_DEADLINE_MARGIN_S)
+                .clamp(RUN_DEADLINE_MARGIN_S, RUN_DEADLINE_MAX_S),
+        );
         Ok(Self {
             head: (program.prepare_head && bindings.head_enabled)
                 .then(|| Home::new(bindings, true)),

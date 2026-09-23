@@ -17,10 +17,10 @@ use std::time::{Duration, Instant};
 /// (bit 12), which the head-only search exists to relieve.
 #[must_use]
 pub const fn other_head_faults(snapshot: &Snapshot) -> bool {
-    snapshot.head.alarm_word() & 0xefff != 0
-        || (snapshot.status.alarm_group_1() & (1 << 24) != 0
+    snapshot.head.alarm_word() & crate::snapshot::HEAD_ALARMS_BUT_HOMING != 0
+        || (snapshot.status.alarm_group_1() & crate::snapshot::GROUP1_HEAD_SUMMARY != 0
             && snapshot.head.referenced()
-            && snapshot.head.alarm_word() & (1 << 12) == 0)
+            && snapshot.head.alarm_word() & crate::snapshot::HEAD_NEEDS_HOMING == 0)
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
