@@ -194,7 +194,7 @@ fn job_layout(job: &Job, contours: usize) -> Result<()> {
     }
     let count = if job.placed.is_empty() { contours } else { job.placed.len() };
     job.grouping.validate(count).map_err(Error::Invalid)?;
-    if job.zero.is_some_and(|zero| !zero.iter().all(|value| value.is_finite())) {
+    if job.sheet_offset.is_some_and(|zero| !zero.iter().all(|value| value.is_finite())) {
         return Err(Error::Invalid("the job origin is not finite".into()));
     }
     Ok(())

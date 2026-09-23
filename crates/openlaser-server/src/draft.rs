@@ -106,9 +106,11 @@ pub struct Draft {
     /// The contours that move together.
     #[serde(skip)]
     pub groups: Vec<Vec<usize>>,
-    /// What the machine adds to a drawing coordinate: where the sheet lies
-    /// on the bed, once it has been prepared.
-    pub zero: Option<[f64; 2]>,
+    /// The sheet offset: what the machine adds to a drawing coordinate to
+    /// reach the bed, which is where the sheet lies on the bed. Absent until
+    /// the sheet is placed. Serialized as `zero`, its name in earlier builds.
+    #[serde(rename = "zero")]
+    pub sheet_offset: Option<[f64; 2]>,
     /// Which point of the placed part the origin stands for.
     pub anchor: Anchor,
     /// The states before each edit, latest last.
@@ -155,7 +157,8 @@ struct Snapshot {
     features: Features,
     recipe: Option<Recipe>,
     film: Option<Recipe>,
-    zero: Option<[f64; 2]>,
+    #[serde(rename = "zero")]
+    sheet_offset: Option<[f64; 2]>,
     anchor: Anchor,
     preflight: openlaser_library::preflight::JobPreflight,
     feature_source: Option<FeatureSource>,
@@ -335,7 +338,7 @@ impl Draft {
             placed: Placed::all(contours),
             groups: Vec::new(),
             grouping: Grouping::default(),
-            zero: None,
+            sheet_offset: None,
             anchor: Anchor::default(),
             past: Vec::new(),
             future: Vec::new(),
@@ -409,22 +412,22 @@ impl Draft {
         Some(self.anchor.on(bounds.min.into(), bounds.max.into()))
     }
 
-    /// What the machine adds to a drawing coordinate.
-    pub fn zero(&self) -> Result<[f64; 2]> {
-        self.zero.ok_or_else(|| crate::Error::Refused("nothing prepared".into()))
+    /// The sheet offset: what the machine adds to a drawing coordinate.
+    pub fn sheet_offset(&self) -> Result<[f64; 2]> {
+        self.sheet_offset.ok_or_else(|| crate::Error::Refused("nothing prepared".into()))
     }
 
     /// The origin in machine coordinates: where the anchor point lies.
     #[must_use]
     pub fn origin(&self) -> Option<[f64; 2]> {
-        let (zero, dock) = (self.zero?, self.dock()?);
+        let (zero, dock) = (self.sheet_offset?, self.dock()?);
         Some([zero[0] + dock[0], zero[1] + dock[1]])
     }
 
     /// Puts the anchor point at `origin`, in machine coordinates.
     pub fn pin(&mut self, origin: [f64; 2]) -> Result<()> {
         let dock = self.dock().ok_or_else(|| crate::Error::Refused("nothing prepared".into()))?;
-        self.zero = Some([origin[0] - dock[0], origin[1] - dock[1]]);
+        self.sheet_offset = Some([origin[0] - dock[0], origin[1] - dock[1]]);
         Ok(())
     }
 
@@ -438,7 +441,7 @@ impl Draft {
                 let _ = self.pin(origin);
             }
             None => {
-                if self.zero.is_none() {
+                if self.sheet_offset.is_none() {
                     let corner = bed.map_or([0., 0.], |b| [b[0][0], b[1][0]]);
                     let _ = self.pin(corner);
                 }
@@ -482,7 +485,7 @@ impl Draft {
             features: self.features.clone(),
             recipe: self.recipe.clone(),
             film: self.film.clone(),
-            zero: self.zero,
+            sheet_offset: self.sheet_offset,
             anchor: self.anchor,
             preflight: self.preflight.clone(),
             feature_source: self.feature_source.clone(),
@@ -517,7 +520,7 @@ impl Draft {
         self.features = snapshot.features;
         self.recipe = snapshot.recipe;
         self.film = snapshot.film;
-        self.zero = snapshot.zero;
+        self.sheet_offset = snapshot.sheet_offset;
         self.anchor = snapshot.anchor;
         self.preflight = snapshot.preflight;
         self.feature_source = snapshot.feature_source;
@@ -853,7 +856,7 @@ impl Draft {
             placed: self.placed.clone(),
             groups: self.groups.clone(),
             origin: self.origin(),
-            zero: self.zero,
+            sheet_offset: self.sheet_offset,
             anchor: self.anchor,
             dock: self.dock(),
             past: self.past.len(),
@@ -1413,7 +1416,7 @@ mod tests {
             |d| d.parts = vec![Id::from("other")],
             |d| d.job = Some(Id::from("job")),
             |d| d.source_count = 2,
-            |d| d.zero = Some([1., 2.]),
+            |d| d.sheet_offset = Some([1., 2.]),
             |d| d.placed[0].transform = Transform::translation(Point::new(1., 0.)),
             |d| d.features.order.inner_first = true,
             |d| {
@@ -1579,16 +1582,16 @@ mod tests {
         let mut draft = Draft::of(moved.clone());
         draft.prepare(&moved);
         assert_eq!(draft.dock(), Some([30., 40.]));
-        assert!(draft.zero().is_err(), "not placed yet");
+        assert!(draft.sheet_offset().is_err(), "not placed yet");
         draft.pin([500., 300.]).unwrap();
-        let zero = draft.zero().unwrap();
+        let zero = draft.sheet_offset().unwrap();
         assert!((zero[0] - 470.).abs() < 1e-9 && (zero[1] - 260.).abs() < 1e-9, "{zero:?}");
         draft.anchor = Anchor::Center;
         assert_eq!(draft.dock(), Some([35., 45.]));
         assert_eq!(draft.origin(), Some([505., 305.]), "the marker moves, the part stays");
         draft.transform(&[0], Some(Transform::translation(Point::new(10., 0.)))).unwrap();
         draft.prepare(&moved);
-        let again = draft.zero().unwrap();
+        let again = draft.sheet_offset().unwrap();
         assert!(
             (again[0] - zero[0]).abs() < 1e-9 && (again[1] - zero[1]).abs() < 1e-9,
             "a move on the sheet leaves zero alone"

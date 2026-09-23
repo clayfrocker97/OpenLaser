@@ -211,7 +211,7 @@ async fn working_copies_history_and_saved_conflicts_survive_a_restart() {
         machine::prepare(&shared).await.unwrap();
         let mut c = shared.lock().await;
         c.set_origin([80., 90.]).unwrap();
-        c.library.update_job(&job.id, |j| j.zero = Some([20., 30.])).unwrap();
+        c.library.update_job(&job.id, |j| j.sheet_offset = Some([20., 30.])).unwrap();
         let review = c.merge_review(None).unwrap();
         assert_eq!(review.conflicts.len(), 1);
         assert_eq!(review.conflicts[0].path, "/zero");
@@ -219,9 +219,9 @@ async fn working_copies_history_and_saved_conflicts_survive_a_restart() {
         drop(c);
         machine::prepare(&shared).await.unwrap();
         let mut c = shared.lock().await;
-        let undo_zero = c.draft.as_ref().unwrap().zero;
+        let undo_zero = c.draft.as_ref().unwrap().sheet_offset;
         c.set_origin([110., 120.]).unwrap();
-        let zero = c.draft.as_ref().unwrap().zero;
+        let zero = c.draft.as_ref().unwrap().sheet_offset;
         let other = c.duplicate_part(&part.id).unwrap();
         c.open_part(&other.id).unwrap();
         drop(c);
@@ -243,9 +243,9 @@ async fn working_copies_history_and_saved_conflicts_survive_a_restart() {
         assert!(!document.machine.session.homed);
         assert!(c.held.is_none() && c.recovery.is_none());
         c.open_job(&job).unwrap();
-        assert_eq!(c.draft.as_ref().unwrap().zero, zero);
+        assert_eq!(c.draft.as_ref().unwrap().sheet_offset, zero);
         c.undo().unwrap();
-        assert_eq!(c.draft.as_ref().unwrap().zero, undo_zero);
+        assert_eq!(c.draft.as_ref().unwrap().sheet_offset, undo_zero);
         assert!(!c.library.edit_history().unwrap().past.is_empty());
     }
     openlaser_server::shutdown(&restored).await.unwrap();

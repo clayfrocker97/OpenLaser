@@ -492,7 +492,7 @@ impl Coordinator {
         } else {
             let extent =
                 self.extent().ok_or_else(|| Error::Refused("no sheet dimensions".into()))?;
-            let zero = Point::from(draft.zero.unwrap_or([0., 0.]));
+            let zero = Point::from(draft.sheet_offset.unwrap_or([0., 0.]));
             rectangle(Bounds {
                 min: Point::new(extent[0][0], extent[1][0]) - zero,
                 max: Point::new(extent[0][1], extent[1][1]) - zero,

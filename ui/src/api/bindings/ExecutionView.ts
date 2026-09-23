@@ -27,7 +27,8 @@ material: MaterialView | null,
  */
 origin: [number, number],
 /**
- * The machine-coordinate offset captured at admission.
+ * The sheet offset captured at admission: what the machine adds to a
+ * drawing coordinate. Sent as `zero`.
  */
 zero: [number, number],
 /**

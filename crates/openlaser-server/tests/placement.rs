@@ -80,15 +80,15 @@ async fn offline_head_jobs_save_intent_and_fixed_jobs_save_homed_xy() {
     machine::compile(&shared, false).await.unwrap();
     let mut c = shared.lock().await;
     let d = c.draft.as_ref().unwrap();
-    assert!(d.zero.is_none(), "offline compilation must not invent a bed location");
+    assert!(d.sheet_offset.is_none(), "offline compilation must not invent a bed location");
     assert!(d.compiled.is_some());
     assert_eq!(d.dock(), Some([100., 80.]));
     let head = c.save_job("Loose sheets").unwrap();
     let saved = c.library.job(&head.id).unwrap();
     assert_eq!(saved.placement, Some(Placement::Head {}));
-    assert!(saved.zero.is_none());
+    assert!(saved.sheet_offset.is_none());
     assert!(c.change_placement(PlacementChange::SetOrigin {}).is_err());
-    assert!(c.draft.as_ref().unwrap().zero.is_none());
+    assert!(c.draft.as_ref().unwrap().sheet_offset.is_none());
     c.set_stock(StockChoice::Rectangle { width: 250., height: 200. }).unwrap();
     drop(c);
     machine::prepare(&shared).await.unwrap();
@@ -134,7 +134,7 @@ async fn absolute_origin_captures_machine_coordinates_and_reuses_them_after_jog_
         let mut c = shared.lock().await;
         c.change_placement(PlacementChange::FixedHead {}).unwrap();
         near(c.draft.as_ref().unwrap().origin().unwrap(), [150., 120.]);
-        near(c.draft.as_ref().unwrap().zero.unwrap(), [50., 40.]);
+        near(c.draft.as_ref().unwrap().sheet_offset.unwrap(), [50., 40.]);
         c.save_job("Absolute fixture").unwrap()
     };
     assert!(control.writes().is_empty(), "saving an absolute origin never moves the head");
@@ -162,7 +162,7 @@ async fn absolute_origin_captures_machine_coordinates_and_reuses_them_after_jog_
         c.change_placement(PlacementChange::SetOrigin {}).unwrap();
         near(c.draft.as_ref().unwrap().origin().unwrap(), [175., 140.]);
         c.change_placement(PlacementChange::NewRun {}).unwrap();
-        assert!(c.draft.as_ref().unwrap().zero.is_none());
+        assert!(c.draft.as_ref().unwrap().sheet_offset.is_none());
     }
 }
 
@@ -231,7 +231,7 @@ async fn set_origin_pins_this_run_jogs_and_resume_keep_it_and_new_runs_recapture
         let c = shared.lock().await;
         let doc = c.document();
         let draft = doc.draft.unwrap();
-        assert!(draft.zero.is_none());
+        assert!(draft.sheet_offset.is_none());
         assert!(draft.compiled.is_some(), "New run must be ready without revisiting Setup");
         assert!(doc.execution.is_none());
         assert!(doc.completed_sheet.is_none());
@@ -248,15 +248,15 @@ async fn set_origin_pins_this_run_jogs_and_resume_keep_it_and_new_runs_recapture
     let job = {
         let mut c = shared.lock().await;
         let job = c.save_job("Repeat loose sheet").unwrap();
-        assert!(c.library.job(&job.id).unwrap().zero.is_none());
+        assert!(c.library.job(&job.id).unwrap().sheet_offset.is_none());
         c.change_placement(PlacementChange::NewRun {}).unwrap();
-        assert!(c.draft.as_ref().unwrap().zero.is_none());
+        assert!(c.draft.as_ref().unwrap().sheet_offset.is_none());
         job
     };
     {
         let mut c = shared.lock().await;
         c.open_job(&job.id).unwrap();
-        assert!(c.draft.as_ref().unwrap().zero.is_none());
+        assert!(c.draft.as_ref().unwrap().sheet_offset.is_none());
     }
     openlaser_server::shutdown(&shared).await.unwrap();
 }
@@ -297,7 +297,7 @@ async fn correction_waits_for_capture_recompiles_on_reposition_and_checks_travel
             .iter()
             .find(|m| m.kind == PathKind::Cut)
             .unwrap();
-        let zero = Point::from(d.zero.unwrap());
+        let zero = Point::from(d.sheet_offset.unwrap());
         let physical = map.forward(Point::from(first.points[0]) + zero);
         let wanted = Point::from(d.preview.as_ref().unwrap().contours[0].start) + zero;
         assert!(physical.distance(wanted) < 0.02);

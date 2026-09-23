@@ -231,8 +231,8 @@ async fn rectangle_keeps_the_fixture_position_after_nesting() {
     let d = c.draft.as_ref().unwrap();
     let drawing = d.drawing().unwrap();
     let bounds = nesting::stock(drawing, d.nesting.as_ref().unwrap()).unwrap().bounds().unwrap();
-    assert!((bounds.min.x + d.zero().unwrap()[0] - 146.).abs() < 1e-9);
-    assert!((bounds.min.y + d.zero().unwrap()[1] - 673.).abs() < 1e-9);
+    assert!((bounds.min.x + d.sheet_offset().unwrap()[0] - 146.).abs() < 1e-9);
+    assert!((bounds.min.y + d.sheet_offset().unwrap()[1] - 673.).abs() < 1e-9);
     drop(c);
     openlaser_server::shutdown(&shared).await.unwrap();
 }

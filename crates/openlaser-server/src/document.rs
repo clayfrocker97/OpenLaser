@@ -813,9 +813,10 @@ pub struct DraftView {
     /// The origin in machine coordinates: where the anchor point lies,
     /// once the layout is prepared.
     pub origin: Option<[f64; 2]>,
-    /// What the machine adds to a drawing coordinate, once the sheet is
-    /// placed.
-    pub zero: Option<[f64; 2]>,
+    /// The sheet offset: what the machine adds to a drawing coordinate,
+    /// once the sheet is placed. Sent as `zero`.
+    #[serde(rename = "zero")]
+    pub sheet_offset: Option<[f64; 2]>,
     /// Which point of the placed part the origin stands for.
     pub anchor: Anchor,
     /// The anchor point in drawing coordinates, once prepared.
@@ -1011,8 +1012,10 @@ pub struct ExecutionView {
     pub material: Option<MaterialView>,
     /// The selected job anchor in machine coordinates at admission.
     pub origin: [f64; 2],
-    /// The machine-coordinate offset captured at admission.
-    pub zero: [f64; 2],
+    /// The sheet offset captured at admission: what the machine adds to a
+    /// drawing coordinate. Sent as `zero`.
+    #[serde(rename = "zero")]
+    pub sheet_offset: [f64; 2],
     /// The cut job's preview and pass identities. Framing keeps this same
     /// geometry visible while its separate laser-off motion runs.
     pub compiled: Arc<Compiled>,

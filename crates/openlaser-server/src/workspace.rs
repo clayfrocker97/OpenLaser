@@ -449,7 +449,7 @@ impl Draft {
             film: None,
             features: self.features.clone(),
             placed: Vec::new(),
-            zero: None,
+            sheet_offset: None,
             anchor: self.anchor,
             favourite: false,
             created: 0,
@@ -463,7 +463,7 @@ impl Draft {
         job.placed.clone_from(&self.placed);
         job.grouping.clone_from(&self.grouping);
         job.placement.clone_from(&self.placement);
-        job.zero = if crate::placement::is_head(self) { None } else { self.zero };
+        job.sheet_offset = if crate::placement::is_head(self) { None } else { self.sheet_offset };
         job.anchor = self.anchor;
         job.preflight.clone_from(&self.preflight);
         job.nesting.clone_from(&self.nesting);
@@ -487,7 +487,7 @@ impl Draft {
         self.grouping.clone_from(&job.grouping);
         self.placement.clone_from(&job.placement);
         if !retained_capture {
-            self.zero = job.zero;
+            self.sheet_offset = job.sheet_offset;
             self.capture_epoch = None;
         }
         self.anchor = job.anchor;

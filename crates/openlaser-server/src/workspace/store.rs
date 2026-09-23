@@ -328,7 +328,7 @@ mod tests {
         let draft = stored.draft;
         let view = draft.view();
         assert_eq!((view.past, view.future), (1, 1));
-        assert_eq!(view.zero, Some([12.5, 7.25]));
+        assert_eq!(view.sheet_offset, Some([12.5, 7.25]));
         assert!(draft.sheets.is_some());
         let state = draft.authoring_state();
         let written =

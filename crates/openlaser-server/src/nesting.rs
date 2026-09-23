@@ -220,7 +220,7 @@ impl Coordinator {
                             .into(),
                     ));
                 }
-                let zero = draft.zero.unwrap_or([0., 0.]);
+                let zero = draft.sheet_offset.unwrap_or([0., 0.]);
                 let at = self
                     .extent()
                     .map_or(Point::ORIGIN, |e| Point::new(e[0][0] - zero[0], e[1][0] - zero[1]));
@@ -255,8 +255,8 @@ impl Coordinator {
                     },
                     |extent| {
                         Point::new(
-                            extent[0][0] - draft.zero.unwrap_or([0., 0.])[0],
-                            extent[1][0] - draft.zero.unwrap_or([0., 0.])[1],
+                            extent[0][0] - draft.sheet_offset.unwrap_or([0., 0.])[0],
+                            extent[1][0] - draft.sheet_offset.unwrap_or([0., 0.])[1],
                         )
                     },
                 );

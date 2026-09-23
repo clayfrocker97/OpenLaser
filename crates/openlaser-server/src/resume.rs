@@ -387,12 +387,12 @@ impl Recovery {
             let span = a.distance(b);
             if span > 0. && left <= span {
                 let p = a.lerp(b, left / span);
-                return [p.x + self.original.zero[0], p.y + self.original.zero[1]];
+                return [p.x + self.original.sheet_offset[0], p.y + self.original.sheet_offset[1]];
             }
             left -= span;
         }
         let point = if cp.fraction == 0. { pass.start } else { pass.end };
-        [point[0] + self.original.zero[0], point[1] + self.original.zero[1]]
+        [point[0] + self.original.sheet_offset[0], point[1] + self.original.sheet_offset[1]]
     }
 
     fn record(&mut self, pass: usize, begin: f64, end: f64) {
@@ -531,7 +531,10 @@ impl Recovery {
         locate(
             &self.original.job,
             tag,
-            [cp.position_mm[0] - self.original.zero[0], cp.position_mm[1] - self.original.zero[1]],
+            [
+                cp.position_mm[0] - self.original.sheet_offset[0],
+                cp.position_mm[1] - self.original.sheet_offset[1],
+            ],
         )
     }
 
@@ -559,7 +562,10 @@ impl Recovery {
                 cp.pass,
                 cp.fraction,
                 pierce,
-                [position[0] - self.original.zero[0], position[1] - self.original.zero[1]],
+                [
+                    position[0] - self.original.sheet_offset[0],
+                    position[1] - self.original.sheet_offset[1],
+                ],
             )?
         } else {
             continuation(&self.original.job, cp, pierce)?

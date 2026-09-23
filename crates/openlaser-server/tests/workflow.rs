@@ -381,12 +381,18 @@ async fn a_held_job_resumes_from_its_checkpoint() {
     assert!(!std::sync::Arc::ptr_eq(&original.job, &remainder.job));
     let restart = remainder.job.passes[0].start;
     for (axis, coordinate) in restart.iter().enumerate() {
-        assert!((coordinate + remainder.zero[axis] - checkpoint.position_mm[axis]).abs() < 1e-10);
+        assert!(
+            (coordinate + remainder.sheet_offset[axis] - checkpoint.position_mm[axis]).abs()
+                < 1e-10
+        );
     }
     let return_move = remainder.view.moves.iter().find(|m| m.kind == PathKind::Travel).unwrap();
     let returned = return_move.points.last().unwrap();
     for (axis, coordinate) in returned.iter().enumerate() {
-        assert!((coordinate + remainder.zero[axis] - checkpoint.position_mm[axis]).abs() < 1e-10);
+        assert!(
+            (coordinate + remainder.sheet_offset[axis] - checkpoint.position_mm[axis]).abs()
+                < 1e-10
+        );
     }
     tokio::time::sleep(Duration::from_millis(500)).await;
     machine::hold(&shared).await.unwrap();

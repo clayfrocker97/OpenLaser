@@ -109,8 +109,8 @@ groups: Array<Array<number>>,
  */
 origin: [number, number] | null,
 /**
- * What the machine adds to a drawing coordinate, once the sheet is
- * placed.
+ * The sheet offset: what the machine adds to a drawing coordinate,
+ * once the sheet is placed. Sent as `zero`.
  */
 zero: [number, number] | null,
 /**

@@ -324,7 +324,7 @@ pub async fn home(shared: &Shared) -> Result<()> {
             if let Some(draft) = &mut c.draft
                 && crate::placement::is_head(draft)
             {
-                draft.zero = None;
+                draft.sheet_offset = None;
                 draft.capture_epoch = None;
                 if draft.correction.is_some() {
                     draft.compiled = None;
@@ -549,7 +549,7 @@ pub async fn pulse(shared: &Shared, duration_ms: u32, power: u8) -> Result<()> {
             name: "Stationary laser pulse".into(),
             material: None,
             origin: binding.position,
-            zero: [0., 0.],
+            sheet_offset: [0., 0.],
             compiled: Arc::new(crate::document::Compiled {
                 dry_run: false,
                 seconds,
@@ -1033,7 +1033,7 @@ pub async fn run_reviewed(
     crate::placement::prepare(shared).await?;
     let epoch = shared.epoch()?;
     let requested = Instant::now();
-    let (owner, compiled, zero, binding, name, material, origin, sheet) = {
+    let (owner, compiled, sheet_offset, binding, name, material, origin, sheet) = {
         let mut coordinator = shared.lock().await;
         coordinator.not_held()?;
         coordinator.check_preflight(PreflightIntent::Run, epoch, confirmation)?;
@@ -1044,14 +1044,14 @@ pub async fn run_reviewed(
         let configuration = compiled.configuration.ok_or_else(|| {
             Error::Refused("this is an offline preview; connect and compile again".into())
         })?;
-        let zero = draft.zero()?;
-        let binding = Execution::new(&coordinator, &configuration, zero)?;
+        let sheet_offset = draft.sheet_offset()?;
+        let binding = Execution::new(&coordinator, &configuration, sheet_offset)?;
         let name = coordinator.draft_name(draft);
         let material = draft.recipe.as_ref().map(crate::document::MaterialView::from);
         let origin = draft.origin().ok_or_else(|| Error::Refused("no job origin".into()))?;
         let sheet = if compiled.dry_run { None } else { coordinator.sheet_plan(draft)? };
         let owner = coordinator.reserve()?;
-        (owner, compiled, zero, binding, name, material, origin, sheet)
+        (owner, compiled, sheet_offset, binding, name, material, origin, sheet)
     };
     let result = work(move || {
         let (program, view) =
@@ -1061,7 +1061,7 @@ pub async fn run_reviewed(
             job: compiled.job.clone(),
             configuration: binding.configuration,
             dry_run: compiled.dry_run,
-            zero,
+            sheet_offset,
             view: view.clone(),
         });
         let execution = Arc::new(crate::document::ExecutionView {
@@ -1070,7 +1070,7 @@ pub async fn run_reviewed(
             name,
             material,
             origin,
-            zero,
+            sheet_offset,
             compiled: view,
         });
         Ok(Built { program, held: Some(held), execution, fresh: true })
@@ -1101,7 +1101,7 @@ pub async fn resume_reviewed(
                 "select a restart point and prepare stopped-job recovery first".into(),
             ));
         }
-        let binding = Execution::new(&c, &recovery.configuration, recovery.original.zero)?;
+        let binding = Execution::new(&c, &recovery.configuration, recovery.original.sheet_offset)?;
         let pierce = c.bound()?.resume_pierce && !recovery.original.dry_run;
         (c.reserve()?, recovery, binding, pierce)
     };
@@ -1118,7 +1118,7 @@ pub async fn resume_reviewed(
             job: Arc::new(job),
             configuration: recovery.configuration,
             dry_run: recovery.original.dry_run,
-            zero: recovery.original.zero,
+            sheet_offset: recovery.original.sheet_offset,
             view: view.clone(),
         });
         let execution = Arc::new(crate::document::ExecutionView {
@@ -1144,7 +1144,7 @@ pub async fn move_restart(shared: &Shared, revision: u64) -> Result<()> {
         if recovery.revision != revision || !recovery.can_resume() {
             return Err(Error::Refused("review and prepare the selected restart first".into()));
         }
-        let binding = Execution::new(&c, &recovery.configuration, recovery.original.zero)?;
+        let binding = Execution::new(&c, &recovery.configuration, recovery.original.sheet_offset)?;
         let point = recovery
             .view()
             .position
@@ -1183,7 +1183,7 @@ pub async fn move_restart(shared: &Shared, revision: u64) -> Result<()> {
 struct Execution {
     configuration: Configuration,
     position: [f64; 2],
-    zero: [f64; 2],
+    sheet_offset: [f64; 2],
     extent: [[f64; 2]; 2],
     co2_pwm_type: u8,
 }
@@ -1192,7 +1192,7 @@ impl Execution {
     fn new(
         coordinator: &crate::Coordinator,
         configuration: &Configuration,
-        zero: [f64; 2],
+        sheet_offset: [f64; 2],
     ) -> Result<Self> {
         if coordinator.acceptance()? != *configuration {
             return Err(Error::Refused("the machine configuration changed; compile again".into()));
@@ -1220,14 +1220,14 @@ impl Execution {
         Ok(Self {
             configuration: *configuration,
             position: [feedback.position_mm[0], feedback.position_mm[1]],
-            zero,
+            sheet_offset,
             extent,
             co2_pwm_type: if bound.mode == LaserMode::Co2 { bound.co2_control_type } else { 0 },
         })
     }
 
     fn current(self) -> [f64; 2] {
-        [self.position[0] - self.zero[0], self.position[1] - self.zero[1]]
+        [self.position[0] - self.sheet_offset[0], self.position[1] - self.sheet_offset[1]]
     }
 
     fn job(
@@ -1254,7 +1254,7 @@ impl Execution {
         let z_units_per_mm = u32::try_from(self.configuration.verified.scale).ok();
         let program = job.program_with_return(
             openlaser_compiler::program::Binding { current: self.current(), z_units_per_mm },
-            return_to.map(|p| [p[0] - self.zero[0], p[1] - self.zero[1]]),
+            return_to.map(|p| [p[0] - self.sheet_offset[0], p[1] - self.sheet_offset[1]]),
         )?;
         let upload = self.program(&program, job.settings.counts_per_mm)?;
         let view = Arc::new(draft::summary(job, &program, upload.blocks.len(), dry_run, plan));
@@ -1266,7 +1266,7 @@ impl Execution {
         program: &openlaser_compiler::program::Program,
         counts: [f64; 2],
     ) -> Result<Program> {
-        crate::envelope::validate(program, self.position, self.zero, self.extent, counts)?;
+        crate::envelope::validate(program, self.position, self.sheet_offset, self.extent, counts)?;
         Ok(Program {
             prepare_head: program.records.iter().any(|r| {
                 matches!(
@@ -1452,7 +1452,7 @@ pub async fn frame(shared: &Shared) -> Result<()> {
         let configuration = compiled
             .configuration
             .ok_or_else(|| Error::Refused("connect and compile again".into()))?;
-        let binding = Execution::new(&coordinator, &configuration, draft.zero()?)?;
+        let binding = Execution::new(&coordinator, &configuration, draft.sheet_offset()?)?;
         let name = coordinator.draft_name(draft);
         let material = draft.recipe.as_ref().map(crate::document::MaterialView::from);
         let origin = draft.origin().ok_or_else(|| Error::Refused("no job origin".into()))?;
@@ -1478,7 +1478,7 @@ pub async fn frame(shared: &Shared) -> Result<()> {
             name,
             material,
             origin,
-            zero: binding.zero,
+            sheet_offset: binding.sheet_offset,
             compiled: compiled.view.clone(),
         });
         Ok(Built { program: upload, held: None, execution, fresh: false })

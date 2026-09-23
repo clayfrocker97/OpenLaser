@@ -13,7 +13,7 @@ use openlaser_protocol::records::Record;
 pub(crate) fn validate(
     program: &Program,
     position: [f64; 2],
-    zero: [f64; 2],
+    sheet_offset: [f64; 2],
     extent: [[f64; 2]; 2],
     counts: [f64; 2],
 ) -> Result<()> {
@@ -39,7 +39,7 @@ pub(crate) fn validate(
     };
     check(position, [1e-9; 2])?;
     for point in program.sections.iter().flat_map(|s| s.points.iter()) {
-        check([point[0] + zero[0], point[1] + zero[1]], [1e-9; 2])?;
+        check([point[0] + sheet_offset[0], point[1] + sheet_offset[1]], [1e-9; 2])?;
     }
     let mut pulses = [0i64; 2];
     for record in &program.records {

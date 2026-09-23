@@ -247,7 +247,7 @@ impl Coordinator {
         draft.calibration = true;
         draft.placement =
             Some(openlaser_library::placement::Placement::Fixed { origin: bed.min.into() });
-        draft.zero = Some([0., 0.]);
+        draft.sheet_offset = Some([0., 0.]);
         draft.nesting = Some(Nesting {
             stock: NestStock::Rectangle { bounds: bed },
             settings: NestSettings::default(),

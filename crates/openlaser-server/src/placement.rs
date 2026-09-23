@@ -64,8 +64,8 @@ pub(crate) fn is_head(draft: &Draft) -> bool {
 pub(crate) fn view(draft: &Draft) -> PlacementView {
     PlacementView {
         mode: if is_head(draft) { PlacementMode::Head } else { PlacementMode::Fixed },
-        captured: draft.zero.is_some(),
-        correction_pending: draft.correction.is_some() && draft.zero.is_none(),
+        captured: draft.sheet_offset.is_some(),
+        correction_pending: draft.correction.is_some() && draft.sheet_offset.is_none(),
         saved: draft.saved_base.as_ref().is_some_and(|saved| matches_saved(draft, saved)),
     }
 }
@@ -92,7 +92,7 @@ pub(crate) fn fresh(draft: &mut Draft) {
     draft.capture_epoch = None;
     draft.capture_used = false;
     if is_head(draft) {
-        draft.zero = None;
+        draft.sheet_offset = None;
         draft.compiled = None;
     }
 }
@@ -102,7 +102,7 @@ pub(crate) fn matches_saved(draft: &Draft, saved: &openlaser_library::Job) -> bo
         (Some(Placement::Head {}), Some(Placement::Head {})) => true,
         (Some(current), Some(previous)) => current == previous,
         // Legacy jobs store the translation; preserve it until explicitly edited.
-        (_, None) => !is_head(draft) && draft.zero == saved.zero,
+        (_, None) => !is_head(draft) && draft.sheet_offset == saved.sheet_offset,
         _ => false,
     }
 }
@@ -162,7 +162,7 @@ impl Coordinator {
             }
             PlacementChange::Reposition {} => {
                 if is_head(draft) {
-                    draft.zero = None;
+                    draft.sheet_offset = None;
                     draft.capture_epoch = None;
                 }
             }
@@ -190,7 +190,7 @@ impl Coordinator {
             fresh(draft);
         }
         if is_head(draft)
-            && (draft.zero.is_none() || epoch.is_none() || draft.capture_epoch != epoch)
+            && (draft.sheet_offset.is_none() || epoch.is_none() || draft.capture_epoch != epoch)
         {
             pin_head(draft, &state, false)?;
             self.draft_changed();
@@ -287,7 +287,7 @@ pub(crate) async fn prepare_revision(shared: &Shared, revision: Option<u64>) -> 
     let draft = c.draft.as_ref().ok_or_else(|| Error::Refused("open a part first".into()))?;
     let compiled =
         draft.compiled.as_ref().ok_or_else(|| Error::Refused("compile the job first".into()))?;
-    let zero = draft.zero()?;
+    let zero = draft.sheet_offset()?;
     let bounds = crate::envelope::process_bounds(
         &compiled.job,
         u32::try_from(compiled.scale)

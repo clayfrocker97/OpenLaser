@@ -75,8 +75,8 @@ pub struct Held {
     pub configuration: Configuration,
     /// Whether it was a dry run.
     pub dry_run: bool,
-    /// What the machine adds to a drawing coordinate.
-    pub zero: [f64; 2],
+    /// The sheet offset: what the machine adds to a drawing coordinate.
+    pub sheet_offset: [f64; 2],
     /// The exact dispatched program view and physical pass identities.
     pub view: Arc<crate::document::Compiled>,
 }
@@ -1217,7 +1217,7 @@ impl Coordinator {
         if !job.placed.is_empty() {
             draft.placed.clone_from(&job.placed);
         }
-        draft.zero = job.zero;
+        draft.sheet_offset = job.sheet_offset;
         draft.placement.clone_from(&job.placement);
         draft.anchor = job.anchor;
         draft.preflight = job.preflight.clone();
@@ -1449,7 +1449,7 @@ impl Coordinator {
         let dock = anchor.on(bounds.min.into(), bounds.max.into());
         draft.remember();
         draft.anchor = anchor;
-        draft.zero = Some([origin[0] - dock[0], origin[1] - dock[1]]);
+        draft.sheet_offset = Some([origin[0] - dock[0], origin[1] - dock[1]]);
         draft.placement = Some(openlaser_library::placement::Placement::Fixed { origin });
         if draft.correction.is_some() {
             draft.compiled = None;
@@ -1581,9 +1581,9 @@ impl Coordinator {
             correction: if draft.calibration {
                 None
             } else {
-                draft.zero.and(draft.correction.clone())
+                draft.sheet_offset.and(draft.correction.clone())
             },
-            placement: draft.zero.unwrap_or([0., 0.]),
+            placement: draft.sheet_offset.unwrap_or([0., 0.]),
             stamp: self.compile_stamp(),
             configuration: self.acceptance().ok(),
             prepared,
@@ -1634,11 +1634,12 @@ impl Coordinator {
                 let map = draft
                     .correction
                     .as_ref()
-                    .filter(|_| draft.zero.is_some() && !draft.calibration)
+                    .filter(|_| draft.sheet_offset.is_some() && !draft.calibration)
                     .map(openlaser_correction::Map::new)
                     .transpose()
                     .map_err(|e| Error::Refused(e.to_string()))?;
-                let zero = openlaser_core::geometry::Point::from(draft.zero.unwrap_or([0., 0.]));
+                let zero =
+                    openlaser_core::geometry::Point::from(draft.sheet_offset.unwrap_or([0., 0.]));
                 let physical: Vec<Vec<[f64; 2]>> = compiled
                     .view
                     .moves

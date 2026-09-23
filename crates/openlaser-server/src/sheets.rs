@@ -21,7 +21,9 @@ pub struct SheetLayout {
     placed: Vec<Placed>,
     grouping: Grouping,
     features: Features,
-    zero: Option<[f64; 2]>,
+    /// Where this sheet lies on the bed; see `Draft::sheet_offset`.
+    #[serde(rename = "zero")]
+    sheet_offset: Option<[f64; 2]>,
     anchor: Anchor,
     parts: usize,
 }
@@ -34,7 +36,7 @@ impl SheetLayout {
             placed: draft.placed.clone(),
             grouping: draft.grouping.clone(),
             features: draft.features.clone(),
-            zero: draft.zero,
+            sheet_offset: draft.sheet_offset,
             anchor: draft.anchor,
             parts: draft.groups.len(),
         }
@@ -46,7 +48,7 @@ impl SheetLayout {
         draft.placed.clone_from(&self.placed);
         draft.grouping.clone_from(&self.grouping);
         draft.features.clone_from(&self.features);
-        draft.zero = self.zero;
+        draft.sheet_offset = self.sheet_offset;
         draft.anchor = self.anchor;
         crate::placement::fresh(draft);
     }
@@ -62,7 +64,7 @@ impl SheetLayout {
         }
         if self.parts > 500
             || self.placed.is_empty()
-            || self.zero.is_some_and(|p| p.iter().any(|v| !v.is_finite()))
+            || self.sheet_offset.is_some_and(|p| p.iter().any(|v| !v.is_finite()))
         {
             return Err(Error::Refused("invalid saved sheet layout".into()));
         }
