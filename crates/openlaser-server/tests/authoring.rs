@@ -34,21 +34,25 @@ async fn opening_a_part_starts_fresh_while_jobs_and_pending_setups_keep_their_sh
         c.set_recipe(&recipe.id).unwrap();
         c.set_stock(StockChoice::Rectangle { width: 150., height: 100. }).unwrap();
         let job = c.save_job("Saved sheet").unwrap();
-        let saved_nesting = c.draft.as_ref().unwrap().nesting.clone();
+        let saved_nesting = c.draft.as_ref().unwrap().current.nesting.clone();
 
         c.open_part(&part.id).unwrap();
-        assert!(c.draft.as_ref().unwrap().recipe.is_none());
+        assert!(c.draft.as_ref().unwrap().current.recipe.is_none());
         c.set_stock(StockChoice::Rectangle { width: 200., height: 120. }).unwrap();
         c.transform(&[0], Some(Transform([1., 0., 0., 1., 5., 7.]))).unwrap();
         let first = key(c.draft.as_ref().unwrap());
-        let first_nesting = c.draft.as_ref().unwrap().nesting.clone();
+        let first_nesting = c.draft.as_ref().unwrap().current.nesting.clone();
 
         c.open_job(&job.id).unwrap();
-        assert_eq!(c.draft.as_ref().unwrap().nesting, saved_nesting);
+        assert_eq!(c.draft.as_ref().unwrap().current.nesting, saved_nesting);
         c.open_part(&part.id).unwrap();
         let fresh = c.draft.as_ref().unwrap();
-        assert!(fresh.recipe.is_none() && fresh.nesting.is_none() && fresh.sheets.is_none());
-        assert_eq!(fresh.placed, Placed::all(1));
+        assert!(
+            fresh.current.recipe.is_none()
+                && fresh.current.nesting.is_none()
+                && fresh.current.sheets.is_none()
+        );
+        assert_eq!(fresh.current.placed, Placed::all(1));
         assert_ne!(key(fresh), first);
         assert!(c.undo().is_err(), "a fresh part cannot undo back into an old sheet layout");
         assert_eq!(
@@ -58,9 +62,9 @@ async fn opening_a_part_starts_fresh_while_jobs_and_pending_setups_keep_their_sh
 
         c.set_stock(StockChoice::Rectangle { width: 250., height: 180. }).unwrap();
         let second = key(c.draft.as_ref().unwrap());
-        let second_nesting = c.draft.as_ref().unwrap().nesting.clone();
+        let second_nesting = c.draft.as_ref().unwrap().current.nesting.clone();
         c.open_retained(&first).unwrap();
-        assert_eq!(c.draft.as_ref().unwrap().nesting, first_nesting);
+        assert_eq!(c.draft.as_ref().unwrap().current.nesting, first_nesting);
         assert_eq!(c.document().draft.as_ref().unwrap().key, first);
         assert_eq!(c.pending_drafts().unwrap().len(), 2);
         (c.config.clone(), part.id, job.id, first, second, first_nesting, second_nesting)
@@ -70,13 +74,13 @@ async fn opening_a_part_starts_fresh_while_jobs_and_pending_setups_keep_their_sh
     {
         let mut c = restored.lock().await;
         assert_eq!(key(c.draft.as_ref().unwrap()), first);
-        assert_eq!(c.draft.as_ref().unwrap().nesting, first_nesting);
+        assert_eq!(c.draft.as_ref().unwrap().current.nesting, first_nesting);
         c.open_part(&part).unwrap();
-        assert!(c.draft.as_ref().unwrap().nesting.is_none());
+        assert!(c.draft.as_ref().unwrap().current.nesting.is_none());
         c.open_retained(&second).unwrap();
-        assert_eq!(c.draft.as_ref().unwrap().nesting, second_nesting);
+        assert_eq!(c.draft.as_ref().unwrap().current.nesting, second_nesting);
         c.open_job(&job).unwrap();
-        assert_eq!(c.draft.as_ref().unwrap().nesting, c.library.job(&job).unwrap().nesting);
+        assert_eq!(c.draft.as_ref().unwrap().current.nesting, c.library.job(&job).unwrap().nesting);
         for _ in 0..4 {
             c.open_part(&part).unwrap();
         }
@@ -106,7 +110,7 @@ async fn legacy_part_drafts_remain_recoverable_without_attaching_to_reopened_par
         let old_key = openlaser_server::workspace::key(draft);
         let mut legacy = serde_json::to_value(draft).unwrap();
         legacy.as_object_mut().unwrap().remove("workspace_id");
-        (c.config.clone(), part.id, old_key, legacy, draft.nesting.clone())
+        (c.config.clone(), part.id, old_key, legacy, draft.current.nesting.clone())
     };
     openlaser_server::shutdown(&shared).await.unwrap();
     let key = format!("part-{part}");
@@ -120,12 +124,12 @@ async fn legacy_part_drafts_remain_recoverable_without_attaching_to_reopened_par
     let restored = Coordinator::start(config).unwrap();
     {
         let mut c = restored.lock().await;
-        assert_eq!(c.draft.as_ref().unwrap().nesting, nesting);
+        assert_eq!(c.draft.as_ref().unwrap().current.nesting, nesting);
         c.open_part(&part).unwrap();
-        assert!(c.draft.as_ref().unwrap().nesting.is_none());
+        assert!(c.draft.as_ref().unwrap().current.nesting.is_none());
         assert_eq!(c.pending_drafts().unwrap()[0].key, key);
         c.open_retained(&key).unwrap();
-        assert_eq!(c.draft.as_ref().unwrap().nesting, nesting);
+        assert_eq!(c.draft.as_ref().unwrap().current.nesting, nesting);
     }
     openlaser_server::shutdown(&restored).await.unwrap();
 }
@@ -140,7 +144,7 @@ async fn a_failed_discard_keeps_the_working_copy_and_retained_file() {
     c.transform(&[0], Some(openlaser_core::geometry::Transform([1., 0., 0., 1., 5., 7.]))).unwrap();
     let draft = c.draft.as_ref().unwrap();
     let key = openlaser_server::workspace::key(draft);
-    let placed = draft.placed.clone();
+    let placed = draft.current.placed.clone();
     let active = c.config.data_dir.join("active.json");
     let retained = c.config.data_dir.join("drafts").join(format!("{key}.json"));
     drop(c);
@@ -149,11 +153,11 @@ async fn a_failed_discard_keeps_the_working_copy_and_retained_file() {
     std::fs::remove_file(&active).unwrap();
     std::fs::create_dir(&active).unwrap();
     assert!(openlaser_server::workspace::discard(&shared, &key).await.is_err());
-    assert_eq!(shared.lock().await.draft.as_ref().unwrap().placed, placed);
+    assert_eq!(shared.lock().await.draft.as_ref().unwrap().current.placed, placed);
     assert_eq!(std::fs::read(retained).unwrap(), saved);
     std::fs::remove_dir(&active).unwrap();
     openlaser_server::workspace::discard(&shared, &key).await.unwrap();
-    assert_ne!(shared.lock().await.draft.as_ref().unwrap().placed, placed);
+    assert_ne!(shared.lock().await.draft.as_ref().unwrap().current.placed, placed);
     openlaser_server::shutdown(&shared).await.unwrap();
 }
 
@@ -211,7 +215,7 @@ async fn working_copies_history_and_saved_conflicts_survive_a_restart() {
         machine::prepare(&shared).await.unwrap();
         let mut c = shared.lock().await;
         c.set_origin([80., 90.]).unwrap();
-        c.library.update_job(&job.id, |j| j.zero = Some([20., 30.])).unwrap();
+        c.library.update_job(&job.id, |j| j.sheet_offset = Some([20., 30.])).unwrap();
         let review = c.merge_review(None).unwrap();
         assert_eq!(review.conflicts.len(), 1);
         assert_eq!(review.conflicts[0].path, "/zero");
@@ -219,9 +223,9 @@ async fn working_copies_history_and_saved_conflicts_survive_a_restart() {
         drop(c);
         machine::prepare(&shared).await.unwrap();
         let mut c = shared.lock().await;
-        let undo_zero = c.draft.as_ref().unwrap().zero;
+        let undo_zero = c.draft.as_ref().unwrap().current.sheet_offset;
         c.set_origin([110., 120.]).unwrap();
-        let zero = c.draft.as_ref().unwrap().zero;
+        let zero = c.draft.as_ref().unwrap().current.sheet_offset;
         let other = c.duplicate_part(&part.id).unwrap();
         c.open_part(&other.id).unwrap();
         drop(c);
@@ -243,9 +247,9 @@ async fn working_copies_history_and_saved_conflicts_survive_a_restart() {
         assert!(!document.machine.session.homed);
         assert!(c.held.is_none() && c.recovery.is_none());
         c.open_job(&job).unwrap();
-        assert_eq!(c.draft.as_ref().unwrap().zero, zero);
+        assert_eq!(c.draft.as_ref().unwrap().current.sheet_offset, zero);
         c.undo().unwrap();
-        assert_eq!(c.draft.as_ref().unwrap().zero, undo_zero);
+        assert_eq!(c.draft.as_ref().unwrap().current.sheet_offset, undo_zero);
         assert!(!c.library.edit_history().unwrap().past.is_empty());
     }
     openlaser_server::shutdown(&restored).await.unwrap();
@@ -333,12 +337,12 @@ fn queued_drafts_remain_readable_and_discard_cannot_resurrect_an_old_save() {
             for step in 1..=20 {
                 c.transform(&[0], Some(Transform([1., 0., 0., 1., f64::from(step), 7.]))).unwrap();
             }
-            let edited = c.draft.as_ref().unwrap().placed.clone();
+            let edited = c.draft.as_ref().unwrap().current.placed.clone();
             let key = openlaser_server::workspace::key(c.draft.as_ref().unwrap());
             c.open_part(&other).unwrap();
             c.transform(&[0], Some(Transform([1., 0., 0., 1., 3., 4.]))).unwrap();
             c.open_retained(&key).unwrap();
-            assert_eq!(c.draft.as_ref().unwrap().placed, edited);
+            assert_eq!(c.draft.as_ref().unwrap().current.placed, edited);
             assert_eq!(c.pending_drafts().unwrap().len(), 2);
             (key, edited)
         };
@@ -357,19 +361,19 @@ fn queued_drafts_remain_readable_and_discard_cannot_resurrect_an_old_save() {
         tokio::time::sleep(Duration::from_millis(20)).await;
         assert!(!discarding.is_finished());
         let c = tokio::time::timeout(Duration::from_millis(100), shared.lock()).await.unwrap();
-        assert_eq!(c.draft.as_ref().unwrap().placed, edited);
+        assert_eq!(c.draft.as_ref().unwrap().current.placed, edited);
         drop(c);
         unblock.send(()).unwrap();
         blocker.await.unwrap();
         discarding.await.unwrap().unwrap();
-        let fresh = shared.lock().await.draft.as_ref().unwrap().placed.clone();
+        let fresh = shared.lock().await.draft.as_ref().unwrap().current.placed.clone();
         assert_ne!(fresh, edited);
         openlaser_server::shutdown(&shared).await.unwrap();
         drop(shared);
         let restored = Coordinator::start(config).unwrap();
         {
             let mut c = restored.lock().await;
-            assert_eq!(c.draft.as_ref().unwrap().placed, fresh);
+            assert_eq!(c.draft.as_ref().unwrap().current.placed, fresh);
             assert!(
                 c.undo().is_err(),
                 "discarded history must not be recreated by an older queued save"
@@ -399,7 +403,7 @@ async fn an_authoring_write_failure_is_visible_and_the_latest_edit_can_be_retrie
         let mut c = shared.lock().await;
         c.transform(&[0], Some(openlaser_core::geometry::Transform([1., 0., 0., 1., 9., 11.])))
             .unwrap();
-        c.draft.as_ref().unwrap().placed.clone()
+        c.draft.as_ref().unwrap().current.placed.clone()
     };
     let revision = shared.lock().await.document().draft_revision;
     assert!(
@@ -412,9 +416,9 @@ async fn an_authoring_write_failure_is_visible_and_the_latest_edit_can_be_retrie
         .is_err()
     );
     until(&shared, 5, |d| d.persistence_error.is_some()).await;
-    assert_eq!(shared.lock().await.draft.as_ref().unwrap().placed, edited);
+    assert_eq!(shared.lock().await.draft.as_ref().unwrap().current.placed, edited);
     assert!(matches!(
-        shared.lock().await.draft.as_ref().unwrap().placement,
+        shared.lock().await.draft.as_ref().unwrap().current.placement,
         Some(openlaser_library::placement::Placement::Head {})
     ));
     std::fs::remove_dir(&retained).unwrap();
@@ -432,6 +436,6 @@ async fn an_authoring_write_failure_is_visible_and_the_latest_edit_can_be_retrie
     until(&shared, 5, |d| d.persistence_error.is_none()).await;
     openlaser_server::shutdown(&shared).await.unwrap();
     let restored = Coordinator::start(config).unwrap();
-    assert_eq!(restored.lock().await.draft.as_ref().unwrap().placed, edited);
+    assert_eq!(restored.lock().await.draft.as_ref().unwrap().current.placed, edited);
     openlaser_server::shutdown(&restored).await.unwrap();
 }

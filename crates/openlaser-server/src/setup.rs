@@ -37,7 +37,7 @@ impl Calibration {
 }
 
 fn material(c: &Coordinator) -> Option<(String, u64)> {
-    c.draft.as_ref()?.recipe.as_ref().map(|r| (r.name.clone(), r.thickness_mm.to_bits()))
+    c.draft.as_ref()?.current.recipe.as_ref().map(|r| (r.name.clone(), r.thickness_mm.to_bits()))
 }
 
 /// Calibration status for the material selected in the current job.
@@ -61,7 +61,9 @@ impl Coordinator {
 
     pub(crate) fn calibration_view(&self, state: &State) -> CalibrationView {
         let quality = state.session.calibration.filter(|_| {
-            state.feedback.as_ref().is_some_and(|f| f.head.referenced && f.age_ms <= 1000)
+            state.feedback.as_ref().is_some_and(|f| {
+                f.head.referenced && f.age_ms <= crate::coordinator::FRESH_FEEDBACK_MS
+            })
         });
         let current = matches!(quality, Some(Quality::Excellent | Quality::Good))
             && self

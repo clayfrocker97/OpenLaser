@@ -14,6 +14,12 @@ pub const MIN_HOLD_MS: u32 = 300;
 pub const MAX_HOLD_MS: u32 = 3000;
 
 const FILE: &str = "touch.json";
+/// Default hold for moving, firing or switching an output: 1 s, as
+/// ui/DESIGN.md sets it and `HOLD_MS.move` in the UI assumes.
+const DEFAULT_MOVE_HOLD_MS: u32 = 1000;
+/// Default hold for setting an origin or reference: 0.75 s, as
+/// ui/DESIGN.md sets it and `HOLD_MS.zero` in the UI assumes.
+const DEFAULT_ZERO_HOLD_MS: u32 = 750;
 
 /// Hold durations in milliseconds.
 #[cfg_attr(feature = "typescript", derive(ts_rs::TS), ts(export))]
@@ -28,7 +34,7 @@ pub struct HoldTimes {
 
 impl Default for HoldTimes {
     fn default() -> Self {
-        Self { move_ms: 1000, zero_ms: 750 }
+        Self { move_ms: DEFAULT_MOVE_HOLD_MS, zero_ms: DEFAULT_ZERO_HOLD_MS }
     }
 }
 

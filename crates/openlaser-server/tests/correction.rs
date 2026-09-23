@@ -60,9 +60,9 @@ async fn enabled_profile_follows_new_dxfs_but_saved_jobs_keep_their_snapshot() {
     let (job, first) = {
         let mut c = shared.lock().await;
         let d = c.draft.as_ref().unwrap();
-        let profile = d.correction.clone().unwrap();
+        let profile = d.current.correction.clone().unwrap();
         let map = openlaser_correction::Map::new(&profile).unwrap();
-        let zero = Point::from(d.zero.unwrap());
+        let zero = Point::from(d.current.sheet_offset.unwrap());
         let paths = &d.compiled.as_ref().unwrap().view.moves;
         let cut =
             paths.iter().find(|m| m.kind == openlaser_server::document::PathKind::Cut).unwrap();
@@ -80,7 +80,7 @@ async fn enabled_profile_follows_new_dxfs_but_saved_jobs_keep_their_snapshot() {
         })
         .unwrap();
         c.open_job(&job.id).unwrap();
-        assert_eq!(c.draft.as_ref().unwrap().correction, Some(profile.clone()));
+        assert_eq!(c.draft.as_ref().unwrap().current.correction, Some(profile.clone()));
         (job, profile)
     };
     machine::prepare(&shared).await.unwrap();
@@ -95,16 +95,16 @@ async fn enabled_profile_follows_new_dxfs_but_saved_jobs_keep_their_snapshot() {
         c.open_part(&new.id).unwrap();
         c.set_recipe(&recipe.id).unwrap();
         assert_eq!(
-            c.draft.as_ref().unwrap().correction.as_ref().unwrap().measurements[0],
+            c.draft.as_ref().unwrap().current.correction.as_ref().unwrap().measurements[0],
             Measurement { x: 100.5, y: 100.2 }
         );
         c.correction_coupon(LaserMode::Fiber).unwrap();
         c.set_recipe(&recipe.id).unwrap();
         let d = c.draft.as_ref().unwrap();
         assert!(d.calibration);
-        assert!(d.correction.is_none());
-        assert_eq!(d.placed.len(), 9);
-        assert_eq!(d.zero, Some([0., 0.]));
+        assert!(d.current.correction.is_none());
+        assert_eq!(d.current.placed.len(), 9);
+        assert_eq!(d.current.sheet_offset, Some([0., 0.]));
     }
     machine::prepare(&shared).await.unwrap();
     machine::compile(&shared, false).await.unwrap();

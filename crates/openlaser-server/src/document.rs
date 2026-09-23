@@ -71,21 +71,50 @@ pub struct Document {
     pub revisions: Revisions,
 }
 
-/// The revisions of the document's big sections, for streams that send
-/// them only when they change.
+/// Change counters for the document's big sections.
+///
+/// Each counter only ever grows, and grows whenever its section is rebuilt.
+/// The coordinator owns them (`Coordinator::revisions`) and publishes a copy
+/// with every [`Document`]. Readers compare two copies for equality; the
+/// numbers themselves mean nothing beyond "changed or not", except the draft
+/// counter, which clients also send back to name the draft they edited.
+///
+/// Readers common to all counters: the event stream in `api.rs` remembers
+/// the copy it last sent, and `Patch` leaves out every section whose
+/// counter is unchanged since then.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Revisions {
-    /// Original execution progress and recovery choices.
+    /// Counts rebuilds of the recovery view: the original execution's
+    /// progress and the operator's recovery choices. Bumped by
+    /// `Coordinator::publish` when the recovery's own revision or execution
+    /// id differs from the view last built. Read only by `Patch`.
     pub recovery: u64,
-    /// The library view.
+    /// Counts rebuilds of the library view: parts, recipes, jobs, folders.
+    /// Bumped by `Coordinator::library_changed` after any library edit.
+    /// Read only by `Patch`.
     pub library: u64,
-    /// The draft view.
+    /// Counts changes of the draft: every edit, preparation, compilation and
+    /// open or close. Bumped by `Coordinator::draft_changed`, and seeded at
+    /// start-up from the wall clock in milliseconds so a client holding a
+    /// number from an earlier server run never matches a new draft. Read by
+    /// `Patch`; sent as [`Document::draft_revision`] and
+    /// [`DraftView::revision`]; checked by `Coordinator::check_draft` to
+    /// refuse edits made against an older draft; part of the compile stamp
+    /// that discards superseded compiles; and carried by background
+    /// preparation so its result is dropped if the draft moved on.
     pub draft: u64,
-    /// Bound controller settings.
+    /// Counts changes of the bound controller settings. Bumped by
+    /// `Coordinator::bindings_changed` on connect, disconnect and import.
+    /// Read by `Patch` and part of the compile stamp, so a compile made
+    /// under older bindings is discarded.
     pub bindings: u64,
-    /// Imported machine files.
+    /// Counts changes of the imported machine files view. Bumped when the
+    /// files are installed or fail to load (`install_files`, `load_files`).
+    /// Read only by `Patch`.
     pub files: u64,
-    /// The last admitted program's view.
+    /// Counts changes of the last admitted program's view. Bumped by
+    /// `Coordinator::execution_changed` when a run or frame is admitted or
+    /// its view is cleared. Read only by `Patch`.
     pub execution: u64,
 }
 
@@ -202,7 +231,7 @@ pub struct Readiness {
     pub resume: Gate,
     /// Hold the running program.
     pub hold: Gate,
-    /// The stop sequence.
+    /// Stop whatever runs.
     pub stop: Gate,
     /// Switch the laser mode.
     pub mode: Gate,
@@ -813,9 +842,10 @@ pub struct DraftView {
     /// The origin in machine coordinates: where the anchor point lies,
     /// once the layout is prepared.
     pub origin: Option<[f64; 2]>,
-    /// What the machine adds to a drawing coordinate, once the sheet is
-    /// placed.
-    pub zero: Option<[f64; 2]>,
+    /// The sheet offset: what the machine adds to a drawing coordinate,
+    /// once the sheet is placed. Sent as `zero`.
+    #[serde(rename = "zero")]
+    pub sheet_offset: Option<[f64; 2]>,
     /// Which point of the placed part the origin stands for.
     pub anchor: Anchor,
     /// The anchor point in drawing coordinates, once prepared.
@@ -1011,8 +1041,10 @@ pub struct ExecutionView {
     pub material: Option<MaterialView>,
     /// The selected job anchor in machine coordinates at admission.
     pub origin: [f64; 2],
-    /// The machine-coordinate offset captured at admission.
-    pub zero: [f64; 2],
+    /// The sheet offset captured at admission: what the machine adds to a
+    /// drawing coordinate. Sent as `zero`.
+    #[serde(rename = "zero")]
+    pub sheet_offset: [f64; 2],
     /// The cut job's preview and pass identities. Framing keeps this same
     /// geometry visible while its separate laser-off motion runs.
     pub compiled: Arc<Compiled>,

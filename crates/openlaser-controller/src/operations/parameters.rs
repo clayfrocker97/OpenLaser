@@ -14,6 +14,9 @@ use openlaser_protocol::requests::{self, Write};
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 
+/// Longest a parameter read or write may take before it is abandoned.
+const PARAMETER_TIMEOUT: Duration = Duration::from_secs(30);
+
 enum Phase {
     Read,
     Apply { writes: VecDeque<Write>, expected: Verified },
@@ -125,7 +128,7 @@ impl Operation for Parameters {
         blocked: Option<&str>,
         now: Instant,
     ) -> Result<Step, String> {
-        if now.duration_since(self.started) > Duration::from_secs(30) {
+        if now.duration_since(self.started) > PARAMETER_TIMEOUT {
             return Err("the parameter operation did not finish in time".into());
         }
         loop {

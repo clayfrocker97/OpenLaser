@@ -378,10 +378,11 @@ pub struct Job {
     /// the drawing as drawn.
     #[serde(default)]
     pub placed: Vec<Placed>,
-    /// What the machine adds to a drawing coordinate: where the sheet lies
-    /// on the bed, once placed.
-    #[serde(default)]
-    pub zero: Option<[f64; 2]>,
+    /// The sheet offset: what the machine adds to a drawing coordinate,
+    /// which is where the sheet lies on the bed, once placed. Stored as
+    /// `zero`, its name in earlier builds.
+    #[serde(default, rename = "zero")]
+    pub sheet_offset: Option<[f64; 2]>,
     /// Which point of the part the origin stands for.
     #[serde(default)]
     pub anchor: Anchor,
@@ -965,7 +966,7 @@ mod tests {
             film: None,
             features: Features::default(),
             placed: Vec::new(),
-            zero: None,
+            sheet_offset: None,
             anchor: Anchor::default(),
             favourite: false,
             created: 0,
@@ -1028,7 +1029,7 @@ mod tests {
                     film: None,
                     features: Features::default(),
                     placed: Vec::new(),
-                    zero: Some([120., 80.]),
+                    sheet_offset: Some([120., 80.]),
                     anchor: Anchor::default(),
                     favourite: true,
                     created: 0,
@@ -1089,7 +1090,7 @@ mod tests {
                 film: None,
                 features: Features::default(),
                 placed: Vec::new(),
-                zero: None,
+                sheet_offset: None,
                 anchor: Anchor::default(),
                 favourite: false,
                 created: 0,

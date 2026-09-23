@@ -12,6 +12,16 @@ use std::f64::consts::TAU;
 /// The most bridges one drawing may hold.
 const MAX_BRIDGES: usize = 1000;
 
+/// Crossings of a channel edge with a contour closer together than this
+/// share of the smaller contour's extent count as one crossing, as where
+/// the edge passes through a joint between two curves...
+const CROSSING_TOLERANCE_SHARE: f64 = 0.1;
+/// ...but never further apart than this many millimetres.
+const MAX_CROSSING_TOLERANCE_MM: f64 = 0.03;
+/// A channel whose crossings split a contour's length between these shares
+/// leaves no clear longer side to keep, so it is refused.
+const AMBIGUOUS_SPLIT: (f64, f64) = (0.4, 0.6);
+
 /// A contour and the drawing contours it was made from.
 pub(crate) struct Sourced {
     pub sources: Vec<usize>,
@@ -336,7 +346,8 @@ pub(crate) fn splice(
         ]
     });
     let extent = |c: &Contour| c.bounds().map_or(0., |b| b.extent());
-    let tolerance = (extent(first).min(extent(second.unwrap_or(first))) * 0.1).clamp(EPS, 0.03);
+    let tolerance = (extent(first).min(extent(second.unwrap_or(first))) * CROSSING_TOLERANCE_SHARE)
+        .clamp(EPS, MAX_CROSSING_TOLERANCE_MM);
     let result = match second {
         Some(second) => vec![joined(first, second, edges, tolerance)?],
         None => halved(first, first_fraction, edges, tolerance, width)?,
@@ -370,13 +381,13 @@ fn joined(
         let plus = choose(contour, edges[0])?;
         let minus = choose(contour, edges[1])?;
         let delta = (minus.fraction - plus.fraction).rem_euclid(1.);
-        if delta > 0.4 && delta < 0.6 {
+        if delta > AMBIGUOUS_SPLIT.0 && delta < AMBIGUOUS_SPLIT.1 {
             return Err("the channel would remove too much of a contour".into());
         }
         if plus.point.distance(minus.point) <= EPS {
             return Err("the channel opening collapses to a point".into());
         }
-        Ok(if delta >= 0.6 {
+        Ok(if delta >= AMBIGUOUS_SPLIT.1 {
             (interval(contour, plus.fraction, minus.fraction), false)
         } else {
             (interval(contour, minus.fraction, plus.fraction), true)

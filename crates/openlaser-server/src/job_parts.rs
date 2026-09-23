@@ -38,8 +38,8 @@ impl Coordinator {
             None
         };
         let mut draft = Draft::new(sources.clone());
-        draft.placed = arrange(&sources, 0..parts.len(), None, self.row_width(), 0..);
-        draft.correction = correction;
+        draft.current.placed = arrange(&sources, 0..parts.len(), None, self.row_width(), 0..);
+        draft.current.correction = correction;
         self.leave_draft();
         self.draft_generation += 1;
         self.draft = Some(draft);
@@ -55,31 +55,37 @@ impl Coordinator {
         if parts.is_empty() {
             return Err(Error::Request("choose the parts to add".into()));
         }
-        if let Some(id) = parts.iter().find(|id| draft.parts.contains(id)) {
+        if let Some(id) = parts.iter().find(|id| draft.current.parts.contains(id)) {
             let name = self.library.part(id).map_or_else(|_| id.to_string(), |p| p.name.clone());
             return Err(Error::Request(format!(
                 "{name} is already in this job; copy it on the sheet for more"
             )));
         }
-        let all: Vec<Id> = draft.parts.iter().chain(parts).cloned().collect();
+        let all: Vec<Id> = draft.current.parts.iter().chain(parts).cloned().collect();
         let sources = Arc::new(self.library.job_drawing(&all)?);
         let added = sources.contours() - draft.source_count;
-        if added > MAX_PLACED_CONTOURS.saturating_sub(draft.placed.len()) {
+        if added > MAX_PLACED_CONTOURS.saturating_sub(draft.current.placed.len()) {
             return Err(Error::Request(format!(
                 "the layout would exceed {MAX_PLACED_CONTOURS} contours"
             )));
         }
-        let beside = crate::draft::place(draft.drawing()?, &draft.placed).bounds();
-        let used: std::collections::BTreeSet<u32> = draft.placed.iter().map(|p| p.copy).collect();
+        let beside = crate::draft::place(draft.drawing()?, &draft.current.placed).bounds();
+        let used: std::collections::BTreeSet<u32> =
+            draft.current.placed.iter().map(|p| p.copy).collect();
         let copies = (0u32..).filter(move |copy| !used.contains(copy));
-        let placed =
-            arrange(&sources, draft.parts.len()..all.len(), beside, self.row_width(), copies);
+        let placed = arrange(
+            &sources,
+            draft.current.parts.len()..all.len(),
+            beside,
+            self.row_width(),
+            copies,
+        );
         let correction = (draft.job.is_none()
             && !draft.calibration
-            && draft.correction.is_none()
+            && draft.current.correction.is_none()
             && self.any_dxf(parts))
         .then(|| {
-            let laser = draft.recipe.as_ref().map(|r| r.laser).or(self.mode)?;
+            let laser = draft.current.recipe.as_ref().map(|r| r.laser).or(self.mode)?;
             self.correction.active(laser)
         })
         .flatten();
@@ -87,7 +93,7 @@ impl Coordinator {
             self.draft.as_mut().ok_or_else(|| Error::Refused("open a part first".into()))?;
         draft.add_parts(sources, placed)?;
         if correction.is_some() {
-            draft.correction = correction;
+            draft.current.correction = correction;
         }
         self.reprepare();
         Ok(())
@@ -104,7 +110,7 @@ impl Coordinator {
     /// Attaches the drawing of a draft's parts, unless it already has it.
     pub(crate) fn attach(&self, draft: &mut Draft) -> Result<()> {
         if draft.sources().is_none() {
-            draft.attach(Arc::new(self.library.job_drawing(&draft.parts)?))?;
+            draft.attach(Arc::new(self.library.job_drawing(&draft.current.parts)?))?;
         }
         Ok(())
     }
@@ -118,6 +124,7 @@ impl Coordinator {
             return base.name.clone();
         }
         let names: Vec<&str> = draft
+            .current
             .parts
             .iter()
             .filter_map(|id| self.library.part(id).ok())

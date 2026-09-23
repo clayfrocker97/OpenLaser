@@ -42,6 +42,14 @@ pub enum GasKind {
     Air,
 }
 
+/// The highest valve selector: the machine files define six, 0 to 5; see
+/// [`GasKind::of_selector`].
+pub const MAX_GAS_SELECTOR: u8 = 5;
+
+/// The highest gas pressure, in bar, a test or flow estimate accepts. It
+/// bounds requests well above any regulator this machine family ships with.
+pub const MAX_GAS_PRESSURE_BAR: f64 = 100.;
+
 impl GasKind {
     /// Every gas, in the order the settings list them.
     pub const ALL: [Self; 3] = [Self::Nitrogen, Self::Oxygen, Self::Air];
@@ -596,8 +604,9 @@ impl Store {
     /// What the model expects over a flow test.
     pub fn flow(&self, query: &FlowQuery) -> Result<FlowEstimate> {
         query.nozzle.validate()?;
-        let pressure =
-            query.pressure.0.is_finite() && query.pressure.0 > 0. && query.pressure.0 <= 100.;
+        let pressure = query.pressure.0.is_finite()
+            && query.pressure.0 > 0.
+            && query.pressure.0 <= MAX_GAS_PRESSURE_BAR;
         let seconds = query.seconds.0 > 0. && query.seconds.0 <= CALIBRATION_SECONDS;
         if !pressure || !seconds {
             return Err(Error::Request("a flow test needs 0–100 bar and up to 60 s".into()));
@@ -745,7 +754,11 @@ impl crate::Coordinator {
                 key: crate::workspace::key(draft),
                 job: draft.job.clone(),
                 name: self.draft_name(draft),
-                nozzle: draft.recipe.as_ref().and_then(|r| Nozzle::of_attributes(&r.attributes)),
+                nozzle: draft
+                    .current
+                    .recipe
+                    .as_ref()
+                    .and_then(|r| Nozzle::of_attributes(&r.attributes)),
                 started: openlaser_library::now(),
             }
         });

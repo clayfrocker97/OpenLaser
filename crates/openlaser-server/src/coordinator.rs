@@ -75,13 +75,17 @@ pub struct Held {
     pub configuration: Configuration,
     /// Whether it was a dry run.
     pub dry_run: bool,
-    /// What the machine adds to a drawing coordinate.
-    pub zero: [f64; 2],
+    /// The sheet offset: what the machine adds to a drawing coordinate.
+    pub sheet_offset: [f64; 2],
     /// The exact dispatched program view and physical pass identities.
     pub view: Arc<crate::document::Compiled>,
 }
 
-/// The coordinator.
+/// The coordinator: the one owner of the server's state. It holds the
+/// library, the machine files and bindings, the draft being set up, the
+/// run being executed and its recovery, and publishes all of it as the
+/// [`Document`] every client streams. HTTP handlers take its lock for short
+/// transactions; slow work runs off the lock and checks back in.
 pub struct Coordinator {
     pub(crate) sheet_store: crate::stock_store::Store,
     pub(crate) sheet_persistence_error: Option<String>,
@@ -144,15 +148,27 @@ pub struct Coordinator {
     pub link: connect::Link,
     library_view: Arc<LibraryView>,
     draft_view: Option<Arc<DraftView>>,
+    /// Counts openings of a part or saved job, so the UI can tell a new
+    /// draft from an edit of the same one. Seeded like the draft revision.
     pub(crate) draft_generation: u64,
     binding_view: Option<Arc<BindingsView>>,
+    /// Change counters of the big document sections; see [`Revisions`] for
+    /// what each counts, who bumps it and who reads it.
     revisions: Revisions,
     message: Option<Message>,
+    /// Counts publications of the document; also names each message.
     revision: u64,
     publisher: watch::Sender<Document>,
 }
 
-/// The simulator's units per millimetre.
+/// Oldest controller feedback, in milliseconds, still taken as where the
+/// head is now. Twenty poll intervals (the controller polls every 50 ms,
+/// `openlaser_controller::config::POLL_INTERVAL`), so a few lost replies do
+/// not refuse work but a stalled link does.
+pub(crate) const FRESH_FEEDBACK_MS: u64 = 1000;
+
+/// The simulator's units per millimetre: `SCALE` in the controller's
+/// simulated plant.
 const SIMULATOR_SCALE: i32 = 1000;
 
 /// The five axis parameter banks.
@@ -167,7 +183,8 @@ pub struct SharedState {
     /// Direct handle for stop, release and lease renewal.
     pub machine: Machine,
     coordinator: Mutex<Coordinator>,
-    /// Cancels any enabling work still being built off the lock.
+    /// Counts Stop presses and the shutdown. Work that is built off the lock
+    /// records it first and gives up if it has moved on when it returns.
     pub(crate) stop_epoch: AtomicU64,
     /// Once set, no new work is admitted.
     pub(crate) closing: watch::Sender<bool>,
@@ -179,7 +196,9 @@ impl SharedState {
         self.coordinator.lock().await
     }
 
-    pub(crate) fn epoch(&self) -> Result<u64> {
+    /// Refuses new work once the server is shutting down; otherwise the
+    /// current stop epoch, for the caller to compare again after awaiting.
+    pub(crate) fn ensure_running(&self) -> Result<u64> {
         if *self.closing.borrow() {
             return Err(Error::Refused("the server is shutting down".into()));
         }
@@ -463,7 +482,7 @@ impl Coordinator {
         matches!(self.machine.state().connection, Connection::Connected { .. })
     }
 
-    /// What the server would accept now.
+    /// Manual Z moves also need a configured head jog output.
     fn head_jog_gate(&self, gate: Gate) -> Gate {
         if self.bound.as_ref().is_some_and(|b| b.outputs.head_jog_tenths.is_some()) {
             gate
@@ -472,6 +491,8 @@ impl Coordinator {
         }
     }
 
+    /// Manual XY moves also need axis parameters, which limit recovery may
+    /// read before initialization.
     fn xy_jog_gate(&self, gate: Gate) -> Gate {
         if !gate.ok {
             return gate;
@@ -479,6 +500,7 @@ impl Coordinator {
         self.jog_parameters().map_or_else(|error| Gate::closed(error.to_string()), |_| Gate::open())
     }
 
+    /// Which commands the server would accept now, and why not otherwise.
     fn readiness(&self, machine: &openlaser_controller::State, can_resume: bool) -> Readiness {
         use openlaser_controller::state::ProgramState;
         let connected = matches!(machine.connection, Connection::Connected { .. });
@@ -487,52 +509,14 @@ impl Coordinator {
             .as_ref()
             .is_some_and(|p| matches!(p.state, ProgramState::Running | ProgramState::Finishing));
         let base = |blocked: &Option<String>| self.operation_gate(machine, blocked.as_deref());
-        let motion = |referenced: bool, blocked: &Option<String>| -> Gate {
-            let gate = base(blocked);
-            if !gate.ok {
-                return gate;
-            }
-            if referenced && !machine.session.homed {
-                return Gate::closed("home XY first");
-            }
-            let parameters =
-                if referenced { self.acceptance() } else { self.measured_configuration() };
-            if let Err(error) = parameters {
-                return Gate::closed(error.to_string());
-            }
-            Gate::open()
+        let motion = |referenced: bool, blocked: &Option<String>| {
+            self.motion_gate(machine, referenced, blocked.as_deref())
         };
-        let draft = self.draft.as_ref();
-        let compile = match draft {
-            None => Gate::closed("open a part first"),
-            Some(d) if d.recipe.is_none() => Gate::closed("choose a material first"),
-            Some(d) if d.prepared.is_none() => {
-                Gate::closed(d.error.clone().unwrap_or_else(|| "nothing prepared".into()))
-            }
-            Some(_) => Gate::open(),
-        };
-        let run = {
-            let gate = motion(true, &machine.blocked);
-            match draft {
-                _ if !gate.ok => gate,
-                _ if self.held.is_some() => Gate::closed(HELD),
-                Some(d) if d.compiled.is_none() => d
-                    .error
-                    .as_ref()
-                    .map_or_else(|| compile.clone(), |error| Gate::closed(error.clone())),
-                Some(_) => Gate::open(),
-                None => Gate::closed("open a part first"),
-            }
-        };
+        let compile = self.compile_gate();
+        let run = self.run_gate(motion(true, &machine.blocked), &compile);
         let frame = run.clone();
         Readiness {
-            connect: if connected {
-                Gate::closed("already connected")
-            } else if self.link.busy() {
-                Gate::closed("connecting")
-            } else {
-                Gate::open()
-            },
+            connect: self.connect_gate(connected),
             home: base(&machine.motion_blocked),
             calibrate: if self.bound.as_ref().is_some_and(|b| b.head_enabled) {
                 base(&machine.setup_blocked)
@@ -563,6 +547,68 @@ impl Coordinator {
             stop: if connected { Gate::open() } else { Gate::closed("connect the machine first") },
             mode: base(&machine.motion_blocked),
             frame,
+        }
+    }
+
+    /// Connecting needs no connection and no attempt under way.
+    fn connect_gate(&self, connected: bool) -> Gate {
+        if connected {
+            Gate::closed("already connected")
+        } else if self.link.busy() {
+            Gate::closed("connecting")
+        } else {
+            Gate::open()
+        }
+    }
+
+    /// Moving the head: an operation could start, and the axis parameters
+    /// are known. A `referenced` move also needs Home and parameters that
+    /// match the machine files.
+    fn motion_gate(
+        &self,
+        machine: &openlaser_controller::State,
+        referenced: bool,
+        blocked: Option<&str>,
+    ) -> Gate {
+        let gate = self.operation_gate(machine, blocked);
+        if !gate.ok {
+            return gate;
+        }
+        if referenced && !machine.session.homed {
+            return Gate::closed("home XY first");
+        }
+        let parameters = if referenced { self.acceptance() } else { self.measured_configuration() };
+        if let Err(error) = parameters {
+            return Gate::closed(error.to_string());
+        }
+        Gate::open()
+    }
+
+    /// Compiling needs an open draft with a material and prepared geometry.
+    fn compile_gate(&self) -> Gate {
+        match &self.draft {
+            None => Gate::closed("open a part first"),
+            Some(d) if d.current.recipe.is_none() => Gate::closed("choose a material first"),
+            Some(d) if d.prepared.is_none() => {
+                Gate::closed(d.error.clone().unwrap_or_else(|| "nothing prepared".into()))
+            }
+            Some(_) => Gate::open(),
+        }
+    }
+
+    /// Running or framing needs a referenced `motion` gate, no held job and a
+    /// compiled draft; without one, the reason it failed to compile or the
+    /// `compile` gate says why.
+    fn run_gate(&self, motion: Gate, compile: &Gate) -> Gate {
+        match &self.draft {
+            _ if !motion.ok => motion,
+            _ if self.held.is_some() => Gate::closed(HELD),
+            Some(d) if d.compiled.is_none() => d
+                .error
+                .as_ref()
+                .map_or_else(|| compile.clone(), |error| Gate::closed(error.clone())),
+            Some(_) => Gate::open(),
+            None => Gate::closed("open a part first"),
         }
     }
 
@@ -860,7 +906,7 @@ impl Coordinator {
     /// Removes a part.
     pub fn remove_part(&mut self, id: &Id) -> Result<()> {
         self.library.remove_part(id)?;
-        if self.draft.as_ref().is_some_and(|d| d.parts.contains(id)) {
+        if self.draft.as_ref().is_some_and(|d| d.current.parts.contains(id)) {
             self.draft = None;
             self.draft_changed();
         }
@@ -926,7 +972,7 @@ impl Coordinator {
         if let Some(gas) =
             if new.laser == LaserMode::Co2 { Some(openlaser_xml::recipe::CO2_GAS) } else { new.gas }
         {
-            if gas > 5 {
+            if gas > crate::gas::MAX_GAS_SELECTOR {
                 return Err(Error::Request("the gas selection is 0 to 5".into()));
             }
             recipe.attributes.insert("CutGasType".into(), gas.to_string());
@@ -1182,7 +1228,7 @@ impl Coordinator {
         if self
             .draft
             .as_ref()
-            .is_some_and(|d| d.parts.iter().any(|p| self.library.part(p).is_err()))
+            .is_some_and(|d| d.current.parts.iter().any(|p| self.library.part(p).is_err()))
         {
             self.draft = None;
             self.draft_changed();
@@ -1210,21 +1256,21 @@ impl Coordinator {
         let mut draft = Draft::new(sources);
         draft.saved_base = Some(job.clone());
         draft.job = Some(job.id.clone());
-        draft.recipe = Some(job.recipe.clone());
-        draft.film.clone_from(&job.film);
-        draft.features = job.features.clone();
-        draft.grouping = job.grouping.clone();
+        draft.current.recipe = Some(job.recipe.clone());
+        draft.current.film.clone_from(&job.film);
+        draft.current.features = job.features.clone();
+        draft.current.grouping = job.grouping.clone();
         if !job.placed.is_empty() {
-            draft.placed.clone_from(&job.placed);
+            draft.current.placed.clone_from(&job.placed);
         }
-        draft.zero = job.zero;
-        draft.placement.clone_from(&job.placement);
-        draft.anchor = job.anchor;
-        draft.preflight = job.preflight.clone();
-        draft.nesting.clone_from(&job.nesting);
-        draft.correction.clone_from(&job.correction);
+        draft.current.sheet_offset = job.sheet_offset;
+        draft.current.placement.clone_from(&job.placement);
+        draft.current.anchor = job.anchor;
+        draft.current.preflight = job.preflight.clone();
+        draft.current.nesting.clone_from(&job.nesting);
+        draft.current.correction.clone_from(&job.correction);
         draft.calibration = job.calibration;
-        draft.feature_source =
+        draft.current.feature_source =
             Some(FeatureSource { job: job.id.clone(), name: job.name.clone(), at: job.updated });
         self.leave_draft();
         let draft = self.retained(&format!("job-{id}"))?.unwrap_or(draft);
@@ -1243,18 +1289,18 @@ impl Coordinator {
             .library
             .last_job_on(&recipe.key())
             .map(|job| (job.id.clone(), job.name.clone(), job.updated, job.features.reusable()));
-        let dxf = self.draft.as_ref().is_some_and(|d| self.any_dxf(&d.parts));
+        let dxf = self.draft.as_ref().is_some_and(|d| self.any_dxf(&d.current.parts));
         let draft =
             self.draft.as_mut().ok_or_else(|| Error::Refused("open a part first".into()))?;
         draft.remember();
         if draft.job.is_none() && !draft.calibration && dxf {
-            draft.correction = self.correction.active(recipe.laser);
+            draft.current.correction = self.correction.active(recipe.laser);
         }
-        draft.recipe = Some(recipe);
-        draft.film = film;
+        draft.current.recipe = Some(recipe);
+        draft.current.film = film;
         if let Some((job, name, at, features)) = source {
-            draft.features = features;
-            draft.feature_source = Some(FeatureSource { job, name, at });
+            draft.current.features = features;
+            draft.current.feature_source = Some(FeatureSource { job, name, at });
         }
         self.reprepare();
         Ok(())
@@ -1264,7 +1310,7 @@ impl Coordinator {
     pub fn set_features(&mut self, features: Features) -> Result<()> {
         let draft = self.draft_mut()?;
         draft.remember();
-        draft.features = features;
+        draft.current.features = features;
         self.reprepare();
         Ok(())
     }
@@ -1274,8 +1320,9 @@ impl Coordinator {
         let job = self.library.job(job)?.clone();
         let draft = self.draft_mut()?;
         draft.remember();
-        draft.features = job.features.reusable();
-        draft.feature_source = Some(FeatureSource { job: job.id, name: job.name, at: job.updated });
+        draft.current.features = job.features.reusable();
+        draft.current.feature_source =
+            Some(FeatureSource { job: job.id, name: job.name, at: job.updated });
         self.reprepare();
         Ok(())
     }
@@ -1293,7 +1340,7 @@ impl Coordinator {
             return Err(Error::Request("use a finite uniform scale, move, turn or mirror".into()));
         }
         let draft = self.draft_mut()?;
-        if contours.iter().any(|&i| i >= draft.placed.len()) {
+        if contours.iter().any(|&i| i >= draft.current.placed.len()) {
             return Err(Error::Request("no such contour".into()));
         }
         draft.transform(contours, matrix)?;
@@ -1307,7 +1354,7 @@ impl Coordinator {
         if draft.preparing {
             return Err(Error::Refused("wait for the current edit to finish".into()));
         }
-        if contours.is_empty() || contours.iter().any(|&i| i >= draft.placed.len()) {
+        if contours.is_empty() || contours.iter().any(|&i| i >= draft.current.placed.len()) {
             return Err(Error::Request("select contours to group or ungroup".into()));
         }
         draft.set_grouped(contours, together);
@@ -1340,7 +1387,8 @@ impl Coordinator {
         grouping.validate(contours.len()).map_err(Error::Request)?;
         let draft = self.draft_mut()?;
         if contours.len()
-            > openlaser_core::geometry::MAX_PLACED_CONTOURS.saturating_sub(draft.placed.len())
+            > openlaser_core::geometry::MAX_PLACED_CONTOURS
+                .saturating_sub(draft.current.placed.len())
         {
             return Err(Error::Request("the layout exceeds 100000 contours".into()));
         }
@@ -1366,10 +1414,10 @@ impl Coordinator {
     pub fn remove(&mut self, contours: &[usize]) -> Result<()> {
         let draft =
             self.draft.as_mut().ok_or_else(|| Error::Refused("open a part first".into()))?;
-        if contours.iter().any(|&i| i >= draft.placed.len()) {
+        if contours.iter().any(|&i| i >= draft.current.placed.len()) {
             return Err(Error::Request("no such contour".into()));
         }
-        if (0..draft.placed.len()).all(|i| contours.contains(&i)) {
+        if (0..draft.current.placed.len()).all(|i| contours.contains(&i)) {
             return Err(Error::Refused("keep at least one contour".into()));
         }
         let drawing = draft.drawing()?.clone();
@@ -1423,7 +1471,7 @@ impl Coordinator {
         }
         let mut staged = draft.clone();
         if let Some(features) = features {
-            staged.features = features;
+            staged.current.features = features;
         }
         draft::pick(draft.drawing()?, &staged, at, tolerance, bridging)
     }
@@ -1443,15 +1491,15 @@ impl Coordinator {
             return Err(Error::Request("the origin is not finite".into()));
         }
         let draft = self.draft_mut()?;
-        let anchor = anchor.unwrap_or(draft.anchor);
+        let anchor = anchor.unwrap_or(draft.current.anchor);
         let bounds = crate::placement::reference_bounds(draft)
             .ok_or_else(|| Error::Refused("nothing prepared".into()))?;
         let dock = anchor.on(bounds.min.into(), bounds.max.into());
         draft.remember();
-        draft.anchor = anchor;
-        draft.zero = Some([origin[0] - dock[0], origin[1] - dock[1]]);
-        draft.placement = Some(openlaser_library::placement::Placement::Fixed { origin });
-        if draft.correction.is_some() {
+        draft.current.anchor = anchor;
+        draft.current.sheet_offset = Some([origin[0] - dock[0], origin[1] - dock[1]]);
+        draft.current.placement = Some(openlaser_library::placement::Placement::Fixed { origin });
+        if draft.current.correction.is_some() {
             draft.compiled = None;
         }
         self.draft_changed();
@@ -1462,7 +1510,7 @@ impl Coordinator {
     /// stays where it is.
     pub fn set_anchor(&mut self, anchor: openlaser_library::Anchor) -> Result<()> {
         self.draft_mut()?.remember();
-        self.draft_mut()?.anchor = anchor;
+        self.draft_mut()?.current.anchor = anchor;
         self.draft_changed();
         Ok(())
     }
@@ -1478,7 +1526,7 @@ impl Coordinator {
         let state = self.machine.state();
         let feedback = state
             .feedback
-            .filter(|f| f.age_ms <= 1000 && f.stationary && f.head.command == 0)
+            .filter(|f| f.age_ms <= FRESH_FEEDBACK_MS && f.stationary && f.head.command == 0)
             .ok_or_else(|| {
                 Error::Refused("set the origin with fresh feedback and the axes stationary".into())
             })?;
@@ -1540,6 +1588,7 @@ impl Coordinator {
             Error::Refused(draft.error.clone().unwrap_or_else(|| "nothing prepared".into()))
         })?;
         let recipe = draft
+            .current
             .recipe
             .as_ref()
             .ok_or_else(|| Error::Refused("choose a material first".into()))?;
@@ -1560,7 +1609,7 @@ impl Coordinator {
         let binder =
             Binder { dry_run, manual_focus, film: false, scale, timeouts: self.soft.timeouts };
         let settings = draft::settings(bundle, recipe, binder)?;
-        if let Some(profile) = &draft.correction {
+        if let Some(profile) = &draft.current.correction {
             let bed = crate::correction::bed(self)?;
             if profile.bed != bed {
                 return Err(Error::Refused(
@@ -1568,7 +1617,7 @@ impl Coordinator {
                 ));
             }
         }
-        let film = match (&draft.film, settings.with_film) {
+        let film = match (&draft.current.film, settings.with_film) {
             (Some(film), true) => {
                 if film.laser != recipe.laser {
                     return Err(Error::Refused("the film process is for the other laser".into()));
@@ -1581,9 +1630,9 @@ impl Coordinator {
             correction: if draft.calibration {
                 None
             } else {
-                draft.zero.and(draft.correction.clone())
+                draft.current.sheet_offset.and(draft.current.correction.clone())
             },
-            placement: draft.zero.unwrap_or([0., 0.]),
+            placement: draft.current.sheet_offset.unwrap_or([0., 0.]),
             stamp: self.compile_stamp(),
             configuration: self.acceptance().ok(),
             prepared,
@@ -1627,58 +1676,14 @@ impl Coordinator {
     ) -> Result<()> {
         self.check_compile(stamp)?;
         let result = result.and_then(|compiled| {
-            if let Some(draft) = &self.draft
-                && let Some(nesting) = &draft.nesting
-            {
-                let stock = crate::nesting::stock(draft.drawing()?, nesting)?;
-                let map = draft
-                    .correction
-                    .as_ref()
-                    .filter(|_| draft.zero.is_some() && !draft.calibration)
-                    .map(openlaser_correction::Map::new)
-                    .transpose()
-                    .map_err(|e| Error::Refused(e.to_string()))?;
-                let zero = openlaser_core::geometry::Point::from(draft.zero.unwrap_or([0., 0.]));
-                let physical: Vec<Vec<[f64; 2]>> = compiled
-                    .view
-                    .moves
-                    .iter()
-                    .filter(|m| m.kind != crate::document::PathKind::Travel)
-                    .map(|m| {
-                        m.points
-                            .iter()
-                            .map(|p| {
-                                map.as_ref().map_or(*p, |map| {
-                                    (map.forward(openlaser_core::geometry::Point::from(*p) + zero)
-                                        - zero)
-                                        .into()
-                                })
-                            })
-                            .collect()
-                    })
-                    .collect();
-                openlaser_nest::check_region_polylines(
-                    &stock,
-                    crate::nesting::cutouts(nesting),
-                    physical.iter().map(Vec::as_slice),
-                    nesting.margin(),
-                )
-                .map_err(|e| Error::Refused(e.to_string()))?;
+            if let Some(draft) = &self.draft {
+                check_within_stock(draft, &compiled)?;
             }
             Ok(compiled)
         });
         let outcome = result.as_ref().map(|_| ()).map_err(Clone::clone);
         if let Some(draft) = &mut self.draft {
-            match result {
-                Ok(compiled) => {
-                    draft.compiled = Some(Arc::new(compiled));
-                    draft.error = None;
-                }
-                Err(error) => {
-                    draft.compiled = None;
-                    draft.error = Some(error.to_string());
-                }
-            }
+            install_compiled(draft, result);
         }
         self.draft_changed();
         if self.operation.is_none() && self.held.is_none() {
@@ -1751,6 +1756,62 @@ impl Coordinator {
         self.operation = Some(self.operation_serial);
         self.publish();
         Ok(self.operation_serial)
+    }
+}
+
+/// Refuses a compiled job of a nested draft whose cutting moves leave the
+/// stock or cross material already removed, checked where the head will
+/// really go: after the bed correction, when one applies.
+fn check_within_stock(draft: &Draft, compiled: &draft::CompiledJob) -> Result<()> {
+    let Some(nesting) = &draft.current.nesting else { return Ok(()) };
+    let stock = crate::nesting::stock(draft.drawing()?, nesting)?;
+    let physical = physical_cuts(draft, compiled)?;
+    openlaser_nest::check_region_polylines(
+        &stock,
+        crate::nesting::cutouts(nesting),
+        physical.iter().map(Vec::as_slice),
+        nesting.margin(),
+    )
+    .map_err(|e| Error::Refused(e.to_string()))
+}
+
+/// The compiled cutting moves (not travel) in drawing coordinates, moved
+/// as the bed correction moves them once the sheet is placed. A calibration
+/// job and an unplaced sheet are not corrected.
+fn physical_cuts(draft: &Draft, compiled: &draft::CompiledJob) -> Result<Vec<Vec<[f64; 2]>>> {
+    use openlaser_core::geometry::Point;
+    let map = draft
+        .current
+        .correction
+        .as_ref()
+        .filter(|_| draft.current.sheet_offset.is_some() && !draft.calibration)
+        .map(openlaser_correction::Map::new)
+        .transpose()
+        .map_err(|e| Error::Refused(e.to_string()))?;
+    let offset = Point::from(draft.current.sheet_offset.unwrap_or([0., 0.]));
+    let corrected = |p: &[f64; 2]| -> [f64; 2] {
+        map.as_ref().map_or(*p, |map| (map.forward(Point::from(*p) + offset) - offset).into())
+    };
+    Ok(compiled
+        .view
+        .moves
+        .iter()
+        .filter(|m| m.kind != crate::document::PathKind::Travel)
+        .map(|m| m.points.iter().map(corrected).collect())
+        .collect())
+}
+
+/// Puts a compile's result on the draft: the job, or why there is none.
+fn install_compiled(draft: &mut Draft, result: Result<draft::CompiledJob>) {
+    match result {
+        Ok(compiled) => {
+            draft.compiled = Some(Arc::new(compiled));
+            draft.error = None;
+        }
+        Err(error) => {
+            draft.compiled = None;
+            draft.error = Some(error.to_string());
+        }
     }
 }
 

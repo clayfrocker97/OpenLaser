@@ -315,4 +315,25 @@ mod tests {
         );
         std::fs::remove_dir_all(root).unwrap();
     }
+
+    /// A retained draft written before the draft grouped its undoable
+    /// fields into one snapshot: two sheets, one with a sheet offset, and
+    /// an undo and a redo step. It must still load, and writing it back
+    /// must give the same bytes.
+    #[test]
+    fn a_retained_draft_from_an_earlier_build_loads_and_writes_back_unchanged() {
+        let old = include_str!("fixtures/retained_draft_v1.json");
+        let stored: Stored = serde_json::from_str(old).unwrap();
+        assert_eq!(stored.version, 1);
+        let draft = stored.draft;
+        let view = draft.view();
+        assert_eq!((view.past, view.future), (1, 1));
+        assert_eq!(view.sheet_offset, Some([12.5, 7.25]));
+        assert!(draft.current.sheets.is_some());
+        let state = draft.authoring_state();
+        let written =
+            encode(&Stored { version: super::super::version(state.parts()), draft: state })
+                .unwrap();
+        assert_eq!(String::from_utf8(written).unwrap(), old.trim_end());
+    }
 }

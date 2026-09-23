@@ -146,6 +146,9 @@ pub struct ImportReview {
 /// and read as millimetres, or scaled down by mistake.
 const TINY_MM: f64 = 3.;
 
+/// Millimetres in an inch, exactly.
+const MM_PER_INCH: f64 = 25.4;
+
 /// Larger than this, with no bed to compare, a part is probably scaled up
 /// by mistake.
 const HUGE_MM: f64 = 5_000.;
@@ -326,8 +329,8 @@ fn size_warnings(check: &SizeCheck) -> Vec<String> {
     if check.tiny {
         warnings.push(format!(
             "The drawing is only {w:.2} × {h:.2} mm. Drawn in inches it would be {:.1} × {:.1} mm; check its units.",
-            w * 25.4,
-            h * 25.4
+            w * MM_PER_INCH,
+            h * MM_PER_INCH
         ));
     }
     if check.exceeds_bed {

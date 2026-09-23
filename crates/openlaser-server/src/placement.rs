@@ -58,21 +58,22 @@ pub enum PlacementChange {
 }
 
 pub(crate) fn is_head(draft: &Draft) -> bool {
-    matches!(draft.placement, Some(Placement::Head {}))
+    matches!(draft.current.placement, Some(Placement::Head {}))
 }
 
 pub(crate) fn view(draft: &Draft) -> PlacementView {
     PlacementView {
         mode: if is_head(draft) { PlacementMode::Head } else { PlacementMode::Fixed },
-        captured: draft.zero.is_some(),
-        correction_pending: draft.correction.is_some() && draft.zero.is_none(),
+        captured: draft.current.sheet_offset.is_some(),
+        correction_pending: draft.current.correction.is_some()
+            && draft.current.sheet_offset.is_none(),
         saved: draft.saved_base.as_ref().is_some_and(|saved| matches_saved(draft, saved)),
     }
 }
 
 /// Stock keeps its reference even when the parts inside it are rearranged.
 pub(crate) fn reference_bounds(draft: &Draft) -> Option<Bounds> {
-    match draft.nesting.as_ref().map(|n| &n.stock) {
+    match draft.current.nesting.as_ref().map(|n| &n.stock) {
         Some(NestStock::Rectangle { bounds }) => Some(*bounds),
         Some(NestStock::Remnant { outline, .. }) => outline.bounds(),
         Some(NestStock::Outline { .. }) => {
@@ -87,22 +88,23 @@ pub(crate) fn reference_bounds(draft: &Draft) -> Option<Bounds> {
     }
 }
 
-/// Transient captures never carry into another loose sheet.
-pub(crate) fn fresh(draft: &mut Draft) {
+/// Forgets a transient head capture, so it never carries into another
+/// loose sheet.
+pub(crate) fn forget_capture(draft: &mut Draft) {
     draft.capture_epoch = None;
     draft.capture_used = false;
     if is_head(draft) {
-        draft.zero = None;
+        draft.current.sheet_offset = None;
         draft.compiled = None;
     }
 }
 
 pub(crate) fn matches_saved(draft: &Draft, saved: &openlaser_library::Job) -> bool {
-    match (&draft.placement, &saved.placement) {
+    match (&draft.current.placement, &saved.placement) {
         (Some(Placement::Head {}), Some(Placement::Head {})) => true,
         (Some(current), Some(previous)) => current == previous,
         // Legacy jobs store the translation; preserve it until explicitly edited.
-        (_, None) => !is_head(draft) && draft.zero == saved.zero,
+        (_, None) => !is_head(draft) && draft.current.sheet_offset == saved.sheet_offset,
         _ => false,
     }
 }
@@ -139,9 +141,9 @@ impl Coordinator {
         }
         match change {
             PlacementChange::Head {} => {
-                draft.placement = Some(Placement::Head {});
-                draft.anchor = openlaser_library::Anchor::FrontLeft;
-                fresh(draft);
+                draft.current.placement = Some(Placement::Head {});
+                draft.current.anchor = openlaser_library::Anchor::FrontLeft;
+                forget_capture(draft);
             }
             PlacementChange::SetOrigin {} if is_head(draft) => {
                 pin_head(draft, &self.machine.state(), true)?;
@@ -149,25 +151,25 @@ impl Coordinator {
             PlacementChange::SetOrigin {} | PlacementChange::FixedHead {} => {
                 let origin = head_position(draft, &self.machine.state())?;
                 draft.remember();
-                draft.anchor = openlaser_library::Anchor::FrontLeft;
-                draft.pin(origin)?;
-                draft.placement = Some(Placement::Fixed { origin });
+                draft.current.anchor = openlaser_library::Anchor::FrontLeft;
+                draft.place_anchor_at(origin)?;
+                draft.current.placement = Some(Placement::Fixed { origin });
                 draft.capture_epoch = None;
                 draft.capture_used = false;
             }
             PlacementChange::Fixed { origin } => {
-                draft.anchor = openlaser_library::Anchor::FrontLeft;
-                draft.pin(origin)?;
-                draft.placement = Some(Placement::Fixed { origin });
+                draft.current.anchor = openlaser_library::Anchor::FrontLeft;
+                draft.place_anchor_at(origin)?;
+                draft.current.placement = Some(Placement::Fixed { origin });
             }
             PlacementChange::Reposition {} => {
                 if is_head(draft) {
-                    draft.zero = None;
+                    draft.current.sheet_offset = None;
                     draft.capture_epoch = None;
                 }
             }
             PlacementChange::NewRun {} => {
-                fresh(draft);
+                forget_capture(draft);
                 self.completed_sheet = None;
                 self.postflight = None;
                 self.recovery = None;
@@ -187,10 +189,12 @@ impl Coordinator {
         let draft =
             self.draft.as_mut().ok_or_else(|| Error::Refused("open a part first".into()))?;
         if is_head(draft) && draft.capture_used && self.held.is_none() {
-            fresh(draft);
+            forget_capture(draft);
         }
         if is_head(draft)
-            && (draft.zero.is_none() || epoch.is_none() || draft.capture_epoch != epoch)
+            && (draft.current.sheet_offset.is_none()
+                || epoch.is_none()
+                || draft.capture_epoch != epoch)
         {
             pin_head(draft, &state, false)?;
             self.draft_changed();
@@ -207,11 +211,13 @@ fn head_position(draft: &Draft, state: &openlaser_controller::State) -> Result<[
     let feedback = state
         .feedback
         .as_ref()
-        .filter(|f| f.age_ms <= 1000 && f.stationary && f.head.command == 0)
+        .filter(|f| {
+            f.age_ms <= crate::coordinator::FRESH_FEEDBACK_MS && f.stationary && f.head.command == 0
+        })
         .ok_or_else(|| {
             Error::Refused("set the origin with fresh feedback and the axes stationary".into())
         })?;
-    if draft.dock().is_none() {
+    if draft.anchor_point().is_none() {
         return Err(Error::Refused("nothing prepared".into()));
     }
     Ok([feedback.position_mm[0], feedback.position_mm[1]])
@@ -222,11 +228,11 @@ fn pin_head(draft: &mut Draft, state: &openlaser_controller::State, remember: bo
     if remember {
         draft.remember();
     }
-    draft.pin(origin)?;
-    draft.placement = Some(Placement::Head {});
+    draft.place_anchor_at(origin)?;
+    draft.current.placement = Some(Placement::Head {});
     draft.capture_epoch = state.configuration.map(|c| c.epoch);
     draft.capture_used = false;
-    if draft.correction.is_some() {
+    if draft.current.correction.is_some() {
         draft.compiled = None;
     }
     Ok(())
@@ -287,7 +293,7 @@ pub(crate) async fn prepare_revision(shared: &Shared, revision: Option<u64>) -> 
     let draft = c.draft.as_ref().ok_or_else(|| Error::Refused("open a part first".into()))?;
     let compiled =
         draft.compiled.as_ref().ok_or_else(|| Error::Refused("compile the job first".into()))?;
-    let zero = draft.zero()?;
+    let zero = draft.sheet_offset()?;
     let bounds = crate::envelope::process_bounds(
         &compiled.job,
         u32::try_from(compiled.scale)

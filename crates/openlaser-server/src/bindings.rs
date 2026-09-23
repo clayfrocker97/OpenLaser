@@ -29,6 +29,12 @@ impl Files {
     }
 }
 
+/// Units per millimetre for binding the machine files before a controller
+/// has reported its own scale. Only whether the files bind depends on it; a
+/// connection binds them again at the measured scale. It equals the
+/// simulator's scale (`SCALE` in the controller's simulated plant).
+pub(crate) const OFFLINE_SCALE: i32 = 1000;
+
 /// Checks that `bytes` are a machine backup that binds for `mode`, the
 /// file's own saved mode when none is given, so an incomplete file never
 /// replaces a good one. Any valid scale proves the groups are there.
@@ -36,7 +42,7 @@ pub fn check(bytes: &[u8], mode: Option<LaserMode>) -> Result<(), openlaser_xml:
     let mut bundle = Bundle::default();
     bundle.insert(Document::parse(Kind::Backup, bytes)?);
     let mode = mode.or_else(|| saved_mode(&bundle)).unwrap_or(LaserMode::Fiber);
-    vendor::bind(&bundle, mode, 1000).map(drop)
+    vendor::bind(&bundle, mode, OFFLINE_SCALE).map(drop)
 }
 
 /// What the backup reads as.

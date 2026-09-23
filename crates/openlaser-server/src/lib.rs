@@ -146,7 +146,7 @@ pub async fn serve_until_ready(
     stop.send_replace(true);
     let served = match result {
         Some(result) => result,
-        None => match tokio::time::timeout(std::time::Duration::from_secs(2), serving).await {
+        None => match tokio::time::timeout(HTTP_DRAIN_TIMEOUT, serving).await {
             Ok(result) => result,
             Err(_) => Err("HTTP requests did not drain after machine shutdown".to_owned()),
         },
@@ -171,15 +171,20 @@ async fn serve_listener(
         .map_err(|error| error.to_string())
 }
 
+/// How long HTTP requests may take to finish once the machine has shut
+/// down, before the server gives up on them.
+const HTTP_DRAIN_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(2);
+/// How long the controller task may take to switch outputs off and close
+/// the link at shutdown before its output state is reported uncertain.
+const MACHINE_SHUTDOWN_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
+
 /// Stops admission before asking the socket task to clean up and exit.
 pub async fn shutdown(shared: &coordinator::Shared) -> std::result::Result<(), String> {
     use std::sync::atomic::Ordering;
     shared.closing.send_replace(true);
     shared.stop_epoch.fetch_add(1, Ordering::AcqRel);
     let result =
-        match tokio::time::timeout(std::time::Duration::from_secs(30), shared.machine.shutdown())
-            .await
-        {
+        match tokio::time::timeout(MACHINE_SHUTDOWN_TIMEOUT, shared.machine.shutdown()).await {
             Ok(result) => result.map_err(|e| format!("machine cleanup is uncertain: {e}")),
             Err(_) => Err("machine cleanup timed out; output state is uncertain".to_owned()),
         };

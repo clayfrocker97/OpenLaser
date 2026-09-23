@@ -60,15 +60,20 @@ fn part_bounds(c: &Coordinator) -> Vec<Bounds> {
         .iter()
         .map(|part| {
             let range = part.first..part.first + part.contours;
-            let mine: Vec<Placed> =
-                draft.placed.iter().filter(|p| range.contains(&p.source)).copied().collect();
+            let mine: Vec<Placed> = draft
+                .current
+                .placed
+                .iter()
+                .filter(|p| range.contains(&p.source))
+                .copied()
+                .collect();
             openlaser_server::draft::place(draft.drawing().unwrap(), &mine).bounds().unwrap()
         })
         .collect()
 }
 
 fn ids(c: &Coordinator) -> Vec<Id> {
-    c.draft.as_ref().unwrap().parts.clone()
+    c.draft.as_ref().unwrap().current.parts.clone()
 }
 
 #[tokio::test]
@@ -82,12 +87,12 @@ async fn several_parts_open_side_by_side_and_save_as_one_job() {
     let ranges: Vec<_> = view.parts.iter().map(|p| (p.id.clone(), p.first, p.contours)).collect();
     assert_eq!(ranges, [(a.clone(), 0, 2), (b.clone(), 2, 1), (disc.clone(), 3, 1)]);
     let draft = c.draft.as_ref().unwrap();
-    assert_eq!(draft.placed.iter().map(|p| p.copy).collect::<Vec<_>>(), [0, 0, 1, 2]);
-    assert_eq!(draft.placed[0].transform, Transform::IDENTITY, "the first part stays put");
+    assert_eq!(draft.current.placed.iter().map(|p| p.copy).collect::<Vec<_>>(), [0, 0, 1, 2]);
+    assert_eq!(draft.current.placed[0].transform, Transform::IDENTITY, "the first part stays put");
     let [plate, tab, round] = part_bounds(&c)[..] else { panic!("three parts") };
     assert_eq!((tab.min.x, tab.min.y), (plate.max.x + 10., plate.min.y));
     assert_eq!((round.min.x, round.min.y), (tab.max.x + 10., plate.min.y));
-    assert!(c.draft.as_ref().unwrap().correction.is_none(), "no correction measured yet");
+    assert!(c.draft.as_ref().unwrap().current.correction.is_none(), "no correction measured yet");
 
     let recipe = recipe(&mut c);
     c.set_recipe(&recipe).unwrap();
@@ -96,7 +101,7 @@ async fn several_parts_open_side_by_side_and_save_as_one_job() {
     let mut c = shared.lock().await;
     assert!(c.draft.as_ref().unwrap().error.is_none(), "{:?}", c.draft.as_ref().unwrap().error);
     assert_eq!(c.draft.as_ref().unwrap().groups.len(), 3, "each part is its own group");
-    let placed = c.draft.as_ref().unwrap().placed.clone();
+    let placed = c.draft.as_ref().unwrap().current.placed.clone();
     let saved = c.save_job("Mixed plate").unwrap();
     assert_eq!(saved.parts, [a.clone(), b.clone(), disc.clone()]);
     let file: serde_json::Value = serde_json::from_slice(
@@ -112,7 +117,7 @@ async fn several_parts_open_side_by_side_and_save_as_one_job() {
     assert_eq!(ids(&c), std::slice::from_ref(&a));
     c.open_job(&saved.id).unwrap();
     assert_eq!(ids(&c), [a, b, disc]);
-    assert_eq!(c.draft.as_ref().unwrap().placed, placed);
+    assert_eq!(c.draft.as_ref().unwrap().current.placed, placed);
     assert_eq!(c.document().draft.unwrap().name, "Mixed plate");
 }
 
@@ -122,17 +127,20 @@ async fn a_part_with_nothing_left_on_the_sheet_leaves_the_job_until_undone() {
     let mut c = shared.lock().await;
     let [a, b, disc] = parts(&mut c);
     c.open_parts(&[a.clone(), b.clone(), disc.clone()]).unwrap();
-    let before = c.draft.as_ref().unwrap().placed.clone();
+    let before = c.draft.as_ref().unwrap().current.placed.clone();
     c.remove(&[2]).unwrap();
     assert_eq!(ids(&c), [a.clone(), disc.clone()]);
     let draft = c.draft.as_ref().unwrap();
-    assert_eq!(draft.placed.iter().map(|p| p.source).collect::<Vec<_>>(), [0, 1, 2]);
+    assert_eq!(draft.current.placed.iter().map(|p| p.source).collect::<Vec<_>>(), [0, 1, 2]);
     assert_eq!(draft.drawing().unwrap().contours.len(), 3);
-    assert_eq!(draft.placed[2].transform, before[3].transform, "the disc stays where it was");
+    assert_eq!(
+        draft.current.placed[2].transform, before[3].transform,
+        "the disc stays where it was"
+    );
     assert_eq!(c.document().draft.unwrap().name, "plate + disc");
     c.undo().unwrap();
     assert_eq!(ids(&c), [a.clone(), b, disc.clone()]);
-    assert_eq!(c.draft.as_ref().unwrap().placed, before);
+    assert_eq!(c.draft.as_ref().unwrap().current.placed, before);
     assert_eq!(c.draft.as_ref().unwrap().drawing().unwrap().contours.len(), 4);
     c.redo().unwrap();
     assert_eq!(ids(&c), [a.clone(), disc]);
@@ -151,17 +159,17 @@ async fn parts_added_to_an_open_job_go_beside_it_in_one_undo_step() {
     let mut c = shared.lock().await;
     let [a, b, disc] = parts(&mut c);
     c.open_part(&a).unwrap();
-    let mut features = c.draft.as_ref().unwrap().features.clone();
+    let mut features = c.draft.as_ref().unwrap().current.features.clone();
     features.order.strategy = OrderStrategy::Manual(vec![1, 0]);
     c.set_features(features).unwrap();
     c.add_parts(&[b.clone(), disc.clone()]).unwrap();
     assert_eq!(ids(&c), [a.clone(), b.clone(), disc.clone()]);
     let draft = c.draft.as_ref().unwrap();
     assert_eq!(
-        draft.placed.iter().map(|p| (p.source, p.copy)).collect::<Vec<_>>(),
+        draft.current.placed.iter().map(|p| (p.source, p.copy)).collect::<Vec<_>>(),
         [(0, 0), (1, 0), (2, 1), (3, 2)]
     );
-    assert_eq!(draft.features.order.strategy, OrderStrategy::Manual(vec![1, 0, 2, 3]));
+    assert_eq!(draft.current.features.order.strategy, OrderStrategy::Manual(vec![1, 0, 2, 3]));
     let [plate, tab, _] = part_bounds(&c)[..] else { panic!("three parts") };
     assert_eq!((tab.min.x, tab.min.y), (plate.max.x + 10., plate.min.y));
     let refused = c.add_parts(std::slice::from_ref(&b)).unwrap_err().to_string();
@@ -170,8 +178,8 @@ async fn parts_added_to_an_open_job_go_beside_it_in_one_undo_step() {
     c.undo().unwrap();
     assert_eq!(ids(&c), [a]);
     let draft = c.draft.as_ref().unwrap();
-    assert_eq!(draft.placed.len(), 2);
-    assert_eq!(draft.features.order.strategy, OrderStrategy::Manual(vec![1, 0]));
+    assert_eq!(draft.current.placed.len(), 2);
+    assert_eq!(draft.current.features.order.strategy, OrderStrategy::Manual(vec![1, 0]));
     c.redo().unwrap();
     assert_eq!(ids(&c).len(), 3);
     drop(c);
@@ -189,7 +197,7 @@ async fn several_parts_survive_a_restart_and_older_history_still_undoes() {
         c.open_parts(&[a.clone(), b.clone()]).unwrap();
         c.transform(&[2], Some(Transform::translation(Point::new(0., 25.)))).unwrap();
         let draft = c.draft.as_ref().unwrap();
-        (c.config.clone(), a, b, key(draft), draft.placed.clone())
+        (c.config.clone(), a, b, key(draft), draft.current.placed.clone())
     };
     flush(&shared).await.unwrap();
     let path = config.data_dir.join("drafts").join(format!("{first}.json"));
@@ -202,9 +210,9 @@ async fn several_parts_survive_a_restart_and_older_history_still_undoes() {
     {
         let mut c = restored.lock().await;
         assert_eq!(ids(&c), [a.clone(), b.clone()]);
-        assert_eq!(c.draft.as_ref().unwrap().placed, placed);
+        assert_eq!(c.draft.as_ref().unwrap().current.placed, placed);
         c.undo().unwrap();
-        assert_ne!(c.draft.as_ref().unwrap().placed, placed);
+        assert_ne!(c.draft.as_ref().unwrap().current.placed, placed);
         // A single part with history written before jobs could cut several.
         c.open_part(&a).unwrap();
         c.transform(&[0], Some(Transform::translation(Point::new(5., 0.)))).unwrap();
@@ -227,7 +235,7 @@ async fn several_parts_survive_a_restart_and_older_history_still_undoes() {
         assert_eq!(ids(&c), std::slice::from_ref(&a));
         c.undo().unwrap();
         assert_eq!(ids(&c), [a]);
-        assert_eq!(c.draft.as_ref().unwrap().placed, Placed::all(2));
+        assert_eq!(c.draft.as_ref().unwrap().current.placed, Placed::all(2));
     }
     openlaser_server::shutdown(&legacy).await.unwrap();
 }
@@ -258,7 +266,7 @@ async fn parts_changed_on_two_screens_merge_with_their_layout_as_one_choice() {
     let choices = BTreeMap::from([("/part".to_owned(), false)]);
     c.resolve_merge(&review.token, None, &choices).unwrap();
     assert_eq!(ids(&c), [a, b]);
-    assert_eq!(c.draft.as_ref().unwrap().placed, elsewhere.placed);
+    assert_eq!(c.draft.as_ref().unwrap().current.placed, elsewhere.placed);
     assert!(c.draft.as_ref().unwrap().drawing().is_ok());
 }
 

@@ -51,7 +51,7 @@ fn lead(length: f64) -> Lead {
 fn only_corresponding_right_holes_change_on_two_selected_parts() {
     let drawing = parts();
     let mut draft = draft_of(&drawing);
-    draft.features.leads = Some(Leads {
+    draft.current.features.leads = Some(Leads {
         entry: Some(lead(1.)),
         exit: Some(lead(0.5)),
         side: Side::Auto,
@@ -71,7 +71,7 @@ fn only_corresponding_right_holes_change_on_two_selected_parts() {
         .map(|c| c.lead_target.unwrap())
         .collect();
     assert_eq!(targets.iter().map(|s| s.contour).collect::<Vec<_>>(), [2, 5]);
-    draft.features.leads.as_mut().unwrap().overrides = targets
+    draft.current.features.leads.as_mut().unwrap().overrides = targets
         .into_iter()
         .map(|location| LeadOverride { location, entry: Some(lead(2.)), exit: None })
         .collect();
@@ -130,7 +130,7 @@ fn partial_selection_groups_expand_and_paste_delete_undo_preserve_membership() {
     restored.validate_saved(|_| Some(9)).unwrap();
     restored.prepare(&drawing);
     assert_eq!(restored.groups, draft.groups);
-    restored.grouping.0.push(vec![0]);
+    restored.current.grouping.0.push(vec![0]);
     assert!(restored.validate_saved(|_| Some(9)).is_err());
 }
 
@@ -138,16 +138,16 @@ fn partial_selection_groups_expand_and_paste_delete_undo_preserve_membership() {
 fn copying_repeated_sources_and_high_copy_ids_keeps_every_instance_unique() {
     let three = Drawing { contours: parts().contours.into_iter().take(3).collect() };
     let mut draft = draft_of(&three);
-    draft.placed[0].copy = u32::MAX;
+    draft.current.placed[0].copy = u32::MAX;
     let contours: Vec<_> =
         [0, 1, 2, 0, 1, 2].into_iter().map(|i| (i, Transform::IDENTITY)).collect();
     draft.add_grouped(&contours, &[], &Grouping(vec![(0..6).collect()]));
     let instances: std::collections::BTreeSet<_> =
-        draft.placed.iter().map(|p| (p.source, p.copy)).collect();
-    assert_eq!(instances.len(), draft.placed.len());
-    assert_eq!(draft.placed[3].copy, draft.placed[5].copy);
-    assert_eq!(draft.placed[6].copy, draft.placed[8].copy);
-    assert_ne!(draft.placed[3].copy, draft.placed[6].copy);
+        draft.current.placed.iter().map(|p| (p.source, p.copy)).collect();
+    assert_eq!(instances.len(), draft.current.placed.len());
+    assert_eq!(draft.current.placed[3].copy, draft.current.placed[5].copy);
+    assert_eq!(draft.current.placed[6].copy, draft.current.placed[8].copy);
+    assert_ne!(draft.current.placed[3].copy, draft.current.placed[6].copy);
 }
 
 #[tokio::test]
@@ -177,7 +177,7 @@ async fn saved_and_retained_jobs_restore_grouping_and_undo_after_restart() {
         let job = c.save_job("Grouped parts").unwrap();
         let draft = c.draft.as_ref().unwrap();
         assert!(!draft.dirty());
-        (job.id, c.config.clone(), draft.grouping.clone())
+        (job.id, c.config.clone(), draft.current.grouping.clone())
     };
     shared.lock().await.set_grouped(&[0], false).unwrap();
     machine::prepare(&shared).await.unwrap();
@@ -190,7 +190,7 @@ async fn saved_and_retained_jobs_restore_grouping_and_undo_after_restart() {
     machine::prepare(&reopened).await.unwrap();
     {
         let mut c = reopened.lock().await;
-        assert_eq!(c.draft.as_ref().unwrap().grouping, grouping);
+        assert_eq!(c.draft.as_ref().unwrap().current.grouping, grouping);
         assert_eq!(c.library.job(&job).unwrap().grouping, grouping);
         c.open_job(&job).unwrap();
     }

@@ -822,7 +822,7 @@ async fn preview_features(
         let c = shared.lock().await;
         c.check_draft(v.revision)?;
         let d = c.draft.as_ref().ok_or_else(|| Error::Refused("open a part first".into()))?;
-        (d.drawing()?.clone(), d.placed.clone())
+        (d.drawing()?.clone(), d.current.placed.clone())
     };
     let prepared =
         tokio::task::spawn_blocking(move || crate::draft::prepare(&drawing, &placed, &features))

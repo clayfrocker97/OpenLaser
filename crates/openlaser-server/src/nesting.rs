@@ -204,67 +204,69 @@ impl Coordinator {
         let draft =
             self.draft.as_ref().ok_or_else(|| Error::Refused("open a drawing first".into()))?;
         let drawing = draft.drawing()?.clone();
-        let settings = draft.nesting.as_ref().map_or_else(NestSettings::default, |n| n.settings);
+        let settings =
+            draft.current.nesting.as_ref().map_or_else(NestSettings::default, |n| n.settings);
         let remove =
             if let StockChoice::Outline { contour } = &choice { Some(*contour) } else { None };
-        let reference = match choice {
-            StockChoice::Remnant { id } => {
-                let sheet = self.sheet_store.view(&id)?;
-                if draft.recipe.as_ref().is_some_and(|r| {
-                    r.laser != sheet.mode
-                        || (r.thickness_mm - sheet.thickness_mm).abs() > 1e-6
-                        || !r.name.eq_ignore_ascii_case(&sheet.material)
-                }) {
-                    return Err(Error::Refused(
-                        "choose a recipe matching this remnant's laser, material and thickness"
-                            .into(),
-                    ));
+        let reference =
+            match choice {
+                StockChoice::Remnant { id } => {
+                    let sheet = self.sheet_store.view(&id)?;
+                    if draft.current.recipe.as_ref().is_some_and(|r| {
+                        r.laser != sheet.mode
+                            || (r.thickness_mm - sheet.thickness_mm).abs() > 1e-6
+                            || !r.name.eq_ignore_ascii_case(&sheet.material)
+                    }) {
+                        return Err(Error::Refused(
+                            "choose a recipe matching this remnant's laser, material and thickness"
+                                .into(),
+                        ));
+                    }
+                    let zero = draft.current.sheet_offset.unwrap_or([0., 0.]);
+                    let at = self.extent().map_or(Point::ORIGIN, |e| {
+                        Point::new(e[0][0] - zero[0], e[1][0] - zero[1])
+                    });
+                    Some(self.sheet_store.stock(&id, at)?)
                 }
-                let zero = draft.zero.unwrap_or([0., 0.]);
-                let at = self
-                    .extent()
-                    .map_or(Point::ORIGIN, |e| Point::new(e[0][0] - zero[0], e[1][0] - zero[1]));
-                Some(self.sheet_store.stock(&id, at)?)
-            }
-            StockChoice::Clear => None,
-            StockChoice::Outline { contour } => {
-                let placed = draft
-                    .placed
-                    .get(contour)
-                    .copied()
-                    .ok_or_else(|| Error::Request("select a closed stock outline".into()))?;
-                if draft.placed.len() <= 1 {
-                    return Err(Error::Request(
-                        "stock needs at least one other contour to nest".into(),
-                    ));
+                StockChoice::Clear => None,
+                StockChoice::Outline { contour } => {
+                    let placed =
+                        draft.current.placed.get(contour).copied().ok_or_else(|| {
+                            Error::Request("select a closed stock outline".into())
+                        })?;
+                    if draft.current.placed.len() <= 1 {
+                        return Err(Error::Request(
+                            "stock needs at least one other contour to nest".into(),
+                        ));
+                    }
+                    let shape = placed.transform.contour(&drawing.contours[placed.source]);
+                    openlaser_nest::polygon(&shape).map_err(|e| Error::Request(e.to_string()))?;
+                    Some(NestStock::Outline { contour: placed })
                 }
-                let shape = placed.transform.contour(&drawing.contours[placed.source]);
-                openlaser_nest::polygon(&shape).map_err(|e| Error::Request(e.to_string()))?;
-                Some(NestStock::Outline { contour: placed })
-            }
-            StockChoice::Rectangle { width, height } => {
-                let min = self.extent().map_or_else(
-                    || {
-                        draft
-                            .nesting
-                            .as_ref()
-                            .and_then(|n| stock(&drawing, n).ok())
-                            .and_then(|c| c.bounds())
-                            .or_else(|| draft.preview.as_ref().and_then(|p| p.bounds))
-                            .map_or(Point::ORIGIN, |b| b.min)
-                    },
-                    |extent| {
-                        Point::new(
-                            extent[0][0] - draft.zero.unwrap_or([0., 0.])[0],
-                            extent[1][0] - draft.zero.unwrap_or([0., 0.])[1],
-                        )
-                    },
-                );
-                Some(NestStock::Rectangle {
-                    bounds: Bounds { min, max: Point::new(min.x + width, min.y + height) },
-                })
-            }
-        };
+                StockChoice::Rectangle { width, height } => {
+                    let min = self.extent().map_or_else(
+                        || {
+                            draft
+                                .current
+                                .nesting
+                                .as_ref()
+                                .and_then(|n| stock(&drawing, n).ok())
+                                .and_then(|c| c.bounds())
+                                .or_else(|| draft.preview.as_ref().and_then(|p| p.bounds))
+                                .map_or(Point::ORIGIN, |b| b.min)
+                        },
+                        |extent| {
+                            Point::new(
+                                extent[0][0] - draft.current.sheet_offset.unwrap_or([0., 0.])[0],
+                                extent[1][0] - draft.current.sheet_offset.unwrap_or([0., 0.])[1],
+                            )
+                        },
+                    );
+                    Some(NestStock::Rectangle {
+                        bounds: Bounds { min, max: Point::new(min.x + width, min.y + height) },
+                    })
+                }
+            };
         let nesting = reference.map(|stock| Nesting { stock, settings });
         if let Some(nesting) = &nesting {
             nesting.validate(drawing.contours.len()).map_err(Error::Request)?;
@@ -276,7 +278,7 @@ impl Coordinator {
         } else {
             draft.remember();
         }
-        draft.nesting = nesting;
+        draft.current.nesting = nesting;
         // Clearing an outline stock can leave its part with nothing on the sheet.
         draft.prune_parts();
         self.reprepare();
@@ -367,14 +369,17 @@ fn search_sheets(
     live: impl Fn(NestLive) + Sync,
 ) -> Result<(Draft, Vec<NestSheetSummary>, Vec<NestSheetPreview>)> {
     let drawing = draft.drawing()?;
-    let overflow =
-        if draft.nesting.as_ref().is_some_and(|n| matches!(n.stock, NestStock::Remnant { .. })) {
-            let bounds =
-                input.stock.bounds().ok_or_else(|| Error::Request("empty stock".into()))?;
-            Some(stock(drawing, &Nesting { stock: NestStock::Rectangle { bounds }, settings })?)
-        } else {
-            None
-        };
+    let overflow = if draft
+        .current
+        .nesting
+        .as_ref()
+        .is_some_and(|n| matches!(n.stock, NestStock::Remnant { .. }))
+    {
+        let bounds = input.stock.bounds().ok_or_else(|| Error::Request("empty stock".into()))?;
+        Some(stock(drawing, &Nesting { stock: NestStock::Rectangle { bounds }, settings })?)
+    } else {
+        None
+    };
     let outline = |c: &Contour| openlaser_nest::polygon(c).unwrap_or_default();
     let first = (outline(&input.stock), input.cutouts.iter().map(outline).collect::<Vec<_>>());
     let fresh = overflow.as_ref().map(|c| (outline(c), Vec::new()));
@@ -403,7 +408,7 @@ fn search_sheets(
         let mut page = draft.clone();
         if !solution.original
             && let Some(outline) = &overflow
-            && let Some(nesting) = &mut page.nesting
+            && let Some(nesting) = &mut page.current.nesting
         {
             nesting.stock = NestStock::Rectangle {
                 bounds: outline.bounds().ok_or_else(|| Error::Request("empty stock".into()))?,
@@ -483,31 +488,46 @@ fn task(c: &Coordinator, id: u64) -> Result<&Task> {
         .ok_or_else(|| Error::Missing("that nesting search is no longer available".into()))
 }
 
+/// Most copies one nesting request may ask for; the nesting crate's own
+/// limit.
+const MAX_NEST_COPIES: u32 = 500;
+/// Longest nesting search, in seconds, a request may ask for; the nesting
+/// crate's own limit.
+const MAX_NEST_SECONDS: u32 = 30;
+/// The random seed of every nesting search, fixed so the same request
+/// gives the same layout.
+const NEST_SEED: u64 = 7;
+
 fn input(
     drawing: &Drawing,
     draft: &Draft,
     request: &NestRequest,
 ) -> Result<openlaser_nest::Request> {
     request.settings.validate().map_err(Error::Request)?;
-    if !(1..=500).contains(&request.quantity) || !(1..=30).contains(&request.seconds) {
-        return Err(Error::Request("use 1–500 copies and a search time of 1–30 seconds".into()));
+    if !(1..=MAX_NEST_COPIES).contains(&request.quantity)
+        || !(1..=MAX_NEST_SECONDS).contains(&request.seconds)
+    {
+        return Err(Error::Request(format!(
+            "use 1–{MAX_NEST_COPIES} copies and a search time of 1–{MAX_NEST_SECONDS} seconds"
+        )));
     }
     if draft.preparing {
         return Err(Error::Refused("wait for drawing preparation".into()));
     }
-    if draft.features.common.is_some()
-        || draft.features.bridges.as_ref().is_some_and(|b| !b.connections.is_empty())
+    if draft.current.features.common.is_some()
+        || draft.current.features.bridges.as_ref().is_some_and(|b| !b.connections.is_empty())
     {
         return Err(Error::Refused(
             "remove common edges and bridge connections before changing their layout".into(),
         ));
     }
     let nesting = draft
+        .current
         .nesting
         .as_ref()
         .ok_or_else(|| Error::Request("choose a stock rectangle or outline first".into()))?;
     let groups = draft.groups.clone();
-    if groups.is_empty() || request.contours.iter().any(|&i| i >= draft.placed.len()) {
+    if groups.is_empty() || request.contours.iter().any(|&i| i >= draft.current.placed.len()) {
         return Err(Error::Request("select a current part".into()));
     }
     let selected: Vec<_> = groups
@@ -526,14 +546,14 @@ fn input(
             contours: g
                 .iter()
                 .map(|&n| {
-                    let p = draft.placed[n];
+                    let p = draft.current.placed[n];
                     p.transform.contour(&drawing.contours[p.source])
                 })
                 .collect(),
             quantity: if selected == [i] { request.quantity as usize } else { 1 },
         })
         .collect();
-    let lead = draft.features.leads.as_ref().map_or(0., |l| {
+    let lead = draft.current.features.leads.as_ref().map_or(0., |l| {
         [l.entry, l.exit]
             .into_iter()
             .chain(l.overrides.iter().flat_map(|v| [l.entry.and(v.entry), l.exit.and(v.exit)]))
@@ -541,7 +561,7 @@ fn input(
             .map(|x| x.length.0 + 2. * x.radius.0)
             .fold(0., f64::max)
     });
-    let kerf = draft.features.kerf.as_ref().map_or(0., |k| k.width.0 / 2.);
+    let kerf = draft.current.features.kerf.as_ref().map_or(0., |k| k.width.0 / 2.);
     Ok(openlaser_nest::Request {
         cutouts: cutouts(nesting).to_vec(),
         stock: stock(drawing, nesting)?,
@@ -564,7 +584,7 @@ fn input(
             curves: openlaser_prep::MAX_CURVES,
         },
         time_limit: Duration::from_secs(u64::from(request.seconds)),
-        seed: 7,
+        seed: NEST_SEED,
     })
 }
 
@@ -575,7 +595,7 @@ fn candidate(
     solution: &openlaser_nest::Solution,
     settings: NestSettings,
 ) -> Result<Draft> {
-    let original = draft.placed.clone();
+    let original = draft.current.placed.clone();
     let mut next = Vec::new();
     let mut next_groups = Vec::new();
     let mut map = vec![Vec::<usize>::new(); original.len()];
@@ -597,9 +617,9 @@ fn candidate(
         return Err(Error::Refused("the nested layout exceeds 100000 contours".into()));
     }
     draft.remember();
-    draft.placed = next;
-    if !draft.grouping.0.is_empty() {
-        draft.grouping = openlaser_core::grouping::Grouping(next_groups);
+    draft.current.placed = next;
+    if !draft.current.grouping.0.is_empty() {
+        draft.current.grouping = openlaser_core::grouping::Grouping(next_groups);
     }
     let repeat = |spots: &[Spot]| -> Vec<Spot> {
         spots
@@ -609,18 +629,18 @@ fn candidate(
             })
             .collect()
     };
-    if let Some(j) = &mut draft.features.joints
+    if let Some(j) = &mut draft.current.features.joints
         && let JointPlacement::Manual(spots) = &mut j.placement
     {
         *spots = repeat(spots);
     }
-    if let Some(c) = &mut draft.features.cooling
+    if let Some(c) = &mut draft.current.features.cooling
         && let CoolingPlacement::Manual(spots) = &mut c.placement
     {
         *spots = repeat(spots);
     }
-    draft.features.start.spots = repeat(&draft.features.start.spots);
-    if let Some(leads) = &mut draft.features.leads {
+    draft.current.features.start.spots = repeat(&draft.current.features.start.spots);
+    if let Some(leads) = &mut draft.current.features.leads {
         leads.overrides = leads
             .overrides
             .iter()
@@ -633,10 +653,10 @@ fn candidate(
             })
             .collect();
     }
-    if let OrderStrategy::Manual(order) = &mut draft.features.order.strategy {
-        *order = (0..draft.placed.len()).collect();
+    if let OrderStrategy::Manual(order) = &mut draft.current.features.order.strategy {
+        *order = (0..draft.current.placed.len()).collect();
     }
-    if let Some(n) = &mut draft.nesting {
+    if let Some(n) = &mut draft.current.nesting {
         n.settings = settings;
     }
     draft.prepare(drawing);
@@ -652,7 +672,7 @@ pub(crate) fn check_prepared(
     draft: &Draft,
     prepared: &crate::draft::Prepared,
 ) -> Result<()> {
-    let Some(nesting) = &draft.nesting else {
+    let Some(nesting) = &draft.current.nesting else {
         return Ok(());
     };
     let stock = stock(drawing, nesting)?;

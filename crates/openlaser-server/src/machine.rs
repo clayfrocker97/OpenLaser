@@ -26,7 +26,7 @@ pub(crate) async fn after_connect(shared: &Shared) -> Option<String> {
         let c = shared.lock().await;
         c.draft
             .as_ref()
-            .and_then(|d| d.recipe.as_ref())
+            .and_then(|d| d.current.recipe.as_ref())
             .map(|r| r.laser)
             .or(c.mode)
             .unwrap_or(LaserMode::Fiber)
@@ -46,7 +46,7 @@ pub(crate) async fn after_connect(shared: &Shared) -> Option<String> {
 /// One reserved configuration transition, from immutable XML through
 /// controller acknowledgement and fresh parameter verification.
 async fn configure(shared: &Shared, mode: LaserMode, switch: bool) -> Result<Option<String>> {
-    let epoch = shared.epoch()?;
+    let epoch = shared.ensure_running()?;
     let requested = Instant::now();
     let (owner, bundle, scale) = {
         let mut c = shared.lock().await;
@@ -58,7 +58,7 @@ async fn configure(shared: &Shared, mode: LaserMode, switch: bool) -> Result<Opt
         let bound =
             work(move || openlaser_xml::bindings::bind(&bundle, mode, scale).map_err(Error::from))
                 .await?;
-        if shared.epoch()? != epoch {
+        if shared.ensure_running()? != epoch {
             return Err(Error::Refused("configuration was cancelled".into()));
         }
         shared.machine.configure(crate::bindings::controller(&bound)).await?;
@@ -128,76 +128,9 @@ pub async fn import_file_reviewed(
     bytes: &[u8],
     expected: Option<&str>,
 ) -> Result<()> {
-    let epoch = shared.epoch()?;
-    let (owner, dir, mode, scale, connected, previous) = {
-        let mut c = shared.lock().await;
-        if expected
-            .is_some_and(|hash| hash != c.files.backup.as_ref().map_or("", |f| f.sha256.as_str()))
-        {
-            return Err(Error::Refused(
-                "machine backup changed; review pending changes again".into(),
-            ));
-        }
-        let dir = c.config.data_dir.join("machine");
-        let connected = c.connected();
-        let scale = if connected { c.scale()? } else { 1000 };
-        let previous = c.bound.clone();
-        (c.reserve()?, dir, c.mode, scale, connected, previous)
-    };
-    let name = file_name.to_owned();
-    let bytes = bytes.to_vec();
-    let outcome = async {
-        let candidate =
-            work(move || crate::machine_files::stage(dir, &name, &bytes, mode, scale)).await?;
-        if shared.epoch()? != epoch {
-            return Err(Error::Refused("import was cancelled".into()));
-        }
-        if connected {
-            shared.machine.configure(crate::bindings::controller(&candidate.bound)).await?;
-        }
-        let committed = work(move || {
-            candidate.commit()?;
-            Ok(candidate)
-        })
-        .await;
-        let candidate = match committed {
-            Ok(candidate) => candidate,
-            Err(error) => {
-                if connected
-                    && let Some(bound) = &previous
-                    && let Err(rollback) =
-                        shared.machine.configure(crate::bindings::controller(bound)).await
-                {
-                    let mut c = shared.lock().await;
-                    c.install_bindings(None);
-                    return Err(Error::Refused(format!(
-                        "{error}; restoring the previous bindings failed: {rollback}"
-                    )));
-                }
-                shared.lock().await.accepted = None;
-                return Err(error);
-            }
-        };
-        let prune = candidate.pruning();
-        {
-            let mut c = shared.lock().await;
-            c.install_files(candidate.loaded);
-            c.install_bindings(connected.then_some(candidate.bound));
-        }
-        let problem = if connected { apply_parameters(shared).await } else { None };
-        // The active reference and published state now agree. Pruning cannot
-        // delete an unrelated file, and failure does not undo the import.
-        tokio::task::spawn_blocking(prune)
-            .await
-            .map_err(|e| Error::Refused(format!("backup cleanup task: {e}")))?;
-        let mut c = shared.lock().await;
-        match problem {
-            None => c.note(format!("Imported {file_name}"), false),
-            Some(problem) => c.note(format!("Imported {file_name}; {problem}"), true),
-        }
-        Ok(())
-    }
-    .await;
+    let epoch = shared.ensure_running()?;
+    let (owner, import) = reserve_import(shared, file_name, bytes, expected).await?;
+    let outcome = run_import(shared, import, epoch).await;
     let mut c = shared.lock().await;
     c.release_reservation(owner);
     drop(c);
@@ -206,6 +139,125 @@ pub async fn import_file_reviewed(
     }
     outcome
 }
+
+/// What an import needs, captured under the lock when it is reserved.
+struct Import {
+    file_name: String,
+    bytes: Vec<u8>,
+    dir: std::path::PathBuf,
+    mode: Option<LaserMode>,
+    scale: i32,
+    connected: bool,
+    /// The bindings to restore on the controller if the commit fails.
+    previous: Option<openlaser_xml::bindings::Bindings>,
+}
+
+/// Reserves the machine workflow for an import, refusing one reviewed
+/// against a backup that has since changed.
+async fn reserve_import(
+    shared: &Shared,
+    file_name: &str,
+    bytes: &[u8],
+    expected: Option<&str>,
+) -> Result<(u64, Import)> {
+    let mut c = shared.lock().await;
+    if expected
+        .is_some_and(|hash| hash != c.files.backup.as_ref().map_or("", |f| f.sha256.as_str()))
+    {
+        return Err(Error::Refused("machine backup changed; review pending changes again".into()));
+    }
+    let dir = c.config.data_dir.join("machine");
+    let connected = c.connected();
+    let scale = if connected { c.scale()? } else { crate::bindings::OFFLINE_SCALE };
+    let previous = c.bound.clone();
+    let import = Import {
+        file_name: file_name.to_owned(),
+        bytes: bytes.to_vec(),
+        dir,
+        mode: c.mode,
+        scale,
+        connected,
+        previous,
+    };
+    Ok((c.reserve()?, import))
+}
+
+/// Stages, binds, commits and installs the imported files, then verifies
+/// the controller against them and prunes superseded backups.
+async fn run_import(shared: &Shared, import: Import, epoch: u64) -> Result<()> {
+    let Import { file_name, bytes, dir, mode, scale, connected, previous } = import;
+    let name = file_name.clone();
+    let candidate =
+        work(move || crate::machine_files::stage(dir, &name, &bytes, mode, scale)).await?;
+    if shared.ensure_running()? != epoch {
+        return Err(Error::Refused("import was cancelled".into()));
+    }
+    if connected {
+        shared.machine.configure(crate::bindings::controller(&candidate.bound)).await?;
+    }
+    let candidate = commit_import(shared, candidate, connected, previous.as_ref()).await?;
+    let prune = candidate.pruning();
+    {
+        let mut c = shared.lock().await;
+        c.install_files(candidate.loaded);
+        c.install_bindings(connected.then_some(candidate.bound));
+    }
+    let problem = if connected { apply_parameters(shared).await } else { None };
+    // The active reference and published state now agree. Pruning cannot
+    // delete an unrelated file, and failure does not undo the import.
+    tokio::task::spawn_blocking(prune)
+        .await
+        .map_err(|e| Error::Refused(format!("backup cleanup task: {e}")))?;
+    let mut c = shared.lock().await;
+    match problem {
+        None => c.note(format!("Imported {file_name}"), false),
+        Some(problem) => c.note(format!("Imported {file_name}; {problem}"), true),
+    }
+    Ok(())
+}
+
+/// Makes the staged files the active backup. If that fails after the
+/// controller was configured from them, the `previous` bindings go back
+/// on the controller; if even that fails, no bindings are kept.
+async fn commit_import(
+    shared: &Shared,
+    candidate: crate::machine_files::Candidate,
+    connected: bool,
+    previous: Option<&openlaser_xml::bindings::Bindings>,
+) -> Result<crate::machine_files::Candidate> {
+    let committed = work(move || {
+        candidate.commit()?;
+        Ok(candidate)
+    })
+    .await;
+    let error = match committed {
+        Ok(candidate) => return Ok(candidate),
+        Err(error) => error,
+    };
+    if connected
+        && let Some(bound) = previous
+        && let Err(rollback) = shared.machine.configure(crate::bindings::controller(bound)).await
+    {
+        let mut c = shared.lock().await;
+        c.install_bindings(None);
+        return Err(Error::Refused(format!(
+            "{error}; restoring the previous bindings failed: {rollback}"
+        )));
+    }
+    shared.lock().await.accepted = None;
+    Err(error)
+}
+
+/// Fastest table jog, in millimetres per second, a request may ask for.
+const MAX_TABLE_SPEED_MM_S: f64 = 100.;
+/// Longest single XY jog step, in millimetres.
+const MAX_JOG_STEP_MM: f64 = 1000.;
+/// Shortest and longest gas test, in milliseconds.
+const GAS_TEST_MS: std::ops::RangeInclusive<u64> = 50..=2000;
+/// How long a timed gas test's valves stay open without a lease renewal.
+/// Timed tests are not renewed from the UI; this is the controller's
+/// safety net if the server stops talking to it mid-test.
+const GAS_TEST_LEASE: Duration = Duration::from_secs(5);
 
 /// The fields whose controller banks do not match the machine files.
 fn parameter_mismatches(
@@ -306,10 +358,12 @@ fn spawn<T: Send + 'static>(
 
 use std::sync::Arc;
 
-/// Go Origin.
+/// Go Origin: homes X and Y (the vendor's name for the button). Finishes
+/// machine initialization first if an alarm prevented it at connection, and
+/// drops a captured head position, which homing makes stale.
 pub async fn home(shared: &Shared) -> Result<()> {
     let requested = Instant::now();
-    let epoch = shared.epoch()?;
+    let epoch = shared.ensure_running()?;
     select_setup_mode(shared).await?;
     // An alarm present at connection can prevent initialization. Once the
     // operator has recovered it, finish that setup before establishing Home.
@@ -324,9 +378,9 @@ pub async fn home(shared: &Shared) -> Result<()> {
             if let Some(draft) = &mut c.draft
                 && crate::placement::is_head(draft)
             {
-                draft.zero = None;
+                draft.current.sheet_offset = None;
                 draft.capture_epoch = None;
-                if draft.correction.is_some() {
+                if draft.current.correction.is_some() {
                     draft.compiled = None;
                 }
             }
@@ -337,7 +391,7 @@ pub async fn home(shared: &Shared) -> Result<()> {
     if let Some(revision) = revision {
         compile_automatically(shared, revision).await?;
     }
-    if shared.epoch()? != epoch {
+    if shared.ensure_running()? != epoch {
         return Err(Error::Refused("Home was cancelled".into()));
     }
     let machine = shared.machine.clone();
@@ -345,9 +399,10 @@ pub async fn home(shared: &Shared) -> Result<()> {
     Ok(())
 }
 
-/// Head calibration.
+/// Calibrates the cutting head's height sensor against the sheet; the
+/// result applies to the current material and connection only.
 pub async fn calibrate(shared: &Shared) -> Result<()> {
-    shared.epoch()?;
+    shared.ensure_running()?;
     select_setup_mode(shared).await?;
     let context = {
         let mut c = shared.lock().await;
@@ -421,7 +476,7 @@ pub struct TableRequest {
 
 /// The configured lifting table, sharing the jog's lease and cleanup.
 pub async fn table(shared: &Shared, request: TableRequest, lease: Lease) -> Result<()> {
-    shared.epoch()?;
+    shared.ensure_running()?;
     let requested = Instant::now();
     let (motion, limits) = {
         let c = shared.lock().await;
@@ -434,7 +489,10 @@ pub async fn table(shared: &Shared, request: TableRequest, lease: Lease) -> Resu
 
 impl TableRequest {
     fn validate(&self) -> Result<()> {
-        if !(self.speed_mm_s.is_finite() && self.speed_mm_s > 0. && self.speed_mm_s <= 100.) {
+        if !(self.speed_mm_s.is_finite()
+            && self.speed_mm_s > 0.
+            && self.speed_mm_s <= MAX_TABLE_SPEED_MM_S)
+        {
             return Err(Error::Request("table speed must be above 0 and at most 100 mm/s".into()));
         }
         Ok(())
@@ -451,7 +509,7 @@ fn table_request(c: &crate::Coordinator, request: TableRequest) -> Result<(Reque
     request.validate()?;
     let feedback =
         c.machine.state().feedback.ok_or_else(|| Error::Refused("no table feedback".into()))?;
-    if feedback.age_ms > 1000 || !feedback.table_stationary {
+    if feedback.age_ms > crate::coordinator::FRESH_FEEDBACK_MS || !feedback.table_stationary {
         return Err(Error::Refused("wait for fresh stationary table feedback".into()));
     }
     let extent =
@@ -514,7 +572,7 @@ fn table_travel(
 
 /// The complete stationary pulse, including the output-off tail, fits one frame.
 pub async fn pulse(shared: &Shared, duration_ms: u32, power: u8) -> Result<()> {
-    let epoch = shared.epoch()?;
+    let epoch = shared.ensure_running()?;
     let requested = Instant::now();
     let (owner, binding, pulse) = {
         let mut c = shared.lock().await;
@@ -549,7 +607,7 @@ pub async fn pulse(shared: &Shared, duration_ms: u32, power: u8) -> Result<()> {
             name: "Stationary laser pulse".into(),
             material: None,
             origin: binding.position,
-            zero: [0., 0.],
+            sheet_offset: [0., 0.],
             compiled: Arc::new(crate::document::Compiled {
                 dry_run: false,
                 seconds,
@@ -568,7 +626,7 @@ pub async fn pulse(shared: &Shared, duration_ms: u32, power: u8) -> Result<()> {
 
 /// Jogs X or Y, or both at 45°: a step, or a held move until released.
 pub async fn jog(shared: &Shared, request: JogRequest, lease: Option<Lease>) -> Result<()> {
-    shared.epoch()?;
+    shared.ensure_running()?;
     let requested = Instant::now();
     if request.step_mm.is_none() && lease.is_none() {
         return Err(Error::Request("a held jog needs a press identity".into()));
@@ -584,7 +642,7 @@ pub async fn jog(shared: &Shared, request: JogRequest, lease: Option<Lease>) -> 
             return Err(Error::Request("the axis must be 0 or 1".into()));
         }
         let step = match request.step_mm {
-            Some(step) if step.is_finite() && step > 0. && step <= 1000. => step,
+            Some(step) if step.is_finite() && step > 0. && step <= MAX_JOG_STEP_MM => step,
             Some(_) => return Err(Error::Request("the step must be up to 1000 mm".into())),
             None => 1.,
         };
@@ -675,7 +733,7 @@ enum Position<'a> {
 }
 
 async fn go_position(shared: &Shared, point: Position<'_>, fast: bool) -> Result<()> {
-    shared.epoch()?;
+    shared.ensure_running()?;
     let requested = Instant::now();
     let completed = {
         let coordinator = shared.lock().await;
@@ -707,7 +765,9 @@ fn positioning_request(
     let state = coordinator.machine.state();
     let feedback = state
         .feedback
-        .filter(|f| f.age_ms <= 1000 && f.stationary && f.head.command == 0)
+        .filter(|f| {
+            f.age_ms <= crate::coordinator::FRESH_FEEDBACK_MS && f.stationary && f.head.command == 0
+        })
         .ok_or_else(|| Error::Refused("wait for fresh, stationary machine feedback".into()))?;
     if !state.session.homed || feedback.referenced != [true, true] {
         return Err(Error::Refused("home the machine first".into()));
@@ -772,7 +832,7 @@ pub async fn release(shared: &Shared, lease: Lease) -> Result<()> {
 
 /// Renews a held jog's or output's lease.
 pub fn heartbeat(shared: &Shared, lease: Lease) -> Result<()> {
-    shared.epoch()?;
+    shared.ensure_running()?;
     shared.machine.heartbeat_owned(lease)?;
     Ok(())
 }
@@ -804,7 +864,7 @@ pub enum OutputRequest {
 
 /// Holds a manual output on until released.
 pub async fn outputs(shared: &Shared, request: OutputRequest, lease: Lease) -> Result<()> {
-    shared.epoch()?;
+    shared.ensure_running()?;
     let requested = Instant::now();
     let (machine, plan) = {
         let coordinator = shared.lock().await;
@@ -838,9 +898,12 @@ pub async fn gas_test(
     pressure: f64,
     duration_ms: u64,
 ) -> Result<()> {
-    shared.epoch()?;
+    shared.ensure_running()?;
     // A fixed-pressure valve (including CO2 High Air) has no pressure command.
-    if !(selector <= 5 && (0. ..=100.).contains(&pressure) && (50..=2000).contains(&duration_ms)) {
+    if !(selector <= crate::gas::MAX_GAS_SELECTOR
+        && (0. ..=crate::gas::MAX_GAS_PRESSURE_BAR).contains(&pressure)
+        && GAS_TEST_MS.contains(&duration_ms))
+    {
         return Err(Error::Request("a gas test needs 0–5, 0–100 bar and 50–2000 ms".into()));
     }
     timed_gas(
@@ -858,8 +921,10 @@ pub async fn gas_test(
 /// (Settings → Gas costs). It is the gas test's bounded valve plan with a
 /// fixed, longer duration; Stop ends it like any output.
 pub async fn gas_calibration(shared: &Shared, selector: u8, pressure: f64) -> Result<()> {
-    shared.epoch()?;
-    if !(selector <= 5 && (0. ..=100.).contains(&pressure)) {
+    shared.ensure_running()?;
+    if !(selector <= crate::gas::MAX_GAS_SELECTOR
+        && (0. ..=crate::gas::MAX_GAS_PRESSURE_BAR).contains(&pressure))
+    {
         return Err(Error::Request("a gas flow test needs 0–5 and 0–100 bar".into()));
     }
     let duration = crate::gas::CALIBRATION_DURATION;
@@ -883,7 +948,7 @@ async fn timed_gas(
             name: name.into(),
             on: manual.on,
             off: manual.off,
-            lease: Duration::from_secs(5),
+            lease: GAS_TEST_LEASE,
             duration: Some(duration),
         }
     };
@@ -905,7 +970,7 @@ pub async fn import_soft_reviewed(
     bytes: &[u8],
     expected: Option<&str>,
 ) -> Result<()> {
-    shared.epoch()?;
+    shared.ensure_running()?;
     let candidate = crate::soft_settings::SoftSettings::parse(name, bytes)?;
     let mut coordinator = shared.lock().await;
     coordinator.idle()?;
@@ -942,7 +1007,7 @@ pub async fn import_soft_reviewed(
 /// Switches the laser mode. The XY reference carries over while the
 /// controller keeps reporting it; parameters are verified again.
 pub async fn switch_mode(shared: &Shared, mode: LaserMode) -> Result<()> {
-    shared.epoch()?;
+    shared.ensure_running()?;
     {
         let mut c = shared.lock().await;
         if c.mode == Some(mode) {
@@ -972,7 +1037,7 @@ pub(crate) async fn select_draft_mode(shared: &Shared, revision: u64) -> Result<
     let mode = {
         let c = shared.lock().await;
         c.check_draft(revision)?;
-        let mode = c.draft.as_ref().and_then(|d| d.recipe.as_ref()).map(|r| r.laser);
+        let mode = c.draft.as_ref().and_then(|d| d.current.recipe.as_ref()).map(|r| r.laser);
         mode.filter(|mode| Some(*mode) != c.mode)
     };
     let Some(mode) = mode else { return Ok(revision) };
@@ -1003,7 +1068,8 @@ pub fn relieve(shared: &Shared, id: Option<u32>) -> Result<()> {
     Ok(())
 }
 
-/// The stop sequence.
+/// Stops whatever runs: bumps the stop epoch first, so work being built
+/// off the lock gives up, then asks the controller task to stop.
 pub async fn stop(shared: &Shared) -> Result<()> {
     shared.stop_epoch.fetch_add(1, Ordering::AcqRel);
     let machine = shared.machine.clone();
@@ -1031,9 +1097,9 @@ pub async fn run_reviewed(
     // Placement capture would re-pin the held job's origin: refuse first.
     shared.lock().await.not_held()?;
     crate::placement::prepare(shared).await?;
-    let epoch = shared.epoch()?;
+    let epoch = shared.ensure_running()?;
     let requested = Instant::now();
-    let (owner, compiled, zero, binding, name, material, origin, sheet) = {
+    let (owner, compiled, sheet_offset, binding, name, material, origin, sheet) = {
         let mut coordinator = shared.lock().await;
         coordinator.not_held()?;
         coordinator.check_preflight(PreflightIntent::Run, epoch, confirmation)?;
@@ -1044,14 +1110,14 @@ pub async fn run_reviewed(
         let configuration = compiled.configuration.ok_or_else(|| {
             Error::Refused("this is an offline preview; connect and compile again".into())
         })?;
-        let zero = draft.zero()?;
-        let binding = Execution::new(&coordinator, &configuration, zero)?;
+        let sheet_offset = draft.sheet_offset()?;
+        let binding = Execution::new(&coordinator, &configuration, sheet_offset)?;
         let name = coordinator.draft_name(draft);
-        let material = draft.recipe.as_ref().map(crate::document::MaterialView::from);
+        let material = draft.current.recipe.as_ref().map(crate::document::MaterialView::from);
         let origin = draft.origin().ok_or_else(|| Error::Refused("no job origin".into()))?;
         let sheet = if compiled.dry_run { None } else { coordinator.sheet_plan(draft)? };
         let owner = coordinator.reserve()?;
-        (owner, compiled, zero, binding, name, material, origin, sheet)
+        (owner, compiled, sheet_offset, binding, name, material, origin, sheet)
     };
     let result = work(move || {
         let (program, view) =
@@ -1061,7 +1127,7 @@ pub async fn run_reviewed(
             job: compiled.job.clone(),
             configuration: binding.configuration,
             dry_run: compiled.dry_run,
-            zero,
+            sheet_offset,
             view: view.clone(),
         });
         let execution = Arc::new(crate::document::ExecutionView {
@@ -1070,7 +1136,7 @@ pub async fn run_reviewed(
             name,
             material,
             origin,
-            zero,
+            sheet_offset,
             compiled: view,
         });
         Ok(Built { program, held: Some(held), execution, fresh: true })
@@ -1089,7 +1155,7 @@ pub async fn resume_reviewed(
     shared: &Shared,
     confirmation: Option<&PreflightConfirmation>,
 ) -> Result<()> {
-    let epoch = shared.epoch()?;
+    let epoch = shared.ensure_running()?;
     let requested = Instant::now();
     let (owner, recovery, binding, pierce) = {
         let mut c = shared.lock().await;
@@ -1101,7 +1167,7 @@ pub async fn resume_reviewed(
                 "select a restart point and prepare stopped-job recovery first".into(),
             ));
         }
-        let binding = Execution::new(&c, &recovery.configuration, recovery.original.zero)?;
+        let binding = Execution::new(&c, &recovery.configuration, recovery.original.sheet_offset)?;
         let pierce = c.bound()?.resume_pierce && !recovery.original.dry_run;
         (c.reserve()?, recovery, binding, pierce)
     };
@@ -1118,7 +1184,7 @@ pub async fn resume_reviewed(
             job: Arc::new(job),
             configuration: recovery.configuration,
             dry_run: recovery.original.dry_run,
-            zero: recovery.original.zero,
+            sheet_offset: recovery.original.sheet_offset,
             view: view.clone(),
         });
         let execution = Arc::new(crate::document::ExecutionView {
@@ -1134,7 +1200,7 @@ pub async fn resume_reviewed(
 
 /// Move to the chosen restart point with the laser off and the head retracted.
 pub async fn move_restart(shared: &Shared, revision: u64) -> Result<()> {
-    shared.epoch()?;
+    shared.ensure_running()?;
     let requested = Instant::now();
     let motion = {
         let c = shared.lock().await;
@@ -1144,7 +1210,7 @@ pub async fn move_restart(shared: &Shared, revision: u64) -> Result<()> {
         if recovery.revision != revision || !recovery.can_resume() {
             return Err(Error::Refused("review and prepare the selected restart first".into()));
         }
-        let binding = Execution::new(&c, &recovery.configuration, recovery.original.zero)?;
+        let binding = Execution::new(&c, &recovery.configuration, recovery.original.sheet_offset)?;
         let point = recovery
             .view()
             .position
@@ -1183,7 +1249,7 @@ pub async fn move_restart(shared: &Shared, revision: u64) -> Result<()> {
 struct Execution {
     configuration: Configuration,
     position: [f64; 2],
-    zero: [f64; 2],
+    sheet_offset: [f64; 2],
     extent: [[f64; 2]; 2],
     co2_pwm_type: u8,
 }
@@ -1192,7 +1258,7 @@ impl Execution {
     fn new(
         coordinator: &crate::Coordinator,
         configuration: &Configuration,
-        zero: [f64; 2],
+        sheet_offset: [f64; 2],
     ) -> Result<Self> {
         if coordinator.acceptance()? != *configuration {
             return Err(Error::Refused("the machine configuration changed; compile again".into()));
@@ -1206,7 +1272,7 @@ impl Execution {
         }
         let feedback =
             state.feedback.ok_or_else(|| Error::Refused("no machine feedback".into()))?;
-        if !feedback.stationary || feedback.age_ms > 1000 {
+        if !feedback.stationary || feedback.age_ms > crate::coordinator::FRESH_FEEDBACK_MS {
             return Err(Error::Refused("fresh stationary feedback is required".into()));
         }
         let bound = coordinator.bound()?;
@@ -1220,14 +1286,14 @@ impl Execution {
         Ok(Self {
             configuration: *configuration,
             position: [feedback.position_mm[0], feedback.position_mm[1]],
-            zero,
+            sheet_offset,
             extent,
             co2_pwm_type: if bound.mode == LaserMode::Co2 { bound.co2_control_type } else { 0 },
         })
     }
 
     fn current(self) -> [f64; 2] {
-        [self.position[0] - self.zero[0], self.position[1] - self.zero[1]]
+        [self.position[0] - self.sheet_offset[0], self.position[1] - self.sheet_offset[1]]
     }
 
     fn job(
@@ -1254,7 +1320,7 @@ impl Execution {
         let z_units_per_mm = u32::try_from(self.configuration.verified.scale).ok();
         let program = job.program_with_return(
             openlaser_compiler::program::Binding { current: self.current(), z_units_per_mm },
-            return_to.map(|p| [p[0] - self.zero[0], p[1] - self.zero[1]]),
+            return_to.map(|p| [p[0] - self.sheet_offset[0], p[1] - self.sheet_offset[1]]),
         )?;
         let upload = self.program(&program, job.settings.counts_per_mm)?;
         let view = Arc::new(draft::summary(job, &program, upload.blocks.len(), dry_run, plan));
@@ -1266,7 +1332,7 @@ impl Execution {
         program: &openlaser_compiler::program::Program,
         counts: [f64; 2],
     ) -> Result<Program> {
-        crate::envelope::validate(program, self.position, self.zero, self.extent, counts)?;
+        crate::envelope::validate(program, self.position, self.sheet_offset, self.extent, counts)?;
         Ok(Program {
             prepare_head: program.records.iter().any(|r| {
                 matches!(
@@ -1315,7 +1381,7 @@ async fn start_run(
         let Built { program, held, execution, fresh } = result?;
         {
             let mut coordinator = shared.lock().await;
-            if shared.epoch()? != epoch || coordinator.operation != Some(owner) {
+            if shared.ensure_running()? != epoch || coordinator.operation != Some(owner) {
                 return Err(Error::Refused("the operation was cancelled".into()));
             }
             if coordinator.acceptance()? != program.configuration {
@@ -1438,7 +1504,7 @@ impl crate::Coordinator {
 pub async fn frame(shared: &Shared) -> Result<()> {
     shared.lock().await.not_held()?;
     crate::placement::prepare(shared).await?;
-    let epoch = shared.epoch()?;
+    let epoch = shared.ensure_running()?;
     let requested = Instant::now();
     let (owner, compiled, binding, settings, name, material, origin) = {
         let mut coordinator = shared.lock().await;
@@ -1452,9 +1518,9 @@ pub async fn frame(shared: &Shared) -> Result<()> {
         let configuration = compiled
             .configuration
             .ok_or_else(|| Error::Refused("connect and compile again".into()))?;
-        let binding = Execution::new(&coordinator, &configuration, draft.zero()?)?;
+        let binding = Execution::new(&coordinator, &configuration, draft.sheet_offset()?)?;
         let name = coordinator.draft_name(draft);
-        let material = draft.recipe.as_ref().map(crate::document::MaterialView::from);
+        let material = draft.current.recipe.as_ref().map(crate::document::MaterialView::from);
         let origin = draft.origin().ok_or_else(|| Error::Refused("no job origin".into()))?;
         let settings = coordinator.bound()?.frame;
         if ((settings.cadence_ms * 1000.).round() - f64::from(configuration.verified.cycle_us))
@@ -1478,7 +1544,7 @@ pub async fn frame(shared: &Shared) -> Result<()> {
             name,
             material,
             origin,
-            zero: binding.zero,
+            sheet_offset: binding.sheet_offset,
             compiled: compiled.view.clone(),
         });
         Ok(Built { program: upload, held: None, execution, fresh: false })
@@ -1499,7 +1565,7 @@ pub(crate) async fn prepare_input(
 ) -> Result<std::sync::Arc<crate::document::DraftView>> {
     let input = work(move || {
         input.draft.prepare(&input.drawing);
-        input.draft.settle(input.extent);
+        input.draft.restore_placement(input.extent);
         Ok(input)
     })
     .await?;
@@ -1552,7 +1618,7 @@ pub(crate) async fn compile_automatically(shared: &Shared, revision: u64) -> Res
             let c = shared.lock().await;
             c.check_draft(revision)?;
             let Some(draft) = &c.draft else { return Ok(()) };
-            if draft.prepared.is_none() || draft.recipe.is_none() || c.bundle.is_none() {
+            if draft.prepared.is_none() || draft.current.recipe.is_none() || c.bundle.is_none() {
                 return Ok(());
             }
             if draft.compiled.as_ref().is_some_and(|p| {
@@ -1575,7 +1641,7 @@ async fn build_revision(
     revision: u64,
     automatic: bool,
 ) -> Result<()> {
-    shared.epoch()?;
+    shared.ensure_running()?;
     let revision = select_draft_mode(shared, revision).await?;
     let inputs = {
         let mut coordinator = shared.lock().await;

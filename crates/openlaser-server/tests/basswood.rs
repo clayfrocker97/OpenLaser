@@ -56,7 +56,10 @@ async fn bundled_basswood_compiles_and_runs_with_its_original_curve() {
     assert!(plant.executed > 0 && plant.pwm.iter().all(|p| p[1] == 0));
     let c = shared.lock().await;
     assert_eq!(c.library.recipe(&original.id).unwrap().attributes, original.attributes);
-    assert_eq!(c.draft.as_ref().unwrap().recipe.as_ref().unwrap().attributes, original.attributes);
+    assert_eq!(
+        c.draft.as_ref().unwrap().current.recipe.as_ref().unwrap().attributes,
+        original.attributes
+    );
     drop(c);
     openlaser_server::shutdown(&shared).await.unwrap();
 }

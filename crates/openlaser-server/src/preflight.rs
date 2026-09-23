@@ -230,7 +230,7 @@ impl Coordinator {
         let draft =
             self.draft.as_mut().ok_or_else(|| Error::Refused("open a part first".into()))?;
         draft.remember();
-        draft.preflight = policy;
+        draft.current.preflight = policy;
         self.draft_changed();
         Ok(())
     }
@@ -252,7 +252,7 @@ impl Coordinator {
                     .as_ref()
                     .ok_or_else(|| Error::Refused("compile the job first".into()))?;
                 let defaults = self.preflight.checklist(compiled.job.settings.mode);
-                (&compiled.job, compiled.dry_run, draft.preflight.steps(defaults).to_vec())
+                (&compiled.job, compiled.dry_run, draft.current.preflight.steps(defaults).to_vec())
             }
             PreflightIntent::Resume => {
                 let recovery = self
@@ -337,11 +337,12 @@ impl Coordinator {
         let Some(draft) = &self.draft else { return false };
         // Position comparisons use the same one-pulse tolerance as travel. No action is
         // considered complete while feedback is old or any operation is active.
-        let Some(feedback) = state
-            .feedback
-            .as_ref()
-            .filter(|f| f.age_ms <= 1000 && f.scale > 0 && f.stationary && f.head.command == 0)
-        else {
+        let Some(feedback) = state.feedback.as_ref().filter(|f| {
+            f.age_ms <= crate::coordinator::FRESH_FEEDBACK_MS
+                && f.scale > 0
+                && f.stationary
+                && f.head.command == 0
+        }) else {
             return false;
         };
         let Ok(configuration) = self.acceptance() else { return false };
@@ -371,11 +372,11 @@ impl Coordinator {
             }
             CheckAction::MoveXy { x, y } => referenced && near(head, [*x, *y]),
             CheckAction::SetOrigin {} => {
-                draft.anchor == Anchor::FrontLeft
+                draft.current.anchor == Anchor::FrontLeft
                     && draft.origin().is_some_and(|origin| near(origin, head))
             }
             CheckAction::SetOriginAt { point } => {
-                draft.anchor == *point
+                draft.current.anchor == *point
                     && draft
                         .origin()
                         .zip(self.bed_point(*point).ok())
@@ -419,7 +420,7 @@ impl Coordinator {
 
 /// Gets the current review with the same stop/restart boundary as the API.
 pub async fn review(shared: &Shared, intent: PreflightIntent) -> Result<PreflightReview> {
-    let epoch = shared.epoch()?;
+    let epoch = shared.ensure_running()?;
     shared.lock().await.preflight_review(intent, epoch)
 }
 
@@ -477,7 +478,7 @@ fn resolve_gas_checks(steps: &[Check], job: &openlaser_compiler::program::Job) -
 /// Starts only an action offered by the current checklist. Checking a box
 /// itself never invokes this endpoint or performs motion.
 pub async fn action(shared: &Shared, token: &str, step: usize) -> Result<()> {
-    let epoch = shared.epoch()?;
+    let epoch = shared.ensure_running()?;
     let action = {
         let coordinator = shared.lock().await;
         // The token binds the intent as well as the exact job and machine

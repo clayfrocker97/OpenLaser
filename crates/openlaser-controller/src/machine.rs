@@ -45,6 +45,12 @@ const MCC100: u32 = 103;
 /// How long a head-only read waits for its reply before it is skipped, so
 /// a lost datagram cannot hold up the program upload.
 const HEAD_WATCH_TIMEOUT: Duration = Duration::from_millis(20);
+/// Consecutive unanswered feedback reads after which the link is faulted.
+/// Each earlier miss already holds a running cut; three polls are 150 ms.
+const MAX_MISSED_POLLS: u8 = 3;
+/// Commands waiting for the controller task before senders wait too. Stop
+/// and lease renewals bypass this queue.
+const COMMAND_QUEUE: usize = 64;
 
 /// A parameter bank to apply: the axis index and its fourteen words.
 pub type Bank = (u8, [u32; PARAMETER_BANK_WORDS]);
@@ -168,7 +174,7 @@ impl Machine {
     pub fn spawn_with_alarm_events(
         config: Config,
     ) -> (Self, mpsc::UnboundedReceiver<crate::alarms::Observation>) {
-        let (commands, receiver) = mpsc::channel(64);
+        let (commands, receiver) = mpsc::channel(COMMAND_QUEUE);
         let (controls, urgent) = mpsc::unbounded_channel();
         let (heartbeat, renewals) = watch::channel((None, Instant::now()));
         let (publisher, state) = watch::channel(State::default());
@@ -1301,8 +1307,8 @@ impl Task {
             Ok(None) => self.capture = Some(capture),
             Err(error @ LinkError::NoReply("read", _)) => {
                 self.missed_polls += 1;
-                if self.missed_polls >= 3 {
-                    self.fault(format!("{error} after 3 feedback attempts")).await;
+                if self.missed_polls >= MAX_MISSED_POLLS {
+                    self.fault(format!("{error} after {MAX_MISSED_POLLS} feedback attempts")).await;
                     return;
                 }
                 tracing::warn!(%error, attempt = self.missed_polls, "retrying controller feedback");

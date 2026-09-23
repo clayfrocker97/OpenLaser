@@ -133,12 +133,10 @@ pub async fn view(shared: &Shared) -> Result<View> {
         }
     }
     let state = c.machine.state();
-    let measured = c
-        .connected()
-        .then_some(state.observed_parameters)
-        .flatten()
-        .filter(|_| state.feedback.as_ref().is_some_and(|f| f.age_ms <= 1000));
-    let scale = measured.map_or(1000, |v| v.scale);
+    let measured = c.connected().then_some(state.observed_parameters).flatten().filter(|_| {
+        state.feedback.as_ref().is_some_and(|f| f.age_ms <= crate::coordinator::FRESH_FEEDBACK_MS)
+    });
+    let scale = measured.map_or(crate::bindings::OFFLINE_SCALE, |v| v.scale);
     let plan = initialization::Plan::from_document(doc, scale, c.mode.unwrap_or(LaserMode::Fiber));
     let (comparisons, problem) = match plan {
         Ok(plan) => (
@@ -203,7 +201,7 @@ pub async fn save(shared: &Shared, change: Change) -> Result<()> {
 
 /// Projects and applies the currently bound XML. Caller owns configuration admission.
 pub(crate) async fn initialize(shared: &Shared) -> Result<()> {
-    let epoch = shared.epoch()?;
+    let epoch = shared.ensure_running()?;
     let (doc, mode) = {
         let mut c = shared.lock().await;
         c.accepted = None;
@@ -214,7 +212,7 @@ pub(crate) async fn initialize(shared: &Shared) -> Result<()> {
     let before = shared.machine.read_parameters().await?;
     let plan = initialization::Plan::from_document(&doc, before.scale, mode)?;
     let expected = expected_parameters(&before, &plan)?;
-    if shared.epoch()? != epoch {
+    if shared.ensure_running()? != epoch {
         return Err(Error::Refused("initialization was cancelled".into()));
     }
     shared
