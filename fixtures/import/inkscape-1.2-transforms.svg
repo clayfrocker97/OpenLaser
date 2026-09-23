@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+<svg width="100mm" height="100mm" viewBox="0 0 100 100" version="1.1" inkscape:version="1.2.2" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd" xmlns="http://www.w3.org/2000/svg" xmlns:svg="http://www.w3.org/2000/svg">
+  <g inkscape:groupmode="layer" id="layer1" transform="translate(10,10)">
+    <g transform="rotate(30 20 20)"><rect x="0" y="0" width="40" height="20" rx="4" fill="none" stroke="black"/></g>
+    <g transform="scale(2,1)"><circle cx="15" cy="60" r="10" fill="none" stroke="black"/></g>
+    <g transform="matrix(-1,0,0,1,90,0)"><path d="M0 30 A15 15 0 0 0 30 30" fill="none" stroke="black"/></g>
+  </g>
+</svg>

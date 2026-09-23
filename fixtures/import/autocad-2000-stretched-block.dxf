@@ -1,0 +1,256 @@
+  0
+SECTION
+  2
+HEADER
+  9
+$ACADVER
+  1
+AC1015
+  9
+$INSUNITS
+ 70
+4
+  0
+ENDSEC
+  0
+SECTION
+  2
+TABLES
+  0
+TABLE
+  2
+LAYER
+  5
+100
+100
+AcDbSymbolTable
+ 70
+1
+  0
+LAYER
+  5
+101
+100
+AcDbSymbolTableRecord
+100
+AcDbLayerTableRecord
+  2
+0
+ 70
+0
+ 62
+7
+  6
+CONTINUOUS
+  0
+ENDTAB
+  0
+ENDSEC
+  0
+SECTION
+  2
+BLOCKS
+  0
+BLOCK
+  5
+102
+100
+AcDbEntity
+  8
+0
+100
+AcDbBlockBegin
+  2
+*Model_Space
+ 70
+0
+ 10
+0.0
+ 20
+0.0
+ 30
+0.0
+  3
+*Model_Space
+  1
+
+  0
+ENDBLK
+  5
+103
+100
+AcDbEntity
+  8
+0
+100
+AcDbBlockEnd
+  0
+BLOCK
+  5
+104
+100
+AcDbEntity
+  8
+0
+100
+AcDbBlockBegin
+  2
+*Paper_Space
+ 70
+0
+ 10
+0.0
+ 20
+0.0
+ 30
+0.0
+  3
+*Paper_Space
+  1
+
+  0
+ENDBLK
+  5
+105
+100
+AcDbEntity
+  8
+0
+100
+AcDbBlockEnd
+  0
+BLOCK
+  5
+106
+100
+AcDbEntity
+  8
+0
+100
+AcDbBlockBegin
+  2
+HOLE
+ 70
+0
+ 10
+0.0
+ 20
+0.0
+ 30
+0.0
+  3
+HOLE
+  1
+
+  0
+CIRCLE
+  5
+107
+100
+AcDbEntity
+  8
+0
+100
+AcDbCircle
+ 10
+0.0
+ 20
+0.0
+ 30
+0.0
+ 40
+10.0
+  0
+ARC
+  5
+108
+100
+AcDbEntity
+  8
+0
+100
+AcDbCircle
+ 10
+30.0
+ 20
+0.0
+ 30
+0.0
+ 40
+10.0
+100
+AcDbArc
+ 50
+0.0
+ 51
+180.0
+  0
+ENDBLK
+  5
+109
+100
+AcDbEntity
+  8
+0
+100
+AcDbBlockEnd
+  0
+ENDSEC
+  0
+SECTION
+  2
+ENTITIES
+  0
+INSERT
+  5
+10A
+100
+AcDbEntity
+  8
+0
+100
+AcDbBlockReference
+  2
+HOLE
+ 10
+0.0
+ 20
+0.0
+ 30
+0.0
+ 41
+2.0
+ 42
+1.0
+ 43
+1.0
+  0
+INSERT
+  5
+10B
+100
+AcDbEntity
+  8
+0
+100
+AcDbBlockReference
+  2
+HOLE
+ 10
+0.0
+ 20
+50.0
+ 30
+0.0
+ 41
+1.0
+ 42
+0.5
+ 43
+1.0
+ 50
+45.0
+  0
+ENDSEC
+  0
+EOF
