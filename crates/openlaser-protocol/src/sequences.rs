@@ -542,6 +542,28 @@ pub struct Shutdown {
     pub rapid_deceleration: u32,
     /// Every output port the vendor switches off, zeros ignored.
     pub ports: Vec<u8>,
+    /// The head raise after a pause, when a head is configured and the
+    /// mode keeps it: `ZF.ZFType` nonzero and not CO2 with
+    /// `MP.CO2DisabledZAxis`.
+    pub raise: Option<Raise>,
+}
+
+/// The pause retract: after the head cancel and fresh head feedback, `[103, speed, height]` to `MP.ZFSafeHeight`
+/// at `ZF.ZFUpSpeed`, when the head is at least that far below its origin.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct Raise {
+    /// `ZF.ZFUpSpeed` in tenths.
+    pub speed_tenths: u32,
+    /// `MP.ZFSafeHeight` in thousandths below the head's origin.
+    pub height_thousandths: u32,
+}
+
+impl Raise {
+    /// The retract request.
+    #[must_use]
+    pub fn write(self) -> Write {
+        requests::head_retract(self.speed_tenths, self.height_thousandths)
+    }
 }
 
 /// The host's output-off policy, shared by normal completion and fault stop.
@@ -557,6 +579,16 @@ pub fn shutdown(
     head_active: bool,
     extra_analog: &[u8],
 ) -> Result<Vec<Write>, SequenceError> {
+    let mut writes = stop_and_laser_off(config, stop_axes, head_active);
+    writes.extend(gas_and_outputs_off(config, extra_analog)?);
+    Ok(writes)
+}
+
+/// The first part of [`shutdown`]: the axes, the head cancel and the FIFO
+/// when `stop_axes`, then the laser off pair. A pause that raises the head
+/// sends this, raises, then sends [`gas_and_outputs_off`].
+#[must_use]
+pub fn stop_and_laser_off(config: &Shutdown, stop_axes: bool, head_active: bool) -> Vec<Write> {
     let mut writes = Vec::new();
     if stop_axes {
         writes.push(requests::rapid_stop(config.rapid_deceleration));
@@ -567,6 +599,16 @@ pub fn shutdown(
         writes.push(requests::fifo_stop());
     }
     writes.extend(laser_off_pair(config.point_laser_frequency));
+    writes
+}
+
+/// The rest of [`shutdown`]: every analog channel to zero and both output
+/// banks masked off, the gas with them.
+pub fn gas_and_outputs_off(
+    config: &Shutdown,
+    extra_analog: &[u8],
+) -> Result<Vec<Write>, SequenceError> {
+    let mut writes = Vec::new();
     let channels =
         config.gas_channels.iter().chain([&config.co2_analog_channel]).chain(extra_analog);
     for &channel in channels.filter(|channel| matches!(channel, 1 | 2)) {
@@ -922,6 +964,7 @@ mod tests {
             point_laser_frequency: 0,
             rapid_deceleration: 2000,
             ports: vec![9, 0, 12],
+            raise: None,
         }
     }
 

@@ -134,7 +134,8 @@ pub enum Concession {
         /// Only known X/Y limits may be conceded, after direction validation.
         allow_limits: bool,
     },
-    /// An authenticated manual Z move, away from only its opposite limit.
+    /// An authenticated manual Z move, away from only its opposite limit,
+    /// or up from a nozzle touching the plate.
     HeadJog {
         /// Negative native travel moves the head up.
         up: bool,
@@ -334,7 +335,10 @@ impl Monitor {
                 }
                 Concession::HeadJog { up, accompanied } => {
                     matches!(key, Key::HeadReference | Key::Head(12))
-                        || matches!((up, key), (false, Key::Head(0 | 2)) | (true, Key::Head(1 | 3)))
+                        || matches!(
+                            (up, key),
+                            (false, Key::Head(0 | 2)) | (true, Key::Head(1 | 3 | 5))
+                        )
                         || (*key == Key::Group1(SPECIAL_GROUP1_BIT) && accompanied)
                 }
             }

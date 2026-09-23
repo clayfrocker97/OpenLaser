@@ -357,10 +357,11 @@ fn shutdown(bundle: &Bundle, mode: LaserMode, head_enabled: bool) -> Result<(Shu
     let words = stop_words(bundle, mp)?;
     let ports = shutdown_ports(bundle, mp)?;
     let gas = Group::read(bundle, "GasParam", "MGP")?;
+    let co2_skip_head_cancel = mode == LaserMode::Co2 && mp.enabled("CO2DisabledZAxis")?;
     let shutdown = Shutdown {
         mode,
         head_enabled,
-        co2_skip_head_cancel: mode == LaserMode::Co2 && mp.enabled("CO2DisabledZAxis")?,
+        co2_skip_head_cancel,
         extended_outputs: Group::read(bundle, "ManuParam", "EC")?.uint("ECIOType", u32::MAX)? != 0,
         co2_analog_channel: Group::read(bundle, "LaserParam", "LGP")?.byte("CO2LaserDAPort", 3)?,
         gas_channels: gas.bytes(["RatioAir", "RatioO2", "RatioH2"], 3)?,
@@ -368,6 +369,10 @@ fn shutdown(bundle: &Bundle, mode: LaserMode, head_enabled: bool) -> Result<(Shu
             .uint("PtLaserFreq", u32::MAX)?,
         rapid_deceleration: words.rapid_deceleration,
         ports,
+        raise: (head_enabled && !co2_skip_head_cancel).then_some(sequences::Raise {
+            speed_tenths: words.retract_speed,
+            height_thousandths: words.long_retract_height,
+        }),
     };
     Ok((shutdown, words.rapid_deceleration))
 }
@@ -988,6 +993,10 @@ mod tests {
         let shutdown = &b.shutdown;
         assert_eq!((shutdown.rapid_deceleration, shutdown.point_laser_frequency), (10_000, 5000));
         assert_eq!(shutdown.gas_channels, [0, 2, 0]);
+        assert_eq!(
+            shutdown.raise,
+            Some(sequences::Raise { speed_tenths: 1000, height_thousandths: 10_000 })
+        );
         assert_eq!(
             shutdown.ports,
             vec![

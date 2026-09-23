@@ -581,8 +581,9 @@ impl Plant {
                 );
             }
             [103, speed, height] => {
+                // An absolute height below the origin, like FIFO opcode 0x67.
                 self.head_sequence.clear();
-                self.head_move(103, *speed, SURFACE - f64::from(*height), false);
+                self.head_move(103, *speed, f64::from(*height), false);
             }
             _ => return false,
         }

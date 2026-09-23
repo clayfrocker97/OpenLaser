@@ -130,6 +130,7 @@ fn bindings() -> Bindings {
             point_laser_frequency: 0,
             rapid_deceleration: 5999,
             ports: vec![1, 2, 3],
+            raise: None,
         },
         home: HomeOutputs { z_origin_done_port: 2, manual_signal_port: 1 },
         mode_switch: ModeSwitch {
@@ -1124,4 +1125,142 @@ async fn stop_bypasses_a_normal_command_backlog_during_upload() {
         drop(request.await.unwrap());
     }
     assert!(!control.writes().contains(&requests::fifo_start()));
+}
+
+/// [`bindings`] with the pause raise to 15 mm below the head's origin.
+async fn raising() -> (Simulator, Control, Machine) {
+    let (simulator, control, machine) = connected().await;
+    let mut bound = bindings();
+    bound.shutdown.raise =
+        Some(sequences::Raise { speed_tenths: 1000, height_thousandths: 15_000 });
+    machine.configure(bound).await.expect("configure");
+    machine.read_parameters().await.expect("parameters");
+    machine.home(false).await.expect("home");
+    control.clear_writes();
+    (simulator, control, machine)
+}
+
+/// Waits until the head is at least `depth` millimetres below its origin.
+async fn head_below(control: &Control, depth: f64) {
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(3);
+    while control.view().position_mm[3] < depth {
+        assert!(tokio::time::Instant::now() < deadline, "the head did not lower");
+        tokio::time::sleep(Duration::from_millis(5)).await;
+    }
+}
+
+/// Waits until the head has risen to `depth` millimetres below its origin.
+async fn head_at(control: &Control, depth: f64) {
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(3);
+    while (control.view().position_mm[3] - depth).abs() > 0.01 {
+        assert!(
+            tokio::time::Instant::now() < deadline,
+            "head at {}",
+            control.view().position_mm[3]
+        );
+        tokio::time::sleep(Duration::from_millis(5)).await;
+    }
+}
+
+/// The position of the first write with these words.
+fn position(writes: &[Vec<u32>], words: &[u32]) -> usize {
+    writes.iter().position(|w| w == words).unwrap_or_else(|| panic!("{words:?} in {writes:?}"))
+}
+
+/// A nozzle touching the plate mid-cut pauses the program: the laser goes
+/// off with the stop, the head is sent to the safe height, and only then
+/// does the gas go off. The pause does not wait for the head to arrive.
+#[tokio::test]
+async fn plate_contact_turns_the_laser_off_raises_the_head_then_the_gas() {
+    let (_simulator, control, machine) = raising().await;
+    let mut cut = program(&machine, 20_000, 5.);
+    let mut items = vec![
+        Record::Item(1),
+        Record::HeightAbsolute { speed_tenths: 3000, height_microns: 19_500 },
+    ];
+    let fields = PulsedFields { power: 50, frequency: 5000, tail: 0 };
+    items.extend((0..20_000).map(|_| Record::pulsed(1, 0, fields)));
+    items.extend([Record::Item(0xffff_fffe), Record::Barrier]);
+    cut.blocks = items.chunks(100).map(|chunk| records::encode(chunk).unwrap()).collect();
+    let run = tokio::spawn({
+        let machine = machine.clone();
+        async move { machine.run(cut).await }
+    });
+    head_below(&control, 19.4).await;
+    control.clear_writes();
+    control.fault(Fault::HeadTouch, true);
+    assert_eq!(run.await.unwrap(), Ok(Ending::Held));
+    let writes = words(&control.take_writes());
+    let stop = position(&writes, &[1, 31, 2, 5999, 200_000]);
+    let laser = position(&writes, &[9999, 3, 0, 0, 0]);
+    let raise = position(&writes, &[103, 1000, 15_000]);
+    let gas = position(&writes, &[9999, 4, 0, 0]);
+    assert!(stop < laser && laser < raise && raise < gas, "{writes:?}");
+    head_at(&control, 15.).await;
+    let view = control.view();
+    assert_eq!((view.analog, view.pwm[0][2], view.pwm[1][2]), ([0, 0], 0, 0));
+    assert!(machine.state().alarms.iter().any(|row| row.id == Some(38)));
+    machine.shutdown().await.unwrap();
+}
+
+/// A head jogged down onto the plate stops and rises to the safe height
+/// even though the operator is still holding the control, and may then be
+/// jogged further up while the contact persists.
+#[tokio::test]
+async fn a_head_jogged_onto_the_plate_rises_to_the_safe_height() {
+    let (_simulator, control, machine) = raising().await;
+    let down = Plan {
+        name: "head down".into(),
+        on: vec![sequences::Step::Write(requests::head_move(300, 1_000_000))],
+        off: vec![requests::head_cancel()],
+        lease: Duration::from_secs(5),
+        duration: None,
+    };
+    let jog = tokio::spawn({
+        let machine = machine.clone();
+        async move { machine.outputs(down).await }
+    });
+    head_below(&control, 19.5).await;
+    control.fault(Fault::HeadTouch, true);
+    jog.await.unwrap().expect("the jog ends by rising, not by failing");
+    head_at(&control, 15.).await;
+    assert!(matches!(machine.state().connection, Connection::Connected { .. }));
+    let up = Plan {
+        name: "head up".into(),
+        on: vec![sequences::Step::Write(requests::head_move(300, -1000))],
+        off: vec![requests::head_cancel()],
+        lease: Duration::from_secs(5),
+        duration: None,
+    };
+    machine.outputs(up).await.expect("up is away from the plate");
+    machine.shutdown().await.unwrap();
+}
+
+/// A head controller that stays busy after the touch does not hold up the
+/// pause for long: it ends a few seconds after X and Y stop, with the gas
+/// off and its checkpoint, instead of failing at the settle watchdog.
+#[tokio::test]
+async fn a_pause_does_not_wait_for_a_head_that_stays_busy() {
+    let (_simulator, control, machine) = raising().await;
+    let mut cut = program(&machine, 20_000, 5.);
+    let mut items = vec![
+        Record::Item(1),
+        Record::HeightAbsolute { speed_tenths: 3000, height_microns: 19_500 },
+    ];
+    let fields = PulsedFields { power: 50, frequency: 5000, tail: 0 };
+    items.extend((0..20_000).map(|_| Record::pulsed(1, 0, fields)));
+    items.extend([Record::Item(0xffff_fffe), Record::Barrier]);
+    cut.blocks = items.chunks(100).map(|chunk| records::encode(chunk).unwrap()).collect();
+    let run = tokio::spawn({
+        let machine = machine.clone();
+        async move { machine.run(cut).await }
+    });
+    head_below(&control, 19.4).await;
+    control.fault(Fault::HeadStall, true);
+    control.fault(Fault::HeadTouch, true);
+    let ending = tokio::time::timeout(Duration::from_secs(5), run).await;
+    assert_eq!(ending.expect("the pause ends promptly").unwrap(), Ok(Ending::Held));
+    assert!(machine.state().program.is_some_and(|p| p.checkpoint.is_some()));
+    assert_eq!(control.view().analog, [0, 0]);
+    machine.shutdown().await.unwrap();
 }
