@@ -154,68 +154,38 @@ pub(crate) fn run_sheets(
     let total = validate(request)?;
     check_cancelled(cancel)?;
     let first = geometry(request, cancel)?;
-    let mut blank_request = request.clone();
-    if let Some(stock) = overflow {
-        blank_request.stock = stock.clone();
-        blank_request.cutouts.clear();
-        blank_request.rectangular = true;
-    }
+    let blank_request = overflow_request(request, overflow);
     let blank = if overflow.is_some() { Some(geometry(&blank_request, cancel)?) } else { None };
     let next = blank.as_ref().unwrap_or(&first);
     let stocks = Stocks { first: &first, next, request, blank: &blank_request };
     let deadline = Instant::now() + request.time_limit;
     let mut budget = Budget { cancel, deadline, phase: deadline };
     let mut rng = Xoshiro256PlusPlus::seed_from_u64(request.seed);
-    let mut order: Vec<usize> =
-        first.items.iter().enumerate().flat_map(|(i, (_, q))| std::iter::repeat_n(i, *q)).collect();
-    order.sort_by(|a, b| {
-        first.items[*b].0.shape_cd.area.total_cmp(&first.items[*a].0.shape_cd.area)
-    });
-    let mut layouts = vec![Layout::new(first.stock.clone())];
-    // Each sheet's contours and curves, kept within what preparation accepts.
-    let mut loads = vec![[0, 0]];
+    let order = largest_first(&first);
+    let mut sheets =
+        FirstFit { layouts: vec![Layout::new(first.stock.clone())], loads: vec![[0, 0]] };
     for (placed, id) in order.into_iter().enumerate() {
         check_cancelled(cancel)?;
         if budget.kill() {
-            return Err(Error(format!(
-                "nesting time limit reached ({placed} of {total} parts); increase search time"
-            )));
+            return Err(time_limit_reached(placed, total));
         }
-        let copy = load(&request.items[id]);
-        let mut fitted = None;
-        for (index, layout) in layouts.iter_mut().enumerate() {
-            if !fits(&request.sheet_limit, plus(loads[index], copy)) {
-                continue;
-            }
-            let geometry = if index == 0 { &first } else { next };
-            if place_one(layout, &geometry.items[id].0, &budget, &mut rng) {
-                loads[index] = plus(loads[index], copy);
-                fitted = Some(index);
-                break;
-            }
-        }
-        if fitted.is_none() {
-            if budget.kill() {
-                return Err(Error(format!(
-                    "nesting time limit reached ({placed} of {total} parts); increase search time"
-                )));
-            }
-            let mut layout = Layout::new(next.stock.clone());
-            if !place_one(&mut layout, &next.items[id].0, &budget, &mut rng) {
-                return Err(Error(format!(
-                    "part {} could not fit on an empty sheet with this spacing and rotation",
-                    id + 1
-                )));
-            }
-            layouts.push(layout);
-            loads.push(copy);
-        }
+        let fitted =
+            sheets.place(&stocks, request, id, &budget, &mut rng).map_err(
+                |unplaced| match unplaced {
+                    Unplaced::OutOfTime => time_limit_reached(placed, total),
+                    Unplaced::TooLarge => Error(format!(
+                        "part {} could not fit on an empty sheet with this spacing and rotation",
+                        id + 1
+                    )),
+                },
+            )?;
         progress(placed + 1, total);
         if live.due() {
-            (live.show)(&stocks.standing(&layouts), fitted.unwrap_or(layouts.len() - 1));
+            (live.show)(&stocks.standing(&sheets.layouts), fitted);
         }
     }
     check_cancelled(cancel)?;
+    let mut layouts = sheets.layouts;
     let last = layouts.len() - 1;
     let (geometry, input) = stocks.of(last);
     // Every sheet before the last stays as it is while the last compacts.
@@ -224,6 +194,90 @@ pub(crate) fn run_sheets(
     compress_last(&mut layouts[last], geometry, input, &mut budget, &mut rng, &mut compacting);
     check_cancelled(cancel)?;
     stocks.finished(layouts)
+}
+
+/// The request for every sheet after the first: the overflow stock, a
+/// plain rectangle without cutouts, when there is one; otherwise the same
+/// stock again.
+fn overflow_request(
+    request: &Request,
+    overflow: Option<&openlaser_core::geometry::Contour>,
+) -> Request {
+    let mut blank = request.clone();
+    if let Some(stock) = overflow {
+        blank.stock = stock.clone();
+        blank.cutouts.clear();
+        blank.rectangular = true;
+    }
+    blank
+}
+
+/// Every requested copy, as its item index, largest area first.
+fn largest_first(geometry: &Geometry) -> Vec<usize> {
+    let mut order: Vec<usize> = geometry
+        .items
+        .iter()
+        .enumerate()
+        .flat_map(|(i, (_, q))| std::iter::repeat_n(i, *q))
+        .collect();
+    order.sort_by(|a, b| {
+        geometry.items[*b].0.shape_cd.area.total_cmp(&geometry.items[*a].0.shape_cd.area)
+    });
+    order
+}
+
+fn time_limit_reached(placed: usize, total: usize) -> Error {
+    Error(format!("nesting time limit reached ({placed} of {total} parts); increase search time"))
+}
+
+/// Why a copy found no sheet.
+enum Unplaced {
+    /// The search ran out of time.
+    OutOfTime,
+    /// It does not fit even on an empty sheet.
+    TooLarge,
+}
+
+/// The sheets of a first-fit placement so far.
+struct FirstFit {
+    layouts: Vec<Layout>,
+    /// Each sheet's contours and curves, kept within what preparation accepts.
+    loads: Vec<[usize; 2]>,
+}
+
+impl FirstFit {
+    /// Places one copy of item `id` on the first sheet with room for it, or
+    /// on a new sheet; the index of the sheet it went on.
+    fn place(
+        &mut self,
+        stocks: &Stocks<'_>,
+        request: &Request,
+        id: usize,
+        budget: &Budget<'_>,
+        rng: &mut Xoshiro256PlusPlus,
+    ) -> Result<usize, Unplaced> {
+        let copy = load(&request.items[id]);
+        for (index, layout) in self.layouts.iter_mut().enumerate() {
+            if !fits(&request.sheet_limit, plus(self.loads[index], copy)) {
+                continue;
+            }
+            let (geometry, _) = stocks.of(index);
+            if place_one(layout, &geometry.items[id].0, budget, rng) {
+                self.loads[index] = plus(self.loads[index], copy);
+                return Ok(index);
+            }
+        }
+        if budget.kill() {
+            return Err(Unplaced::OutOfTime);
+        }
+        let mut layout = Layout::new(stocks.next.stock.clone());
+        if !place_one(&mut layout, &stocks.next.items[id].0, budget, rng) {
+            return Err(Unplaced::TooLarge);
+        }
+        self.layouts.push(layout);
+        self.loads.push(copy);
+        Ok(self.layouts.len() - 1)
+    }
 }
 
 /// Each sheet's geometry and request: the original stock for the first
@@ -377,15 +431,7 @@ fn initial_search(
     rng: &mut Xoshiro256PlusPlus,
     progress: &mut Progress<'_>,
 ) -> Option<Layout> {
-    let mut order: Vec<usize> = geometry
-        .items
-        .iter()
-        .enumerate()
-        .flat_map(|(i, (_, q))| std::iter::repeat_n(i, *q))
-        .collect();
-    order.sort_by(|&a, &b| {
-        geometry.items[b].0.shape_cd.area.total_cmp(&geometry.items[a].0.shape_cd.area)
-    });
+    let mut order = largest_first(geometry);
     let mut best = current_layout(
         &geometry.stock,
         &geometry.items,

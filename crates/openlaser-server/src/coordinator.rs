@@ -157,7 +157,8 @@ pub struct Coordinator {
     publisher: watch::Sender<Document>,
 }
 
-/// The simulator's units per millimetre.
+/// The simulator's units per millimetre: `SCALE` in the controller's
+/// simulated plant.
 const SIMULATOR_SCALE: i32 = 1000;
 
 /// The five axis parameter banks.

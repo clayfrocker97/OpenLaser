@@ -138,7 +138,7 @@ pub async fn view(shared: &Shared) -> Result<View> {
         .then_some(state.observed_parameters)
         .flatten()
         .filter(|_| state.feedback.as_ref().is_some_and(|f| f.age_ms <= 1000));
-    let scale = measured.map_or(1000, |v| v.scale);
+    let scale = measured.map_or(crate::bindings::OFFLINE_SCALE, |v| v.scale);
     let plan = initialization::Plan::from_document(doc, scale, c.mode.unwrap_or(LaserMode::Fiber));
     let (comparisons, problem) = match plan {
         Ok(plan) => (
