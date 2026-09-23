@@ -44,7 +44,9 @@
     const id = doc.recovery?.id;
     if (id && original?.id !== id) { untrack(() => {
       if (execution?.id === id) original = execution;
-      else api.recoveryProgram().then(reply => { if (server.doc?.recovery?.id === reply.execution.id) original = reply.execution; }).catch(error => ui.say(explain(error), true));
+      else api.recoveryProgram()
+        .then(reply => { if (server.doc?.recovery?.id === reply.execution.id) original = reply.execution; })
+        .catch(error => ui.say(explain(error), true));
     }); }
   });
   const retained = $derived(execution && !execution.frame && original?.id === doc.recovery?.id ? original : null);
@@ -66,7 +68,11 @@
 
   const camera = $derived(runView(`${draft?.job ?? draft?.key ?? 'empty'}/${draft?.sheets?.active ?? 0}`));
   const view = $derived(camera.view);
-  const box = $derived(compiled ? boxOf(compiled.moves.filter(m => m.kind !== 'travel').map((m) => m.points)) : preview?.bounds ? boxOfBounds(preview.bounds) : null);
+  const box = $derived(
+    compiled ? boxOf(compiled.moves.filter(m => m.kind !== 'travel').map((m) => m.points))
+    : preview?.bounds ? boxOfBounds(preview.bounds)
+    : null,
+  );
   const fit = () => {
     view.setLimit(frame.bed);
     if (box) view.fit({ minX: box.minX + frame.zero[0], maxX: box.maxX + frame.zero[0], minY: box.minY + frame.zero[1], maxY: box.maxY + frame.zero[1] });
@@ -96,22 +102,44 @@
   const pass = $derived(current === null ? null : compiled?.plan[current] ?? null);
   const cutting = $derived(running && !doc.progress?.approaching && pass?.kind !== 'pre_pierce' ? current : null);
   const pct = $derived(contours > 0 ? (done / contours) * 100 : 0);
-  const eta = $derived(recovering ? 'Original program' : execution ? seconds(execution.compiled.seconds * (1 - (doc.progress?.completed ?? 0) / Math.max(1, execution.compiled.plan.length))) : compiled ? seconds(compiled.seconds) : '—');
+  const eta = $derived.by(() => {
+    if (recovering) return 'Original program';
+    if (execution) {
+      const left = 1 - (doc.progress?.completed ?? 0) / Math.max(1, execution.compiled.plan.length);
+      return seconds(execution.compiled.seconds * left);
+    }
+    return compiled ? seconds(compiled.seconds) : '—';
+  });
   /** The next travel move, when only that one is shown. */
   const nextTravel = $derived(compiled?.moves.findIndex((m) => m.kind === 'travel' && (m.pass ?? 0) >= done) ?? -1);
-  const resumeTravels = $derived(resumed ? execution!.compiled.moves.filter(move => move.kind === 'travel' && (move.pass ?? 0) >= (doc.progress?.completed ?? 0)) : []);
+  const resumeTravels = $derived(
+    resumed
+      ? execution!.compiled.moves.filter(move => move.kind === 'travel' && (move.pass ?? 0) >= (doc.progress?.completed ?? 0))
+      : [],
+  );
+  /** The resumed program's travel moves the travel mode shows. */
+  const shownResumeTravels = $derived(ui.travelMode === 'all' ? resumeTravels : resumeTravels.slice(0, 1));
 
   const message = $derived.by(() => {
     if (recovering) return doc.can_resume ? 'Resume starts at the selected recovery point.' : 'Choose and prepare the restart point.';
-    if (paused) return machine.operation?.kind === 'program' ? 'Pausing · waiting for the head to stop.' : doc.can_resume ? 'Paused · Resume returns to the saved position.' : doc.recovery?.problem ?? 'Paused · saving the position.';
+    if (paused) {
+      if (machine.operation?.kind === 'program') return 'Pausing · waiting for the head to stop.';
+      return doc.can_resume ? 'Paused · Resume returns to the saved position.' : doc.recovery?.problem ?? 'Paused · saving the position.';
+    }
     if (execution && running) {
       if (execution.frame) return 'Framing · laser off.';
       if (compiled?.dry_run) return 'Dry run · laser off.';
       if (!program?.started) return 'Preparing to run · keep clear of the bed.';
-      const phase = doc.progress?.approaching ? 'Travel' : pass?.kind === 'pre_pierce' ? 'Pre-piercing' : pass?.kind === 'film' ? 'Film removal' : 'Cutting process';
+      const phase = doc.progress?.approaching ? 'Travel'
+        : pass?.kind === 'pre_pierce' ? 'Pre-piercing'
+        : pass?.kind === 'film' ? 'Film removal'
+        : 'Cutting process';
       return `${phase}${pass ? ` · pass ${pass.ordinal + 1}` : ''} · keep clear of the bed.`;
     }
-    if (execution && program?.state === 'completed') return execution.frame ? 'Frame finished.' : compiled?.dry_run ? 'Dry run finished.' : 'Program finished. Check the cut.';
+    if (execution && program?.state === 'completed') {
+      if (execution.frame) return 'Frame finished.';
+      return compiled?.dry_run ? 'Dry run finished.' : 'Program finished. Check the cut.';
+    }
     if (execution && program?.state === 'stopped') return 'Job stopped.';
     return doc.readiness.run.ok ? 'Ready. Hold Start to run.' : doc.readiness.run.reason ?? '';
   });
@@ -166,7 +194,11 @@
     <div class="crumb">
       <strong>{jobName}</strong>
       <span class="run-msg run-material">{material ? `${recipeLabel(material)} · ${laserLabel(material.laser)}` : 'No material'}</span>
-      {#if draft?.calibration}<span class="run-msg run-correction">Correction off</span>{:else if !displayed && draft?.placement.correction_pending}<span class="run-msg run-correction">Correction pending position</span>{/if}
+      {#if draft?.calibration}
+        <span class="run-msg run-correction">Correction off</span>
+      {:else if !displayed && draft?.placement.correction_pending}
+        <span class="run-msg run-correction">Correction pending position</span>
+      {/if}
     </div>
     {#if material}<div class="run-summary"><MaterialSummary source={material} variant="line" /></div>{/if}
     <div class="run-meta">
@@ -185,8 +217,14 @@
     <div class="run-choice">
       <span class="muted">{draft.error ?? (choosingRun ? 'Preparing…' : draft.dry_run ? 'Laser off' : '')}</span>
       <div class="seg">
-        <button class:on={!draft.dry_run} disabled={choosingRun || !doc.readiness.compile.ok || !!machine.operation} onclick={() => chooseRun(false)}>Cut</button>
-        <button class:on={draft.dry_run} disabled={choosingRun || !doc.readiness.compile.ok || !!machine.operation} onclick={() => chooseRun(true)}>Dry run</button>
+        <button
+          class:on={!draft.dry_run}
+          disabled={choosingRun || !doc.readiness.compile.ok || !!machine.operation}
+          onclick={() => chooseRun(false)}>Cut</button>
+        <button
+          class:on={draft.dry_run}
+          disabled={choosingRun || !doc.readiness.compile.ok || !!machine.operation}
+          onclick={() => chooseRun(true)}>Dry run</button>
       </div>
     </div>
   {/if}
@@ -202,32 +240,105 @@
       {#each compiled.moves as move, i}
         {@const finished = move.pass !== null && (retained ? doc.recovery?.steps[move.pass]?.status === 'completed' : move.pass < done)}
         {#if ui.layerShown(finished ? 'done' : move.kind) && (move.kind !== 'travel' || !resumed && (ui.travelMode === 'all' || i === nextTravel))}
-          <path class="path {move.kind}" class:done={finished} class:restart-selected={recovering && move.pass !== null && move.pass === current && move.kind !== 'travel'} class:skipped={recovering && move.pass !== null && doc.recovery?.steps[move.pass]?.status === 'skipped'} class:active={move.pass !== null && move.pass === cutting} d={pathOf(move.points, false)} vector-effect="non-scaling-stroke"/>
+          <path
+            class="path {move.kind}"
+            class:done={finished}
+            class:restart-selected={recovering && move.pass !== null && move.pass === current && move.kind !== 'travel'}
+            class:skipped={recovering && move.pass !== null && doc.recovery?.steps[move.pass]?.status === 'skipped'}
+            class:active={move.pass !== null && move.pass === cutting}
+            d={pathOf(move.points, false)}
+            vector-effect="non-scaling-stroke"/>
         {/if}
       {/each}
-      {#if ui.layerShown('travel')}{#each ui.travelMode === 'all' ? resumeTravels : resumeTravels.slice(0, 1) as move}<path class="path travel" d={pathOf(move.points, false)} vector-effect="non-scaling-stroke" />{/each}{/if}
-      {#if ui.layerShown('done')}{#each history as points}<path class="path done" d={pathOf(points, false)} vector-effect="non-scaling-stroke" />{/each}{/if}
-      {#if ui.layerShown('pierce')}{#each compiled.pierces as [x, y]}<circle class="mark pierce" cx={x} cy={y} r={mark * 1.4}/>{/each}{/if}
+      {#if ui.layerShown('travel')}
+        {#each shownResumeTravels as move}
+          <path class="path travel" d={pathOf(move.points, false)} vector-effect="non-scaling-stroke" />
+        {/each}
+      {/if}
+      {#if ui.layerShown('done')}
+        {#each history as points}<path class="path done" d={pathOf(points, false)} vector-effect="non-scaling-stroke" />{/each}
+      {/if}
+      {#if ui.layerShown('pierce')}
+        {#each compiled.pierces as [x, y]}<circle class="mark pierce" cx={x} cy={y} r={mark * 1.4}/>{/each}
+      {/if}
     {:else if preview}
-      {#each preview.contours as contour}{#each contour.paths as path}<path class="path {path.kind}" d={pathOf(path.points, false)} vector-effect="non-scaling-stroke"/>{/each}{/each}
+      {#each preview.contours as contour}
+        {#each contour.paths as path}
+          <path class="path {path.kind}" d={pathOf(path.points, false)} vector-effect="non-scaling-stroke"/>
+        {/each}
+      {/each}
     {/if}
     </g>
-    {#if restartPosition}<g aria-label={recovering ? 'Selected restart' : 'Paused position'}><circle cx={restartPosition[0]} cy={restartPosition[1]} r={mark * 2} fill="var(--hold)" stroke="var(--ink)" vector-effect="non-scaling-stroke" /><path d="M{restartPosition[0] - mark * 4} {restartPosition[1]}h{mark * 8} M{restartPosition[0]} {restartPosition[1] - mark * 4}v{mark * 8}" stroke="var(--ink)" vector-effect="non-scaling-stroke" /></g>{/if}
+    {#if restartPosition}
+      <g aria-label={recovering ? 'Selected restart' : 'Paused position'}>
+        <circle
+          cx={restartPosition[0]}
+          cy={restartPosition[1]}
+          r={mark * 2}
+          fill="var(--hold)"
+          stroke="var(--ink)"
+          vector-effect="non-scaling-stroke" />
+        <path
+          d="M{restartPosition[0] - mark * 4} {restartPosition[1]}h{mark * 8} M{restartPosition[0]} {restartPosition[1] - mark * 4}v{mark * 8}"
+          stroke="var(--ink)"
+          vector-effect="non-scaling-stroke" />
+      </g>
+    {/if}
     {#snippet overlay()}
-      <div class="canvas-hud">{#if frame.head}<span>Head X {distance(frame.head[0] - frame.zero[0])}</span><span>Y {distance(frame.head[1] - frame.zero[1])}</span><span class="muted">job coordinates · {unitLabel('mm')}</span>{:else}<span>Connect for the head position</span>{/if}<span class="sep"></span><span>{view.percent}%</span></div>
-      <div class="canvas-zoom"><button onclick={fit} title="Fit job"><i class="ic ic-fit"></i></button><button onclick={() => view.zoom(1.25)} title="Zoom in"><i class="ic ic-plus"></i></button><button onclick={() => view.zoom(0.8)} title="Zoom out"><i class="ic ic-minus"></i></button></div>
+      <div class="canvas-hud">
+        {#if frame.head}
+          <span>Head X {distance(frame.head[0] - frame.zero[0])}</span>
+          <span>Y {distance(frame.head[1] - frame.zero[1])}</span>
+          <span class="muted">job coordinates · {unitLabel('mm')}</span>
+        {:else}
+          <span>Connect for the head position</span>
+        {/if}
+        <span class="sep"></span>
+        <span>{view.percent}%</span>
+      </div>
+      <div class="canvas-zoom">
+        <button onclick={fit} title="Fit job"><i class="ic ic-fit"></i></button>
+        <button onclick={() => view.zoom(1.25)} title="Zoom in"><i class="ic ic-plus"></i></button>
+        <button onclick={() => view.zoom(0.8)} title="Zoom out"><i class="ic ic-minus"></i></button>
+      </div>
     {/snippet}
   </Stage>
   <div class="legend-bar">
-    {#if canRecover && !recoveryEditor}<button class="legend-chip recovery-toggle" onclick={() => showRecovery = !showRecovery}>{recovering ? 'Back to controls' : 'Adjust restart…'}</button>{/if}
-    {#if recovering && !showLayers}<span class="recovery-key"><i></i>Selected restart</span><span class="recovery-key finished-key"><i></i>Completed</span><button class="legend-chip" onclick={() => showLayers = true}>Display layers…</button>{:else}
-    {#each LAYERS as [layer, label]}<button class="legend-chip" class:off={!ui.layerShown(layer)} onclick={() => ui.toggleLayer(layer)}><svg class="sample" viewBox="0 0 36 12" aria-hidden="true">{#if layer === 'pierce'}<circle class="mark pierce" cx="18" cy="6" r="5"/>{:else}<path class="path {layer}" d="M2 6H34"/>{/if}</svg>{label}</button>{/each}
-    {#if recovering}<button class="legend-chip" onclick={() => showLayers = false}>Done</button>{/if}{/if}
+    {#if canRecover && !recoveryEditor}
+      <button class="legend-chip recovery-toggle" onclick={() => showRecovery = !showRecovery}>
+        {recovering ? 'Back to controls' : 'Adjust restart…'}
+      </button>
+    {/if}
+    {#if recovering && !showLayers}
+      <span class="recovery-key"><i></i>Selected restart</span>
+      <span class="recovery-key finished-key"><i></i>Completed</span>
+      <button class="legend-chip" onclick={() => showLayers = true}>Display layers…</button>
+    {:else}
+      {#each LAYERS as [layer, label]}
+        <button class="legend-chip" class:off={!ui.layerShown(layer)} onclick={() => ui.toggleLayer(layer)}>
+          <svg class="sample" viewBox="0 0 36 12" aria-hidden="true">
+            {#if layer === 'pierce'}<circle class="mark pierce" cx="18" cy="6" r="5"/>{:else}<path class="path {layer}" d="M2 6H34"/>{/if}
+          </svg>
+          {label}
+        </button>
+      {/each}
+      {#if recovering}<button class="legend-chip" onclick={() => showLayers = false}>Done</button>{/if}
+    {/if}
     <span class="spacer"></span>
-    {#if !recovering || showLayers}<div class="seg small"><button class:on={ui.travelMode === 'next'} onclick={() => ui.setTravelMode('next')}>Next move</button><button class:on={ui.travelMode === 'all'} onclick={() => ui.setTravelMode('all')}>All moves</button></div>{/if}
+    {#if !recovering || showLayers}
+      <div class="seg small">
+        <button class:on={ui.travelMode === 'next'} onclick={() => ui.setTravelMode('next')}>Next move</button>
+        <button class:on={ui.travelMode === 'all'} onclick={() => ui.setTravelMode('all')}>All moves</button>
+      </div>
+    {/if}
   </div>
 
-  {#if doc.completed_sheet && !running && !recovering}<div class="sheet-complete"><span><strong>Sheet complete</strong><small>Inspect the parts and remaining material.</small></span><button class="btn btn-ghost" onclick={() => remnant = doc.completed_sheet}>Save remaining sheet</button></div>{/if}
+  {#if doc.completed_sheet && !running && !recovering}
+    <div class="sheet-complete">
+      <span><strong>Sheet complete</strong><small>Inspect the parts and remaining material.</small></span>
+      <button class="btn btn-ghost" onclick={() => remnant = doc.completed_sheet}>Save remaining sheet</button>
+    </div>
+  {/if}
   {#if !recovering}
   <StatusLine status={message} gates={running || paused ? [] : statusGates} tone={statusTone} />
   <RunControls onaction={act} busy={reviewing} showStop={!compact} explain={false} />
