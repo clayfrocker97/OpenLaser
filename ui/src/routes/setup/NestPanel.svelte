@@ -3,7 +3,7 @@
   import { onDestroy, untrack } from 'svelte';
   import StockChooser from '../../components/StockChooser.svelte';
   import { api } from '../../api/client';
-  import type { NestSettings, NestView, NestSheetPreview } from '../../api';
+  import type { NestLive, NestSettings, NestView, NestSheetPreview } from '../../api';
   import { server } from '../../stores/server.svelte';
   import { ui } from '../../stores/ui.svelte';
   import { osk } from '../../lib/osk.svelte';
@@ -15,10 +15,15 @@
   let settings = $state<NestSettings>({ spacing: 3, margin: 3, remnant_clearance: 10, rotation: 'any' });
   let quantity = $state(1), seconds = $state(10), page = $state(0);
   let result = $state<NestView | null>(null), previewPage = $state<NestSheetPreview | null>(null);
+  /** The running search's arrangement, updated as it improves. */
+  let live = $state<NestLive | null>(null);
   let busy = $state(false), stockOpen = $state(false), cancelling = $state(false), error = $state('');
   let timer: ReturnType<typeof setTimeout> | undefined;
   let active = true, initial = '';
   const stale = $derived(result !== null && result.revision !== draft.revision);
+  /** Sheets found replace the open sheet of an unsaved set, so they are
+   *  numbered from it. */
+  const first = $derived(draft.sheets?.pages.every((p) => !p.job) ? draft.sheets.active : 0);
   const ready = $derived(!!result?.preview && !result.running && !stale);
   const stock = $derived(draft.nesting?.stock);
   const stockName = $derived(stock?.kind === 'remnant' ? stock.name : stock?.kind === 'outline' ? 'Drawing outline' : stock?.kind === 'rectangle' ? `${distance(stock.bounds.max.x - stock.bounds.min.x)} × ${distance(stock.bounds.max.y - stock.bounds.min.y)} ${unitLabel('mm')}` : 'Choose a sheet');
@@ -32,12 +37,21 @@
     const display = previewPage ?? (result ? { preview: result.preview, stock_outline: result.stock_outline, stock_cutouts: result.stock_cutouts } : null);
     ui.nestPreview = ready ? display?.preview ?? null : null;
     ui.nestStock = ready && display ? { outline: display.stock_outline, cutouts: display.stock_cutouts } : null;
+    ui.nestLive = result?.running && !stale ? live : null;
   });
-  function invalidate(): void { result = null; previewPage = null; error = ''; page = 0; }
+  function invalidate(): void { result = null; previewPage = null; live = null; error = ''; page = 0; }
   function number(label: string, value: number, unit: string, change: (value: number) => void): void { osk.number(label, value, unit, v => { change(v); invalidate(); }); }
   async function poll(id: number): Promise<void> {
     if (!active) return;
-    try { const next = await api.nestStatus(id); if (!active || result?.id !== id) return; result = next; if (next.running) timer = setTimeout(() => { void poll(id); }, 450); else { cancelling = false; error = next.error ?? ''; } }
+    try {
+      // Only a newer arrangement comes back; the search shows at most five a second.
+      const next = await api.nestStatus(id, live ? result?.live_serial : undefined);
+      if (!active || result?.id !== id) return;
+      result = next;
+      if (next.live) live = next.live;
+      if (next.running) timer = setTimeout(() => { void poll(id); }, 250);
+      else { live = null; cancelling = false; error = next.error ?? ''; }
+    }
     catch (e) { error = explain(e); cancelling = false; }
   }
   async function start(): Promise<void> {
@@ -45,6 +59,7 @@
     if (!draft.nesting) { stockOpen = true; return; }
     if (!Number.isInteger(quantity) || quantity < 1 || quantity > 500) { error = 'Enter a whole quantity from 1 to 500.'; return; }
     busy = true; error = ''; ui.nestPicking = false; previewPage = null; page = 0;
+    live = null;
     try { result = await api.nest({ contours: effectiveSelection, quantity, settings: $state.snapshot(settings), seconds }, draft.revision); timer = setTimeout(() => { if (result) void poll(result.id); }, 200); }
     catch (e) { error = explain(e); } finally { busy = false; }
   }
@@ -52,13 +67,13 @@
     if (!result || busy || index === page) return; busy = true;
     try { previewPage = await api.nestSheet(result.id, index); page = index; } catch (e) { error = explain(e); } finally { busy = false; }
   }
-  async function cancel(): Promise<void> { if (!result) return; cancelling = true; try { await api.cancelNest(result.id); ui.nestPreview = null; ui.nestStock = null; } catch (e) { error = explain(e); cancelling = false; } }
+  async function cancel(): Promise<void> { if (!result) return; cancelling = true; try { await api.cancelNest(result.id); live = null; ui.nestPreview = null; ui.nestStock = null; ui.nestLive = null; } catch (e) { error = explain(e); cancelling = false; } }
   async function apply(): Promise<void> {
     if (!result || stale || busy) return; busy = true;
     try { const count = result.total, sheets = result.sheets.length; await api.applyNest(result.id); invalidate(); ui.selectionEpoch++; ui.setupPanel = null; ui.say(`${count} parts on ${sheets} sheet${sheets === 1 ? '' : 's'} · Undo restores the previous layout`); }
     catch (e) { error = explain(e); } finally { busy = false; }
   }
-  onDestroy(() => { active = false; clearTimeout(timer); ui.nestPreview = null; ui.nestStock = null; ui.nestPicking = false; if (result) void api.cancelNest(result.id).catch(() => undefined); });
+  onDestroy(() => { active = false; clearTimeout(timer); ui.nestPreview = null; ui.nestStock = null; ui.nestLive = null; ui.nestPicking = false; if (result) void api.cancelNest(result.id).catch(() => undefined); });
 </script>
 
 <div class="nest-panel">
@@ -66,10 +81,10 @@
 <div class="nest-scroll">
 {#if ready && result}
   <div class="result-summary"><strong>{result.total} parts</strong><span>Across {result.sheets.length} sheet{result.sheets.length === 1 ? '' : 's'} · every requested copy placed</span></div>
-  <div class="preview-pages" role="group" aria-label="Nesting preview sheets">{#each result.sheets as sheet, i}<button class:on={page === i} aria-pressed={page === i} disabled={busy} onclick={() => show(i)}><strong>Sheet {sheet.number}</strong><span>{sheet.parts} parts · {Math.round(sheet.coverage * 100)}%</span>{#if sheet.fresh}<small>Fresh sheet</small>{/if}</button>{/each}</div>
+  <div class="preview-pages" role="group" aria-label="Nesting preview sheets">{#each result.sheets as sheet, i}<button class:on={page === i} aria-pressed={page === i} disabled={busy} onclick={() => show(i)}><strong>Sheet {first + sheet.number}</strong><span>{sheet.parts} parts · {Math.round(sheet.coverage * 100)}%</span>{#if sheet.fresh}<small>Fresh sheet</small>{/if}</button>{/each}</div>
   <p class="nest-note">Review each sheet on the drawing. After applying, switch sheets above the canvas and save the set in one folder.</p>
 {:else if result?.running}
-  <div class="searching" role="status"><strong>{cancelling ? 'Cancelling…' : 'Arranging your sheets'}</strong><p>{result.placed} of {result.total} parts placed</p><progress value={result.placed} max={result.total}></progress><p>Overflow goes onto the next sheet.</p><button class="btn lg block" disabled={cancelling} onclick={cancel}>Cancel nesting</button></div>
+  <div class="searching" role="status"><strong>{cancelling ? 'Cancelling…' : 'Arranging your sheets'}</strong><p>{result.placed} of {result.total} parts placed</p><progress value={result.placed} max={result.total}></progress><p>{live ? `The drawing shows sheet ${first + live.sheet} as the search improves it; the result is checked before you can apply it.` : 'Overflow goes onto the next sheet.'}</p><button class="btn lg block" disabled={cancelling} onclick={cancel}>Cancel nesting</button></div>
 {:else}
   <p class="feat-desc">Arrange the parts and put overflow on the next sheet.</p>
   <fieldset disabled={busy}>

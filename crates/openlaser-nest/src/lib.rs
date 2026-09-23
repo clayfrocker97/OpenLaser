@@ -12,6 +12,7 @@ use std::sync::atomic::AtomicBool;
 use std::time::Duration;
 
 pub use polygon::{check_inside, check_polylines, check_region, check_region_polylines, polygon};
+pub use search::LIVE_INTERVAL;
 
 /// One rigid manufactured part, including its holes and interior markings.
 #[derive(Clone, Debug)]
@@ -20,6 +21,16 @@ pub struct Item {
     pub contours: Vec<Contour>,
     /// Required copies, including the original.
     pub quantity: usize,
+}
+
+/// What one sheet may hold, every copy's geometry together. Preparation
+/// refuses a larger sheet, so a sheet that would pass either bound is full.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SheetLimit {
+    /// Contours on one sheet.
+    pub contours: usize,
+    /// Lines and arcs on one sheet.
+    pub curves: usize,
 }
 
 /// All inputs are immutable snapshots of authoring data.
@@ -37,6 +48,8 @@ pub struct Request {
     pub settings: NestSettings,
     /// Additional outward reach of leads, kerf and seam treatments.
     pub machining_clearance: f64,
+    /// What one sheet may hold.
+    pub sheet_limit: SheetLimit,
     /// Total search budget, at most 30 seconds.
     pub time_limit: Duration,
     /// Reproducible random input, independent of machine state.
@@ -88,17 +101,29 @@ pub struct SheetSolution {
     pub layout: Solution,
 }
 
-/// Place all requested copies across numbered sheets. `overflow` replaces the
-/// first sheet's outline/cutouts when continuing from a physical remnant.
+/// Place all requested copies across numbered sheets, largest first, then
+/// compress the last sheet with the remaining time when it is a plain
+/// rectangle. `overflow`, when given, is the outline of every sheet after
+/// the first, which keeps the request's own stock and cutouts.
+///
+/// `live` sees the sheets as the search stands and the index of the one
+/// that just changed, at most every [`LIVE_INTERVAL`]: each copy placed so
+/// far, clear of the others, while sheets fill and each time the last one
+/// compacts further. Only the result is checked against the stock's curves
+/// and can be applied.
 pub fn nest_sheets(
     request: &Request,
     overflow: Option<&Contour>,
     cancel: &AtomicBool,
     progress: impl Fn(usize, usize) + Sync,
+    live: impl Fn(&[SheetSolution], usize) + Sync,
 ) -> Result<Vec<SheetSolution>, Error> {
     let pool = rayon::ThreadPoolBuilder::new()
         .num_threads(2)
         .build()
         .map_err(|e| Error(format!("could not start nesting workers: {e}")))?;
-    pool.install(|| search::run_sheets(request, overflow, cancel, &progress))
+    pool.install(|| {
+        let mut live = search::Live::new(&live);
+        search::run_sheets(request, overflow, cancel, &progress, &mut live)
+    })
 }

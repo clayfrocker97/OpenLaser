@@ -231,8 +231,10 @@ the selected part/group. Remove connected/common-edge arrangements before
 re-nesting independent parts. Lead and kerf clearance is included; part holes
 remain reserved rather than being automatically filled with more parts.
 
-**Preview sheets** searches for a layout. Review every numbered sheet and then
-press **Apply layout** or **Apply N sheets**. Until Apply, the result is a preview.
+**Preview sheets** searches for a layout. While it searches, the drawing shows
+the sheet it is working on, each part as it is placed and again each time the
+sheet packs tighter; that view is never applied. Review every numbered sheet
+and then press **Apply layout** or **Apply N sheets**. Until Apply, the result is a preview.
 If the drawing changes, preview again. Undo restores the previous applied layout.
 Saving a multi-sheet set creates a folder with one job per sheet.
 

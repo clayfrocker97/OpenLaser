@@ -77,6 +77,8 @@ export type { Millimeters } from './bindings/Millimeters';
 export type { Milliseconds } from './bindings/Milliseconds';
 export type { MmPerSecond } from './bindings/MmPerSecond';
 export type { Move } from './bindings/Move';
+export type { NestCopy } from './bindings/NestCopy';
+export type { NestLive } from './bindings/NestLive';
 export type { NestRequest } from './bindings/NestRequest';
 export type { NestRotation } from './bindings/NestRotation';
 export type { NestSettings } from './bindings/NestSettings';

@@ -39,8 +39,8 @@
   const layers = $derived(layersOf(partsOf(draft, doc.library.parts)));
   const preview = $derived(!updating && ui.picking?.revision === draft?.revision ? (ui.picking?.preview ?? scene?.preview ?? null) : scene?.preview ?? null);
   const groups = $derived(scene?.groups ?? []);
-  const stockOutline = $derived(ui.nestPreview ? ui.nestStock?.outline ?? scene?.stock_outline ?? [] : scene?.stock_outline ?? []);
-  const stockCutouts = $derived(ui.nestPreview ? ui.nestStock?.cutouts ?? [] : scene?.stock_cutouts ?? []);
+  const stockOutline = $derived(ui.nestPreview ? ui.nestStock?.outline ?? scene?.stock_outline ?? [] : ui.nestLive?.stock_outline ?? scene?.stock_outline ?? []);
+  const stockCutouts = $derived(ui.nestPreview ? ui.nestStock?.cutouts ?? [] : ui.nestLive?.stock_cutouts ?? scene?.stock_cutouts ?? []);
   const frame = $derived(frameOf({ ...doc, draft: scene }));
 
   /** What the machine adds to a drawing coordinate: the canvas is in machine coordinates. */
@@ -153,7 +153,7 @@
     ui.setupPanel = 'clipboard';
   }
   export async function paste(count = 1): Promise<void> {
-    if (pasting || updating || !clipboard || ui.picking || ui.nestPreview || ui.nestPicking || !draft) return;
+    if (pasting || updating || !clipboard || ui.picking || ui.nestShown || ui.nestPicking || !draft) return;
     if (!pasteable(clipboard, draft)) { ui.say('The copied shapes belong to another job. Copy shapes from this drawing before pasting.', true); return; }
     pasting = true;
     try {
@@ -165,7 +165,7 @@
       ui.say(`Pasted ${count} ${count === 1 ? 'copy' : 'copies'}.`);
     } catch (error) { fail(error); } finally { pasting = false; }
   }
-  const selectionLocked = $derived(updating || !selection || !!ui.picking || !!ui.nestPreview || ui.nestPicking);
+  const selectionLocked = $derived(updating || !selection || !!ui.picking || ui.nestShown || ui.nestPicking);
   function groupSelection(together: boolean): void {
     if (selectionLocked) return;
     api.group(contoursOf(selected), together).catch(fail);
@@ -244,7 +244,7 @@
   // Gestures: a shape moves, the handle turns the selection about its
   // centre. While picking, the shapes stay put and taps go to the feature.
   const grab = (target: Element): string | null => {
-    if (updating || ui.picking || ui.nestPicking || ui.nestPreview) return null;
+    if (updating || ui.picking || ui.nestPicking || ui.nestShown) return null;
     const lead = target.closest<SVGGElement>('[data-lead]')?.dataset['lead'];
     if (lead !== undefined) return `lead:${lead}`;
     if (target.closest('.resize-handle')) return 'resize';
@@ -354,7 +354,7 @@
       }).catch(fail);
       return;
     }
-    if (ui.nestPreview) return;
+    if (ui.nestShown) return;
     if (ui.picking) { pickAt(at); return; }
     const g = target.closest<SVGGElement>('[data-group]')?.dataset['group'];
     if (g === undefined) { if (!additive) selected = []; return; }
@@ -363,7 +363,7 @@
   }
 
   function onmarquee(swept: Box, additive: boolean): void {
-    if (updating || ui.picking || ui.nestPicking || ui.nestPreview) return;
+    if (updating || ui.picking || ui.nestPicking || ui.nestShown) return;
     const box = { minX: swept.minX - zero[0], maxX: swept.maxX - zero[0], minY: swept.minY - zero[1], maxY: swept.maxY - zero[1] };
     const inside = marqueeGroups(shapes, boundsIndex, box);
     selected = additive ? [...new Set([...selected, ...inside])] : inside;
@@ -373,7 +373,7 @@
   // ⌘C, ⌘V, ⌫, ⌘Z and ⇧⌘Z do what they do everywhere.
   $effect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement | null)?.closest('input, textarea, [contenteditable]') || ui.picking || ui.nestPicking || ui.nestPreview || ui.modal || osk.open) return;
+      if ((e.target as HTMLElement | null)?.closest('input, textarea, [contenteditable]') || ui.picking || ui.nestPicking || ui.nestShown || ui.modal || osk.open) return;
       if (e.key === 'Escape') { selected = []; return; }
       const meta = e.metaKey || e.ctrlKey;
       const key = e.key.toLowerCase();
@@ -526,18 +526,28 @@
 
 <div class="canvas-wrap">
   <div class="rail" role="toolbar" tabindex="-1" aria-label="More tools">{@render rail()}</div>
-  <Stage {view} bed={frame.bed} head={frame.head} origin={ui.nestPreview ? null : frame.origin} {grab} {ondrag} {ondragend} {ontap} {onmarquee}>
+  <Stage {view} bed={frame.bed} head={frame.head} origin={ui.nestShown ? null : frame.origin} {grab} {ondrag} {ondragend} {ontap} {onmarquee}>
     <g transform="translate({zero[0]} {zero[1]})">
     {#if stockOutline.length}
       <path d={pathOf(stockOutline, false) + 'Z'} fill="var(--accent)" fill-opacity="0.035" stroke="var(--accent)" stroke-dasharray="8 5" stroke-width="1.5" vector-effect="non-scaling-stroke" pointer-events="none" />
     {/if}
     {#each stockCutouts as cutout}<path d={pathOf(cutout, false) + 'Z'} fill="var(--ink-3)" fill-opacity="0.16" stroke="var(--ink-3)" stroke-dasharray="3 3" stroke-width="1" vector-effect="non-scaling-stroke" pointer-events="none" />{/each}
+    {#if ui.nestLive && !ui.nestPreview}
+      <!-- A running search: each copy is a group of the drawing, moved. -->
+      {#each ui.nestLive.copies as copy}
+        <g transform={svgMatrix(copy.transform)}>
+          {#each shapes.get(copy.group) ?? [] as contour}
+            {#each contour.paths as path}{#if path.kind === 'cut'}<path class="path cut live" d={pathOf(path.points, false)} vector-effect="non-scaling-stroke" pointer-events="none" />{/if}{/each}
+          {/each}
+        </g>
+      {/each}
+    {/if}
     {#if ui.nestPreview}
       {#each ui.nestPreview.contours as contour}
         {#each contour.paths as path}<path class="path {path.kind}" d={pathOf(path.points, false)} vector-effect="non-scaling-stroke" pointer-events="none" />{/each}
       {/each}
     {/if}
-    {#if preview && !ui.nestPreview}
+    {#if preview && !ui.nestShown}
       <g transform={movingAll && local ? svgMatrix(local.m) : ''}>
       {#each visibleGroups as g (g)}
         {@const on = selectedSet.has(g)}
@@ -567,7 +577,7 @@
       {#each leadHandles as handle, i}<g data-lead={i} style="cursor:crosshair"><circle cx={handle.end[0]} cy={handle.end[1]} r={mark * 2} fill="var(--accent)" stroke="var(--bg)" vector-effect="non-scaling-stroke" /></g>{/each}
       {#if leadDrag}<path d="M{leadDrag.handle.anchor.join(' ')}L{leadDrag.point.join(' ')}" stroke="var(--accent)" stroke-width="2" vector-effect="non-scaling-stroke" />{/if}
       {#if firstEnd}<circle class="mark bridge" cx={firstEnd[0]} cy={firstEnd[1]} r={mark * 1.5} vector-effect="non-scaling-stroke"/>{/if}
-      {#if selection && !ui.picking && !ui.nestPreview && !ui.nestPicking}
+      {#if selection && !ui.picking && !ui.nestShown && !ui.nestPicking}
         <g class="gizmo">
           <rect class="sel-box" x={selection.minX - 2 * mark} y={selection.minY - 2 * mark} width={selection.maxX - selection.minX + 4 * mark} height={selection.maxY - selection.minY + 4 * mark} vector-effect="non-scaling-stroke"/>
           <path class="stalk" d="M{centre(selection)[0]} {selection.maxY + 2 * mark}V{selection.maxY + 8 * mark}" vector-effect="non-scaling-stroke"/>
@@ -601,7 +611,7 @@
         </div>
       {/if}
       {#if preview?.warnings.length}<div class="hint">{preview.warnings[0]}</div>{/if}
-      {#if selection && !ui.picking && !ui.nestPreview && !ui.nestPicking}
+      {#if selection && !ui.picking && !ui.nestShown && !ui.nestPicking}
         <div class="canvas-hud">
           <button class="hud-btn" disabled={updating} data-numpad onclick={() => typed(0)}>X {distance(selection.minX + zero[0])}</button>
           <button class="hud-btn" disabled={updating} data-numpad onclick={() => typed(1)}>Y {distance(selection.minY + zero[1])}</button>
@@ -626,16 +636,16 @@
     <button class="rail-btn" title="Do the edit undone again" onclick={() => history(false)} disabled={!draft?.future}><i class="ic ic-redo"></i><small>Redo</small></button>
   </div>
   <div class="tool-row">
-    <button class="rail-btn" disabled={updating || !selection || !!ui.picking || !!ui.nestPreview || ui.nestPicking} title="Mirror horizontally" onclick={() => act('mirror')}><i class="ic ic-mirror"></i><small>Mirror X</small></button>
-    <button class="rail-btn" disabled={updating || !selection || !!ui.picking || !!ui.nestPreview || ui.nestPicking} title="Mirror vertically" onclick={() => act('vertical')}><i class="ic ic-mirror vertical"></i><small>Mirror Y</small></button>
-    <button class="rail-btn" disabled={updating || !selection || !!ui.picking || !!ui.nestPreview || ui.nestPicking || !frame.bed} onclick={centerOnBed}><i class="ic ic-target"></i><small>Center</small></button>
-    <button class="rail-btn" disabled={updating || !selection || !!ui.picking || !!ui.nestPreview || ui.nestPicking} title="Turn the selection a quarter turn" onclick={() => act('turn')}><i class="ic ic-rotate"></i><small>90°</small></button>
-    <button class="rail-btn" disabled={updating || !selection || !!ui.picking || !!ui.nestPreview || ui.nestPicking} onclick={() => resize('scale')}><strong>%</strong><small>Scale</small></button>
-    <button class="rail-btn" disabled={updating || !selection || !!ui.picking || !!ui.nestPreview || ui.nestPicking} title="Put the selection back where the drawing has it" onclick={() => act('reset')}><i class="ic ic-reset"></i><small>Reset</small></button>
+    <button class="rail-btn" disabled={updating || !selection || !!ui.picking || ui.nestShown || ui.nestPicking} title="Mirror horizontally" onclick={() => act('mirror')}><i class="ic ic-mirror"></i><small>Mirror X</small></button>
+    <button class="rail-btn" disabled={updating || !selection || !!ui.picking || ui.nestShown || ui.nestPicking} title="Mirror vertically" onclick={() => act('vertical')}><i class="ic ic-mirror vertical"></i><small>Mirror Y</small></button>
+    <button class="rail-btn" disabled={updating || !selection || !!ui.picking || ui.nestShown || ui.nestPicking || !frame.bed} onclick={centerOnBed}><i class="ic ic-target"></i><small>Center</small></button>
+    <button class="rail-btn" disabled={updating || !selection || !!ui.picking || ui.nestShown || ui.nestPicking} title="Turn the selection a quarter turn" onclick={() => act('turn')}><i class="ic ic-rotate"></i><small>90°</small></button>
+    <button class="rail-btn" disabled={updating || !selection || !!ui.picking || ui.nestShown || ui.nestPicking} onclick={() => resize('scale')}><strong>%</strong><small>Scale</small></button>
+    <button class="rail-btn" disabled={updating || !selection || !!ui.picking || ui.nestShown || ui.nestPicking} title="Put the selection back where the drawing has it" onclick={() => act('reset')}><i class="ic ic-reset"></i><small>Reset</small></button>
     <button class="rail-btn" class:on={ui.setupPanel === 'clipboard'} disabled={pasting || selectionLocked} title="Copy the selection" onclick={copy}><i class="ic ic-copy"></i><small>Copy</small></button>
-    <button class="rail-btn" title="Paste one copy" onclick={() => paste()} disabled={pasting || updating || !pasteable(clipboard, draft) || !!ui.picking || !!ui.nestPreview || ui.nestPicking}><i class="ic ic-paste"></i><small>Paste</small></button>
-    <button class="rail-btn" disabled={updating || !selection || !!ui.picking || !!ui.nestPreview || ui.nestPicking} title="Take the selection off the sheet" onclick={remove}><i class="ic ic-trash"></i><small>Delete</small></button>
-    <button class="rail-btn" disabled={!selection || !!ui.picking || !!ui.nestPreview || ui.nestPicking} title="Clear the selection" onclick={() => (selected = [])}><i class="ic ic-x"></i><small>Deselect</small></button>
+    <button class="rail-btn" title="Paste one copy" onclick={() => paste()} disabled={pasting || updating || !pasteable(clipboard, draft) || !!ui.picking || ui.nestShown || ui.nestPicking}><i class="ic ic-paste"></i><small>Paste</small></button>
+    <button class="rail-btn" disabled={updating || !selection || !!ui.picking || ui.nestShown || ui.nestPicking} title="Take the selection off the sheet" onclick={remove}><i class="ic ic-trash"></i><small>Delete</small></button>
+    <button class="rail-btn" disabled={!selection || !!ui.picking || ui.nestShown || ui.nestPicking} title="Clear the selection" onclick={() => (selected = [])}><i class="ic ic-x"></i><small>Deselect</small></button>
   </div>
 </div>
 
