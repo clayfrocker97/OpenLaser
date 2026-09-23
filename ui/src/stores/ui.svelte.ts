@@ -125,6 +125,17 @@ class Ui {
   }
 
   setGrid(value: number): void { this.grid = value; remember('ol-grid', value); }
+  /** Sheet sizes saved on this screen for the stock chooser, width by height in millimetres. */
+  sheetSizes = $state<Array<[number, number]>>(remembered('ol-sheet-sizes', []));
+  saveSheetSize(size: [number, number]): void {
+    if (this.sheetSizes.some(([w, h]) => w === size[0] && h === size[1])) return;
+    this.sheetSizes = [...this.sheetSizes, size];
+    remember('ol-sheet-sizes', this.sheetSizes);
+  }
+  forgetSheetSize(size: [number, number]): void {
+    this.sheetSizes = this.sheetSizes.filter(([w, h]) => w !== size[0] || h !== size[1]);
+    remember('ol-sheet-sizes', this.sheetSizes);
+  }
   setJogStep(step: number): void { this.jogStep = step; remember('ol-jog-step', step); }
   toggleSnap(): void { this.snap = !this.snap; remember('ol-snap', this.snap); }
 
