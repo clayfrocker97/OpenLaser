@@ -79,6 +79,11 @@ pub struct Solution {
 #[error("{0}")]
 pub struct Error(pub String);
 
+/// Worker threads for one nesting search. Two keep the controller link and
+/// the HTTP server responsive on small shop computers while a search runs;
+/// a choice, not a measured optimum.
+const SEARCH_THREADS: usize = 2;
+
 /// Search without ever changing the input. Progress reports placed/total.
 pub fn nest(
     request: &Request,
@@ -86,7 +91,7 @@ pub fn nest(
     progress: impl Fn(usize, usize) + Sync,
 ) -> Result<Solution, Error> {
     let pool = rayon::ThreadPoolBuilder::new()
-        .num_threads(2)
+        .num_threads(SEARCH_THREADS)
         .build()
         .map_err(|e| Error(format!("could not start nesting workers: {e}")))?;
     pool.install(|| search::run(request, cancel, &progress))
@@ -119,7 +124,7 @@ pub fn nest_sheets(
     live: impl Fn(&[SheetSolution], usize) + Sync,
 ) -> Result<Vec<SheetSolution>, Error> {
     let pool = rayon::ThreadPoolBuilder::new()
-        .num_threads(2)
+        .num_threads(SEARCH_THREADS)
         .build()
         .map_err(|e| Error(format!("could not start nesting workers: {e}")))?;
     pool.install(|| {

@@ -8,9 +8,25 @@ pub(crate) const CHORD: f64 = 0.005;
 /// Covers chord error, input continuity tolerance and f32 conversion at 100 m.
 pub(crate) const GUARD: f64 = 0.05;
 
+/// Smallest outline area, in square millimetres, that counts as an outline
+/// rather than a degenerate sliver.
+const MIN_OUTLINE_AREA: f64 = 0.0001;
+/// Most vertices one tessellated outline or arc may have. It bounds the
+/// collision geometry's size; a limit chosen for this crate.
+const MAX_OUTLINE_VERTICES: usize = 8192;
+/// Largest coordinate, in millimetres, nesting accepts: 100 m, the domain
+/// within which [`GUARD`] covers the f32 conversion.
+const MAX_COORDINATE: f64 = 100_000.;
+/// Most vertices of all remnant cutouts together; the same bound as all
+/// nesting geometry together in the search.
+pub(crate) const MAX_TOTAL_VERTICES: usize = 50_000;
+/// Extra clearance, in millimetres, when checking compiled moves, which the
+/// compiler has already rounded to the controller's resolution.
+const COMPILED_ROUNDING: f64 = 0.001;
+
 /// Tessellate a closed contour without replacing any original cutting curves.
 pub fn polygon(contour: &Contour) -> Result<Vec<[f64; 2]>, Error> {
-    if !contour.is_closed() || contour.signed_area().abs() < 0.0001 {
+    if !contour.is_closed() || contour.signed_area().abs() < MIN_OUTLINE_AREA {
         return Err(Error(
             "nesting needs closed part and stock outlines with positive area".into(),
         ));
@@ -19,8 +35,10 @@ pub fn polygon(contour: &Contour) -> Result<Vec<[f64; 2]>, Error> {
     for curve in &contour.curves {
         let samples = sample(curve)?;
         points.extend(samples.into_iter().skip(1).map(<[f64; 2]>::from));
-        if points.len() > 8192 {
-            return Err(Error("an outline exceeds the nesting limit of 8192 vertices".into()));
+        if points.len() > MAX_OUTLINE_VERTICES {
+            return Err(Error(format!(
+                "an outline exceeds the nesting limit of {MAX_OUTLINE_VERTICES} vertices"
+            )));
         }
     }
     Ok(points)
@@ -35,7 +53,10 @@ pub fn polygon(contour: &Contour) -> Result<Vec<[f64; 2]>, Error> {
 fn sample(curve: &Curve) -> Result<Vec<Point>, Error> {
     if !curve.is_valid()
         || [curve.bounds().min, curve.bounds().max].iter().any(|p| {
-            !p.x.is_finite() || !p.y.is_finite() || p.x.abs() > 100_000. || p.y.abs() > 100_000.
+            !p.x.is_finite()
+                || !p.y.is_finite()
+                || p.x.abs() > MAX_COORDINATE
+                || p.y.abs() > MAX_COORDINATE
         })
     {
         return Err(Error("nesting geometry must be finite and within 100000 mm".into()));
@@ -48,7 +69,7 @@ fn sample(curve: &Curve) -> Result<Vec<Point>, Error> {
             (sweep.abs() / angle).ceil().max(1.)
         }
     };
-    if steps > 8192. {
+    if steps > MAX_OUTLINE_VERTICES as f64 {
         return Err(Error("an arc exceeds the nesting tessellation limit".into()));
     }
     let steps = steps as usize;
@@ -148,14 +169,14 @@ impl Containment {
             + 2. * CHORD
             + match kind {
                 PathKind::Machining => 0.,
-                PathKind::Compiled => 0.001,
+                PathKind::Compiled => COMPILED_ROUNDING,
             };
         let cutouts = cutouts
             .iter()
             .map(|c| polygon(c).map(|p| p.into_iter().map(Into::into).collect()))
             .collect::<Result<Vec<Vec<Point>>, Error>>()?;
-        if cutouts.iter().map(Vec::len).sum::<usize>() > 50_000 {
-            return Err(Error("remnant cutouts exceed 50000 vertices".into()));
+        if cutouts.iter().map(Vec::len).sum::<usize>() > MAX_TOTAL_VERTICES {
+            return Err(Error(format!("remnant cutouts exceed {MAX_TOTAL_VERTICES} vertices")));
         }
         Ok(Self { boundary, cutouts, work: 0, margin, kind })
     }

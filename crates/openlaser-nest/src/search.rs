@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use crate::polygon::{GUARD, contains, polygon};
+use crate::polygon::{GUARD, MAX_TOTAL_VERTICES, contains, polygon};
 use crate::{Error, Placement, Request, SheetSolution, Solution};
 use jagua_rs::entities::{Container, Item, Layout, PlacedItem};
 use jagua_rs::geometry::DTransformation;
@@ -23,6 +23,31 @@ use sparrow::util::terminator::Terminator;
 use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
+
+/// Most copies one search places, across every item and sheet.
+const MAX_COPIES: usize = 500;
+/// Longest search a request may ask for, and the separate bound on shape
+/// preparation before it.
+const MAX_SEARCH_TIME: Duration = Duration::from_secs(30);
+/// Largest machining clearance, in millimetres, a request may add around
+/// each part.
+const MAX_MACHINING_CLEARANCE: f64 = 1000.;
+/// Samples tried for each copy of a first fit across sheets. Sparrow's own
+/// construction uses 1000 (`sparrow::consts::LBF_SAMPLE_CONFIG`); fewer keep
+/// a many-sheet search within its time.
+const SHEET_FIT_SAMPLES: SampleConfig =
+    SampleConfig { n_container_samples: 350, n_focussed_samples: 0, n_coord_descents: 3 };
+/// Samples tried for each copy of one sheet's randomized first fits, which
+/// are repeated many times, so fewer again.
+const REPEATED_FIT_SAMPLES: SampleConfig =
+    SampleConfig { n_container_samples: 250, n_focussed_samples: 0, n_coord_descents: 3 };
+/// Share of the remaining time Sparrow explores before compressing: its own
+/// default split (`sparrow::consts::DEFAULT_EXPLORE_TIME_RATIO`, 0.8/0.2).
+const EXPLORE_SHARE: f64 = 0.8;
+/// Share of the remaining time Sparrow compresses; see [`EXPLORE_SHARE`].
+const COMPRESS_SHARE: f64 = 0.2;
+/// Sparrow separator workers, matching the search's two threads.
+const SEPARATOR_WORKERS: usize = 2;
 
 /// How often a running search shows where it stands.
 pub const LIVE_INTERVAL: Duration = Duration::from_millis(200);
@@ -395,14 +420,7 @@ fn place_one(
         return false;
     }
     let evaluator = Evaluation { inner: LBFEvaluator::new(layout, item), budget };
-    let (sample, _) = search_placement(
-        layout,
-        item,
-        None,
-        evaluator,
-        SampleConfig { n_container_samples: 350, n_focussed_samples: 0, n_coord_descents: 3 },
-        rng,
-    );
+    let (sample, _) = search_placement(layout, item, None, evaluator, SHEET_FIT_SAMPLES, rng);
     if let Some((dt, SampleEval::Clear { .. })) = sample {
         layout.place_item(item, dt);
         true
@@ -480,14 +498,8 @@ fn fill_layout(
         }
         let item = &items[id].0;
         let evaluator = Evaluation { inner: LBFEvaluator::new(layout, item), budget };
-        let (sample, _) = search_placement(
-            layout,
-            item,
-            None,
-            evaluator,
-            SampleConfig { n_container_samples: 250, n_focussed_samples: 0, n_coord_descents: 3 },
-            rng,
-        );
+        let (sample, _) =
+            search_placement(layout, item, None, evaluator, REPEATED_FIT_SAMPLES, rng);
         if let Some((dt, SampleEval::Clear { .. })) = sample {
             layout.place_item(item, dt);
         } else {
@@ -588,17 +600,19 @@ fn validate(request: &Request) -> Result<usize, Error> {
         .items
         .iter()
         .try_fold(0usize, |sum, item| sum.checked_add(item.quantity))
-        .ok_or_else(|| Error("nest between 1 and 500 complete parts at a time".into()))?;
+        .ok_or_else(|| {
+        Error(format!("nest between 1 and {MAX_COPIES} complete parts at a time"))
+    })?;
     if total == 0
-        || total > 500
+        || total > MAX_COPIES
         || request.items.iter().any(|i| i.quantity == 0 || i.contours.is_empty())
     {
-        return Err(Error("nest between 1 and 500 complete parts at a time".into()));
+        return Err(Error(format!("nest between 1 and {MAX_COPIES} complete parts at a time")));
     }
     if request.time_limit.is_zero()
-        || request.time_limit > Duration::from_secs(30)
+        || request.time_limit > MAX_SEARCH_TIME
         || !request.machining_clearance.is_finite()
-        || !(0. ..=1000.).contains(&request.machining_clearance)
+        || !(0. ..=MAX_MACHINING_CLEARANCE).contains(&request.machining_clearance)
     {
         return Err(Error("invalid nesting time or machining clearance".into()));
     }
@@ -636,7 +650,7 @@ struct Geometry {
     reason = "validated coordinates are padded for f32 conversion"
 )]
 fn geometry(request: &Request, cancel: &AtomicBool) -> Result<Geometry, Error> {
-    let deadline = Instant::now() + Duration::from_secs(30);
+    let deadline = Instant::now() + MAX_SEARCH_TIME;
     let stock_points = polygon(&request.stock)?;
     let bounds = request.stock.bounds().ok_or_else(|| Error("empty stock".into()))?;
     let origin = bounds.min;
@@ -649,8 +663,8 @@ fn geometry(request: &Request, cancel: &AtomicBool) -> Result<Geometry, Error> {
         Importer::new(config.cde_config, None, Some((2. * stock_offset) as f32), None);
     let holes = request.cutouts.iter().map(polygon).collect::<Result<Vec<_>, Error>>()?;
     let hole_vertices = holes.iter().map(Vec::len).sum::<usize>();
-    if hole_vertices + stock_points.len() > 50_000 {
-        return Err(Error("nesting geometry exceeds 50000 vertices".into()));
+    if hole_vertices + stock_points.len() > MAX_TOTAL_VERTICES {
+        return Err(Error(format!("nesting geometry exceeds {MAX_TOTAL_VERTICES} vertices")));
     }
     let stock = stock_importer
         .import_container(&ExtContainer {
@@ -679,8 +693,8 @@ fn geometry(request: &Request, cancel: &AtomicBool) -> Result<Geometry, Error> {
         }
         let points = outer_polygon(input, id)?;
         vertices += points.len();
-        if vertices > 50_000 {
-            return Err(Error("nesting geometry exceeds 50000 vertices".into()));
+        if vertices > MAX_TOTAL_VERTICES {
+            return Err(Error(format!("nesting geometry exceeds {MAX_TOTAL_VERTICES} vertices")));
         }
         let item_origin = Point::new(
             points.iter().map(|p| p[0]).fold(f64::INFINITY, f64::min),
@@ -876,10 +890,10 @@ fn compress(
     let fitted = initial.strip.width;
     let remaining = budget.deadline.saturating_duration_since(Instant::now());
     let mut config = DEFAULT_SPARROW_CONFIG;
-    config.expl_cfg.time_limit = remaining.mul_f64(0.8);
-    config.cmpr_cfg.time_limit = remaining.mul_f64(0.2);
-    config.expl_cfg.separator_config.n_workers = 2;
-    config.cmpr_cfg.separator_config.n_workers = 2;
+    config.expl_cfg.time_limit = remaining.mul_f64(EXPLORE_SHARE);
+    config.cmpr_cfg.time_limit = remaining.mul_f64(COMPRESS_SHARE);
+    config.expl_cfg.separator_config.n_workers = SEPARATOR_WORKERS;
+    config.cmpr_cfg.separator_config.n_workers = SEPARATOR_WORKERS;
     // Sparrow panics once it shrinks the strip below a part it must place,
     // which a sheet of few parts can start close to. The first fit stands.
     let optimized = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
