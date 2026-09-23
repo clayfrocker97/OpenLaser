@@ -5,7 +5,7 @@
   import { ui } from '../stores/ui.svelte';
   import { settingsEdits } from '../lib/settings-edits.svelte';
   import { osk } from '../lib/osk.svelte';
-  import { explain } from '../lib/format';
+  import { explain, plural } from '../lib/format';
   import { fieldId, fieldUnit, xmlValue, groupKey, groupName, isLayer, isSwitch, readable, sectionName, type Comparison, type MachineSettings, type XmlField } from '../lib/machine-settings';
   import { inputValue, sourceInput, unitLabel, units } from '../lib/units.svelte';
 
@@ -127,7 +127,7 @@
   {#if error}<p class="error" role="alert">{error}</p>{/if}
   {#if data?.problem}<details class="xml-problem"><summary>Controller comparison details</summary><p>{data.problem}</p></details>{/if}
   {#if changed}
-    <div class="draft-bar"><div><strong>{changed} edited {changed === 1 ? 'value' : 'values'}</strong><small>{stale ? 'Backup changed; review your edits.' : connected ? 'Save applies changes to the controller.' : 'Applied on next connection.'}</small></div>
+    <div class="draft-bar"><div><strong>{plural(changed, 'edited value')}</strong><small>{stale ? 'Backup changed; review your edits.' : connected ? 'Save applies changes to the controller.' : 'Applied on next connection.'}</small></div>
       <div class="xml-actions"><button class="btn btn-ghost" disabled={busy} onclick={async () => { if (await ui.confirm({ title: 'Discard these edits?', body: `${changed} edited machine ${changed === 1 ? 'value is' : 'values are'} thrown away.`, confirm: 'Discard edits', danger: true })) run(() => settingsEdits.discard('xml')); }}>Discard edits</button><button class="btn btn-primary" disabled={busy || machineBusy || stale} onclick={async () => { if (!connected || await confirmWrite()) run(save); }}>{connected ? 'Save & apply' : 'Save XML'}</button></div>
     </div>
   {/if}

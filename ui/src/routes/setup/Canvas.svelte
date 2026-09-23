@@ -28,6 +28,7 @@
   import { osk } from '../../lib/osk.svelte';
   import { frameOf } from '../../lib/frame';
   import { explain, plural } from '../../lib/format';
+  import { withBusy } from '../../lib/busy';
   import { about, apply, centre, mirror, mirrorVertical, rotation, scaling, svgMatrix, tenth, translate, type Point } from '../../lib/transform';
   import { boxOfBounds, pathOf, type Box } from '../../lib/svg';
   import {
@@ -166,15 +167,15 @@
   export async function paste(count = 1): Promise<void> {
     if (pasting || canvasBusy || !clipboard || !draft) return;
     if (!pasteable(clipboard, draft)) { ui.say('The copied shapes belong to another job. Copy shapes from this drawing before pasting.', true); return; }
-    pasting = true;
-    try {
-      const copied = clipboard;
-      const batch = pasteBatch(copied, { ...pasteSettings, count }, draft.placed.length);
+    const copied = clipboard;
+    const placed = draft.placed.length;
+    await withBusy((b) => (pasting = b), async () => {
+      const batch = pasteBatch(copied, { ...pasteSettings, count }, placed);
       const { contours, draft: saved } = await api.add(batch.contours, batch.lead_overrides, batch.grouping);
       copied.offset = batch.offset;
       if (saved?.revision === server.doc?.draft?.revision) pending = contours;
       ui.say(`Pasted ${plural(count, 'copy', 'copies')}.`);
-    } catch (error) { fail(error); } finally { pasting = false; }
+    });
   }
 
   // The drawing bar's tools; DrawingToolbar lays them out and orders them.
@@ -530,8 +531,10 @@
     const picking = ui.picking;
     if (updating || !picking || pickBusy) return;
     if (picking.first) { ui.say('Complete or cancel the pending bridge end first.', true); return; }
-    pickBusy = true;
-    try { await api.setFeatures(picking.features, picking.revision); if (ui.picking === picking) ui.picking = null; } catch (error) { fail(error); } finally { pickBusy = false; }
+    await withBusy((b) => (pickBusy = b), async () => {
+      await api.setFeatures(picking.features, picking.revision);
+      if (ui.picking === picking) ui.picking = null;
+    });
   }
 
   /** The first end of a bridge being placed, where its contour now lies. */

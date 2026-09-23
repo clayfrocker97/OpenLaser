@@ -8,6 +8,7 @@
 import type { CapabilitiesView, LaserMode } from '../api';
 import policy from '../api/bindings/recipe-policy.json';
 import { displayNumber, unitLabel } from './units.svelte';
+import { plural } from './format';
 
 /** The recipe under edit, as the pages and sheets take it. */
 export interface Editor {
@@ -201,7 +202,7 @@ export const mode = (v: Values): Mode => (isOn(v['EnableSmoothPierce']) ? 'smoot
 /** The mode as the page names it. */
 export const modeName = (v: Values): string => {
   const m = mode(v);
-  return m === 'smooth' ? 'Smooth piercing' : m === 'staged' ? `${stageCount(v)} piercing stage${stageCount(v) === 1 ? '' : 's'}` : 'No piercing';
+  return m === 'smooth' ? 'Smooth piercing' : m === 'staged' ? plural(stageCount(v), 'piercing stage') : 'No piercing';
 };
 /** The native bank of the visible stage: stages run from the highest bank down. */
 export const bankOf = (count: number, visible: number): number => count - 1 - visible;

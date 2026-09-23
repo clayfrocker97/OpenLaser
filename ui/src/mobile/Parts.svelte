@@ -12,8 +12,9 @@
   import EditHistory from '../components/EditHistory.svelte';
   import PartsSide from '../routes/PartsSide.svelte';
   import { api } from '../api/client';
-  import { explain, plural } from '../lib/format';
+  import { plural } from '../lib/format';
   import { livePicks, togglePick } from '../lib/job-parts';
+  import { withBusy } from '../lib/busy';
 
   let kind = $state<'all' | 'parts' | 'jobs' | 'sheets'>('all');
   let search = $state('');
@@ -43,18 +44,14 @@
   }
   async function finish(add: boolean): Promise<void> {
     if (busy || !picks.length) return;
-    busy = true;
-    try {
+    await withBusy((b) => (busy = b), async () => {
       await (add ? api.addParts(picks) : api.openParts(picks));
       const n = picks.length;
       ui.partPicks = null;
       ui.tab = 'setup';
-      ui.say(add ? `Added ${plural(n, 'part')} beside the sheet · Undo takes them off` : n > 1 ? `${n} parts side by side · Nest parts fills a sheet` : 'Part opened');
-    } catch (error) {
-      ui.say(explain(error), true);
-    } finally {
-      busy = false;
-    }
+      const opened = n > 1 ? `${n} parts side by side · Nest parts fills a sheet` : 'Part opened';
+      ui.say(add ? `Added ${plural(n, 'part')} beside the sheet · Undo takes them off` : opened);
+    });
   }
 </script>
 

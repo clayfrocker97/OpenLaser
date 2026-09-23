@@ -7,9 +7,9 @@
   import { server } from '../stores/server.svelte';
   import { ui } from '../stores/ui.svelte';
   import { osk } from '../lib/osk.svelte';
-  import { explain } from '../lib/format';
   import { GASES, GAS_COLORS, GAS_NAMES, calibrationStatus, money, pricePerM3 } from '../lib/gas';
   import GasCalibration from './GasCalibration.svelte';
+  import { withBusy } from '../lib/busy';
 
   const saved = $derived(server.doc!.gas.costs);
   const problem = $derived(server.doc!.gas.error);
@@ -23,10 +23,7 @@
     const next = $state.snapshot(saved);
     apply(next);
     if (JSON.stringify(next) === JSON.stringify(base)) return;
-    busy = true;
-    try { await api.saveGasCosts(next, base); }
-    catch (e) { ui.say(explain(e), true); }
-    finally { busy = false; }
+    await withBusy((b) => (busy = b), () => api.saveGasCosts(next, base));
   }
   function number(label: string, value: number, unit: string, commit: (v: number) => void, min = 0): void {
     osk.number(label, value, unit, v => { if (Number.isFinite(v) && v >= min) commit(v); else ui.say(`Enter ${min} or more.`, true); });

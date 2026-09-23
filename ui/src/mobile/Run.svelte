@@ -15,6 +15,7 @@
   import StatusLine from '../components/StatusLine.svelte';
   import HoldButton from '../components/HoldButton.svelte';
   import { onlyPart } from '../lib/job-parts';
+  import { withBusy } from '../lib/busy';
 
   let { controls, review }: { controls:() => void; review:(restart?: boolean) => void } = $props();
   const doc = $derived(server.doc!);
@@ -47,9 +48,7 @@
   const blocked = $derived(!access.canControl || busy || !server.link);
   async function perform(action:() => Promise<unknown>): Promise<void> {
     if (busy) return;
-    busy = true;
-    try { await action(); } catch (error) { ui.say(explain(error),true); }
-    finally { busy = false; }
+    await withBusy((b) => (busy = b), action);
   }
   function act(action:'run' | 'resume' | 'hold' | 'stop'): void {
     void perform(async () => {

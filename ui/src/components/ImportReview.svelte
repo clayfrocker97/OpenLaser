@@ -7,6 +7,7 @@
   import Modal from './Modal.svelte';
   import type { ImportOptions, ImportReview, SvgScale } from '../api';
   import { boxOf, pathOf, viewBoxFor } from '../lib/svg';
+  import { plural } from '../lib/format';
   import { SCALES, contourKinds, layersChoosable, repairLines, scaleChoosable, toggleLayer } from '../lib/import-review';
 
   let { review, options, busy, error, remaining, onoptions, onimport, onskip, onstop }: {
@@ -95,7 +96,7 @@
                 <label>
                   <input type="checkbox" checked={layer.imported} disabled={busy} onchange={(e) => chooseLayer(layer.name, e.currentTarget.checked)} />
                   <span class="name">{layer.name}</span>
-                  <small>{layer.entities} {layer.entities === 1 ? 'entity' : 'entities'}{layer.hidden ? ' · off in the file' : ''}</small>
+                  <small>{plural(layer.entities, 'entity', 'entities')}{layer.hidden ? ' · off in the file' : ''}</small>
                 </label>
               </li>
             {/each}

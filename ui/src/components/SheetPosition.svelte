@@ -6,9 +6,9 @@
   import { server } from '../stores/server.svelte';
   import { osk } from '../lib/osk.svelte';
   import { ui } from '../stores/ui.svelte';
-  import { explain } from '../lib/format';
   import { access } from '../lib/access.svelte';
   import HoldButton from './HoldButton.svelte';
+  import { withBusy } from '../lib/busy';
 
   let { compact = false }: { compact?: boolean } = $props();
 
@@ -23,20 +23,13 @@
 
   async function change(value: PlacementChange): Promise<void> {
     if (busy) return;
-    busy = true;
-    try { await api.placement(value); }
-    catch (error) { ui.say(explain(error), true); }
-    finally { busy = false; }
+    await withBusy((b) => (busy = b), () => api.placement(value));
   }
 
   function save(): void {
     const job = doc.library.jobs.find(j => j.id === draft?.job);
-    const perform = async (name: string): Promise<void> => {
-      busy = true;
-      try { await api.saveJob(name); ui.say('Job saved'); }
-      catch (error) { ui.say(explain(error), true); }
-      finally { busy = false; }
-    };
+    const perform = (name: string): Promise<void> =>
+      withBusy((b) => (busy = b), async () => { await api.saveJob(name); ui.say('Job saved'); });
     if (job) void perform(job.name);
     else osk.text('Job name', draft?.name || 'Job', name => { if (name.trim()) void perform(name.trim()); });
   }

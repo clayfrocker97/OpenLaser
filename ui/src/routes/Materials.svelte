@@ -14,7 +14,7 @@
   import { server } from '../stores/server.svelte';
   import { ui } from '../stores/ui.svelte';
   import { osk } from '../lib/osk.svelte';
-  import { explain } from '../lib/format';
+  import { explain, plural } from '../lib/format';
   import { recipeEdits } from '../lib/recipe-edits.svelte';
   import { materialKey } from '../lib/materials';
   import type { RecipeView } from '../api';
@@ -104,7 +104,7 @@
 {#if leaving}
   {@const next = leaving}
   <Modal title="Save this recipe?" onclose={() => (leaving = null)}>
-    <p class="muted">This recipe has {pending} staged change{pending === 1 ? '' : 's'}. Save or discard them before opening {next.name} · {quantity(next.thickness_mm, 'mm')}.</p>
+    <p class="muted">This recipe has {plural(pending, 'staged change')}. Save or discard them before opening {next.name} · {quantity(next.thickness_mm, 'mm')}.</p>
     <div class="row">
       <button class="btn btn-ghost" onclick={() => (leaving = null)}>Stay</button>
       <button class="btn btn-ghost" onclick={() => { discard(); leaving = null; select(next); }}>Discard</button>

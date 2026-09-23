@@ -14,7 +14,7 @@
   import { server } from '../../stores/server.svelte';
   import { ui } from '../../stores/ui.svelte';
   import { osk } from '../../lib/osk.svelte';
-  import { explain, laserLabel } from '../../lib/format';
+  import { explain, laserLabel, plural } from '../../lib/format';
   import { inputValue, quantity, sourceInput, unitLabel, units } from '../../lib/units.svelte';
   import { materialsOf } from '../../lib/materials';
   import { num, refused, shown } from '../../lib/recipe';
@@ -105,7 +105,7 @@
   async function save(): Promise<void> {
     if (unresolved || !saving.length) return;
     if (replacing) {
-      const ok = await ui.confirm({ title: `Replace ${replacing} recipe${replacing === 1 ? '' : 's'}?`, body: `${replacing === 1 ? 'Its' : 'Their'} values, note and source file are replaced by the imported file; the name, star, photo and film process stay. Library history can undo it.`, confirm: `Replace ${replacing}`, danger: true });
+      const ok = await ui.confirm({ title: `Replace ${plural(replacing, 'recipe')}?`, body: `${replacing === 1 ? 'Its' : 'Their'} values, note and source file are replaced by the imported file; the name, star, photo and film process stay. Library history can undo it.`, confirm: `Replace ${replacing}`, danger: true });
       if (!ok) return;
     }
     // The plan is fixed before the first save changes the library.
@@ -136,7 +136,7 @@
     <p class="muted" role="status">Saving {progress.done} of {progress.total}…</p>
   {:else}
     <div class="import-head">
-      <p><strong>{items.length} recipe file{items.length === 1 ? '' : 's'}</strong>{[duplicates.length ? `${duplicates.length} already in the library` : '', failures.length ? `${failures.length} unreadable` : '', newMaterials.length ? `new material${newMaterials.length === 1 ? '' : 's'}: ${newMaterials.join(', ')}` : ''].filter(Boolean).map((part) => ` · ${part}`).join('')}</p>
+      <p><strong>{plural(items.length, 'recipe file')}</strong>{[duplicates.length ? `${duplicates.length} already in the library` : '', failures.length ? `${failures.length} unreadable` : '', newMaterials.length ? `new material${newMaterials.length === 1 ? '' : 's'}: ${newMaterials.join(', ')}` : ''].filter(Boolean).map((part) => ` · ${part}`).join('')}</p>
       <p class="muted">Check each material and the nozzle, focus and lens read from the notes and file names. Nothing is saved until Import.</p>
       {#if skippedOver}<p class="warn-text">Only the first {MAX_FILES} recipe files are listed; import the other {skippedOver} separately.</p>{/if}
     </div>
@@ -184,10 +184,10 @@
       {/each}
     </ul>
     {#if failures.length}
-      <details class="failures" open={!items.length}><summary>{failures.length} file{failures.length === 1 ? '' : 's'} could not be read</summary><div class="import-log">{failures.map((f) => `${f.name}: ${f.reason}`).join('\n')}</div></details>
+      <details class="failures" open={!items.length}><summary>{plural(failures.length, 'file')} could not be read</summary><div class="import-log">{failures.map((f) => `${f.name}: ${f.reason}`).join('\n')}</div></details>
     {/if}
     <div class="import-foot">
-      {#if unresolved}<p class="gate-reason">Choose Replace, Keep both or Skip for {unresolved} duplicate{unresolved === 1 ? '' : 's'}.</p>{/if}
+      {#if unresolved}<p class="gate-reason">Choose Replace, Keep both or Skip for {plural(unresolved, 'duplicate')}.</p>{/if}
       <div class="row">
         <button class="btn btn-ghost" onclick={onclose}>Cancel</button>
         <button class="btn btn-primary" disabled={!!unresolved || !saving.length} onclick={save}>{saving.length ? `Import ${saving.length}${replacing ? ` · replace ${replacing}` : ''}` : 'Nothing to import'}</button>

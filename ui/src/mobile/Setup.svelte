@@ -4,7 +4,7 @@
   import { server } from '../stores/server.svelte';
   import { ui, type FeatureId } from '../stores/ui.svelte';
   import { osk } from '../lib/osk.svelte';
-  import { explain, plural, recipeLabel, size } from '../lib/format';
+  import { plural, recipeLabel, size } from '../lib/format';
   import { plain } from '../lib/plain';
   import { TOOLS, isOn, stateOf } from '../lib/features';
   import Preview from './Preview.svelte';
@@ -14,6 +14,7 @@
   import AddParts from '../components/AddParts.svelte';
   import CreateText from '../components/CreateText.svelte';
   import MaterialSummary from '../components/MaterialSummary.svelte';
+  import { withBusy } from '../lib/busy';
 
   let { edit }: { edit: (tool:FeatureId | 'copy' | 'nest' | 'layout') => void } = $props();
   const doc = $derived(server.doc!);
@@ -34,9 +35,7 @@
 
   async function perform(action: () => Promise<unknown>): Promise<void> {
     if (blocked) return;
-    busy = true;
-    try { await action(); } catch (error) { ui.say(explain(error),true); }
-    finally { busy = false; }
+    await withBusy((b) => (busy = b), action);
   }
   function review(dryRun:boolean): void { void perform(async () => { if (draft?.dry_run !== dryRun) await api.compile(dryRun); ui.tab = 'run'; }); }
   function save(): void {

@@ -9,7 +9,7 @@
   import { server } from '../../stores/server.svelte';
   import { ui } from '../../stores/ui.svelte';
   import { osk } from '../../lib/osk.svelte';
-  import { explain } from '../../lib/format';
+  import { explain, plural } from '../../lib/format';
   import { GAS } from '../../lib/recipe';
   import { summaryLine } from '../../lib/summary';
   import { CARDS, cardUrl, type MaterialCard } from '../../lib/materials';
@@ -137,7 +137,7 @@
     </div>
   </div>
   <div class="panel-foot">
-    <span class="muted">{matching.length} material{matching.length === 1 ? '' : 's'}</span>
+    <span class="muted">{plural(matching.length, 'material')}</span>
     <div class="pager"><button onclick={() => (page = Math.max(0, page - 1))} disabled={page === 0} aria-label="Previous page"><i class="ic ic-chev-left"></i></button><span>{page + 1} / {pages}</span><button onclick={() => (page = Math.min(pages - 1, page + 1))} disabled={page >= pages - 1} aria-label="Next page"><i class="ic ic-chev-right"></i></button></div>
     <button class="btn btn-primary" onclick={add} disabled={!draft.name || !draft.values}>{draft.name ? `Add ${draft.name} ${mm(draft.thickness_mm)}` : 'Choose a material'}</button>
   </div>

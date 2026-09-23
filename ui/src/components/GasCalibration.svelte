@@ -13,6 +13,7 @@
   import { GAS_COLORS, GAS_NAMES, METHODS, measuredLitres, routesFor, volume, type Method } from '../lib/gas';
   import Modal from './Modal.svelte';
   import HoldButton from './HoldButton.svelte';
+  import { withBusy } from '../lib/busy';
 
   let { gas, onclose }: { gas: GasKind; onclose: () => void } = $props();
   const TEST_SECONDS = 60;
@@ -81,13 +82,11 @@
   const measured = $derived(measuredLitres(method, gas, readings));
   async function save(): Promise<void> {
     if (measured === null) return;
-    busy = true;
-    try {
+    await withBusy((b) => (busy = b), async () => {
       const saved = await api.calibrateGas({ ...$state.snapshot(test), measured });
       factor = saved.factor;
       step = 'saved';
-    } catch (e) { ui.say(explain(e), true); }
-    finally { busy = false; }
+    });
   }
   const num = (label: string, value: number, unit: string, set: (v: number) => void, min = 0) =>
     osk.number(label, value, unit, v => { if (Number.isFinite(v) && v >= min) set(v); });

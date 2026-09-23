@@ -6,9 +6,10 @@
   import { api } from '../api/client';
   import { server } from '../stores/server.svelte';
   import { ui } from '../stores/ui.svelte';
-  import { explain, plural, size } from '../lib/format';
+  import { plural, size } from '../lib/format';
   import { fuzzyScore } from '../lib/search';
   import { togglePick } from '../lib/job-parts';
+  import { withBusy } from '../lib/busy';
 
   let { onclose }: { onclose: () => void } = $props();
   const doc = $derived(server.doc!);
@@ -25,16 +26,11 @@
 
   async function add(): Promise<void> {
     if (busy || !picks.length) return;
-    busy = true;
-    try {
+    await withBusy((b) => (busy = b), async () => {
       await api.addParts(picks);
       ui.say(`Added ${plural(picks.length, 'part')} beside the sheet · Undo takes them off`);
       onclose();
-    } catch (error) {
-      ui.say(explain(error), true);
-    } finally {
-      busy = false;
-    }
+    });
   }
 </script>
 

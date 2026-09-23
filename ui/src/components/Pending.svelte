@@ -7,7 +7,7 @@
   import { recipeEdits } from '../lib/recipe-edits.svelte';
   import { settingsEdits, routeValues, mergePreferences, same, type SettingKey } from '../lib/settings-edits.svelte';
   import { holdSeconds } from '../lib/hold-confirm';
-  import { explain, laserLabel } from '../lib/format';
+  import { explain, laserLabel, plural } from '../lib/format';
   import { shown } from '../lib/recipe';
   import { conflictText, reviewText } from '../lib/review-values';
   import { xmlValue, type XmlField } from '../lib/machine-settings';
@@ -85,7 +85,7 @@
     const count = key === 'xml' ? Object.keys(staged.xml?.edits ?? {}).length : 0;
     return ui.confirm({
       title: key === 'xml' ? 'Save machine settings?' : 'Use this machine backup?',
-      body: `${key === 'xml' ? `${count} changed value${count === 1 ? '' : 's'} replace the machine settings` : `${staged.backup?.name ?? 'The staged backup'} replaces the machine settings`}${connected ? ', and the connected controller is written and read back to verify them.' : '. The controller is written when it next connects.'}`,
+      body: `${key === 'xml' ? `${plural(count, 'changed value')} replace the machine settings` : `${staged.backup?.name ?? 'The staged backup'} replaces the machine settings`}${connected ? ', and the connected controller is written and read back to verify them.' : '. The controller is written when it next connects.'}`,
       confirm: connected ? 'Save and write controller' : 'Save settings',
     });
   }
