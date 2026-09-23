@@ -358,7 +358,9 @@ fn spawn<T: Send + 'static>(
 
 use std::sync::Arc;
 
-/// Go Origin.
+/// Go Origin: homes X and Y (the vendor's name for the button). Finishes
+/// machine initialization first if an alarm prevented it at connection, and
+/// drops a captured head position, which homing makes stale.
 pub async fn home(shared: &Shared) -> Result<()> {
     let requested = Instant::now();
     let epoch = shared.ensure_running()?;
@@ -397,7 +399,8 @@ pub async fn home(shared: &Shared) -> Result<()> {
     Ok(())
 }
 
-/// Head calibration.
+/// Calibrates the cutting head's height sensor against the sheet; the
+/// result applies to the current material and connection only.
 pub async fn calibrate(shared: &Shared) -> Result<()> {
     shared.ensure_running()?;
     select_setup_mode(shared).await?;
