@@ -22,9 +22,13 @@
 
   // Reload when a run is recorded or prices change (the gas revision), or
   // another job opens.
+  // Primitives only: the document objects are replaced on every update.
+  const draftKey = $derived(draft?.key ?? null);
+  const draftJob = $derived(draft?.job ?? null);
+  const gasRevision = $derived(gas.revision);
   $effect(() => {
-    const key = draft?.key, job = draft?.job ?? null;
-    void gas.revision;
+    const key = draftKey, job = draftJob;
+    void gasRevision;
     if (!key) { history = []; return; }
     let current = true;
     api.gasRuns(key, job).then(r => { if (current) { history = r; error = ''; } }, e => { if (current) error = explain(e); });

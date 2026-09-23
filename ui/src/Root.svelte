@@ -16,7 +16,9 @@
   const shell = $derived(loadShell(layout.current));
   $effect(() => { document.documentElement.dataset.layout = layout.current; });
   // Unsaved jobs change with the draft and the library; recount after each, on both shells.
-  $effect(() => { void server.doc?.draft_revision; void server.doc?.library; void ui.modal; if (server.link) pending.refresh(); });
+  const draftRevision = $derived(server.doc?.draft_revision ?? 0);
+  const libraryItems = $derived((server.doc?.library.parts.length ?? 0) + (server.doc?.library.jobs.length ?? 0));
+  $effect(() => { void draftRevision; void libraryItems; void ui.modal; if (server.link) pending.refresh(); });
   onMount(() => {
     const stopAccess = access.mount();
     const stopLayout = layout.mount();

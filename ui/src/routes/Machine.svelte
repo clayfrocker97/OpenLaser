@@ -61,7 +61,7 @@
   let matches = $state(0);
   $effect(() => {
     void query;
-    void doc;
+    void ui.machinePage;
     if (!content) return;
     void tick().then(() => { if (content) matches = filterRows(content, query); });
   });
