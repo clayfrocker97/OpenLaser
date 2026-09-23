@@ -419,7 +419,7 @@ impl Coordinator {
 
 /// Gets the current review with the same stop/restart boundary as the API.
 pub async fn review(shared: &Shared, intent: PreflightIntent) -> Result<PreflightReview> {
-    let epoch = shared.epoch()?;
+    let epoch = shared.ensure_running()?;
     shared.lock().await.preflight_review(intent, epoch)
 }
 
@@ -477,7 +477,7 @@ fn resolve_gas_checks(steps: &[Check], job: &openlaser_compiler::program::Job) -
 /// Starts only an action offered by the current checklist. Checking a box
 /// itself never invokes this endpoint or performs motion.
 pub async fn action(shared: &Shared, token: &str, step: usize) -> Result<()> {
-    let epoch = shared.epoch()?;
+    let epoch = shared.ensure_running()?;
     let action = {
         let coordinator = shared.lock().await;
         // The token binds the intent as well as the exact job and machine

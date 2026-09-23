@@ -52,7 +52,7 @@ struct GasCalibrationRequest {
 type Body = Option<Json<MachineRequest>>;
 
 fn input(shared: &Shared, body: Body) -> crate::Result<MachineRequest> {
-    shared.epoch()?;
+    shared.ensure_running()?;
     Ok(optional(body))
 }
 

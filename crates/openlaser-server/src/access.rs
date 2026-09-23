@@ -165,7 +165,7 @@ async fn guard(State(access): State<Access>, request: Request, next: Next) -> Re
     let Some(identity) = identity(request.headers(), peer) else {
         return refused(StatusCode::BAD_REQUEST, "this page needs a control identity");
     };
-    let epoch = match access.shared.epoch() {
+    let epoch = match access.shared.ensure_running() {
         Ok(epoch) => epoch,
         Err(error) => return refused(StatusCode::CONFLICT, &error.to_string()),
     };
@@ -176,7 +176,7 @@ async fn guard(State(access): State<Access>, request: Request, next: Next) -> Re
     } else {
         Some(access.commands.clone().lock_owned().await)
     };
-    if access.shared.epoch().ok() != Some(epoch) {
+    if access.shared.ensure_running().ok() != Some(epoch) {
         return refused(StatusCode::CONFLICT, "Stop cancelled this pending command.");
     }
     let mut state = access.state.lock().await;

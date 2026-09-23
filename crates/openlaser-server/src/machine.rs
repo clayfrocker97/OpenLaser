@@ -46,7 +46,7 @@ pub(crate) async fn after_connect(shared: &Shared) -> Option<String> {
 /// One reserved configuration transition, from immutable XML through
 /// controller acknowledgement and fresh parameter verification.
 async fn configure(shared: &Shared, mode: LaserMode, switch: bool) -> Result<Option<String>> {
-    let epoch = shared.epoch()?;
+    let epoch = shared.ensure_running()?;
     let requested = Instant::now();
     let (owner, bundle, scale) = {
         let mut c = shared.lock().await;
@@ -58,7 +58,7 @@ async fn configure(shared: &Shared, mode: LaserMode, switch: bool) -> Result<Opt
         let bound =
             work(move || openlaser_xml::bindings::bind(&bundle, mode, scale).map_err(Error::from))
                 .await?;
-        if shared.epoch()? != epoch {
+        if shared.ensure_running()? != epoch {
             return Err(Error::Refused("configuration was cancelled".into()));
         }
         shared.machine.configure(crate::bindings::controller(&bound)).await?;
@@ -128,7 +128,7 @@ pub async fn import_file_reviewed(
     bytes: &[u8],
     expected: Option<&str>,
 ) -> Result<()> {
-    let epoch = shared.epoch()?;
+    let epoch = shared.ensure_running()?;
     let (owner, dir, mode, scale, connected, previous) = {
         let mut c = shared.lock().await;
         if expected
@@ -149,7 +149,7 @@ pub async fn import_file_reviewed(
     let outcome = async {
         let candidate =
             work(move || crate::machine_files::stage(dir, &name, &bytes, mode, scale)).await?;
-        if shared.epoch()? != epoch {
+        if shared.ensure_running()? != epoch {
             return Err(Error::Refused("import was cancelled".into()));
         }
         if connected {
@@ -309,7 +309,7 @@ use std::sync::Arc;
 /// Go Origin.
 pub async fn home(shared: &Shared) -> Result<()> {
     let requested = Instant::now();
-    let epoch = shared.epoch()?;
+    let epoch = shared.ensure_running()?;
     select_setup_mode(shared).await?;
     // An alarm present at connection can prevent initialization. Once the
     // operator has recovered it, finish that setup before establishing Home.
@@ -337,7 +337,7 @@ pub async fn home(shared: &Shared) -> Result<()> {
     if let Some(revision) = revision {
         compile_automatically(shared, revision).await?;
     }
-    if shared.epoch()? != epoch {
+    if shared.ensure_running()? != epoch {
         return Err(Error::Refused("Home was cancelled".into()));
     }
     let machine = shared.machine.clone();
@@ -347,7 +347,7 @@ pub async fn home(shared: &Shared) -> Result<()> {
 
 /// Head calibration.
 pub async fn calibrate(shared: &Shared) -> Result<()> {
-    shared.epoch()?;
+    shared.ensure_running()?;
     select_setup_mode(shared).await?;
     let context = {
         let mut c = shared.lock().await;
@@ -421,7 +421,7 @@ pub struct TableRequest {
 
 /// The configured lifting table, sharing the jog's lease and cleanup.
 pub async fn table(shared: &Shared, request: TableRequest, lease: Lease) -> Result<()> {
-    shared.epoch()?;
+    shared.ensure_running()?;
     let requested = Instant::now();
     let (motion, limits) = {
         let c = shared.lock().await;
@@ -514,7 +514,7 @@ fn table_travel(
 
 /// The complete stationary pulse, including the output-off tail, fits one frame.
 pub async fn pulse(shared: &Shared, duration_ms: u32, power: u8) -> Result<()> {
-    let epoch = shared.epoch()?;
+    let epoch = shared.ensure_running()?;
     let requested = Instant::now();
     let (owner, binding, pulse) = {
         let mut c = shared.lock().await;
@@ -568,7 +568,7 @@ pub async fn pulse(shared: &Shared, duration_ms: u32, power: u8) -> Result<()> {
 
 /// Jogs X or Y, or both at 45°: a step, or a held move until released.
 pub async fn jog(shared: &Shared, request: JogRequest, lease: Option<Lease>) -> Result<()> {
-    shared.epoch()?;
+    shared.ensure_running()?;
     let requested = Instant::now();
     if request.step_mm.is_none() && lease.is_none() {
         return Err(Error::Request("a held jog needs a press identity".into()));
@@ -675,7 +675,7 @@ enum Position<'a> {
 }
 
 async fn go_position(shared: &Shared, point: Position<'_>, fast: bool) -> Result<()> {
-    shared.epoch()?;
+    shared.ensure_running()?;
     let requested = Instant::now();
     let completed = {
         let coordinator = shared.lock().await;
@@ -772,7 +772,7 @@ pub async fn release(shared: &Shared, lease: Lease) -> Result<()> {
 
 /// Renews a held jog's or output's lease.
 pub fn heartbeat(shared: &Shared, lease: Lease) -> Result<()> {
-    shared.epoch()?;
+    shared.ensure_running()?;
     shared.machine.heartbeat_owned(lease)?;
     Ok(())
 }
@@ -804,7 +804,7 @@ pub enum OutputRequest {
 
 /// Holds a manual output on until released.
 pub async fn outputs(shared: &Shared, request: OutputRequest, lease: Lease) -> Result<()> {
-    shared.epoch()?;
+    shared.ensure_running()?;
     let requested = Instant::now();
     let (machine, plan) = {
         let coordinator = shared.lock().await;
@@ -838,7 +838,7 @@ pub async fn gas_test(
     pressure: f64,
     duration_ms: u64,
 ) -> Result<()> {
-    shared.epoch()?;
+    shared.ensure_running()?;
     // A fixed-pressure valve (including CO2 High Air) has no pressure command.
     if !(selector <= 5 && (0. ..=100.).contains(&pressure) && (50..=2000).contains(&duration_ms)) {
         return Err(Error::Request("a gas test needs 0–5, 0–100 bar and 50–2000 ms".into()));
@@ -858,7 +858,7 @@ pub async fn gas_test(
 /// (Settings → Gas costs). It is the gas test's bounded valve plan with a
 /// fixed, longer duration; Stop ends it like any output.
 pub async fn gas_calibration(shared: &Shared, selector: u8, pressure: f64) -> Result<()> {
-    shared.epoch()?;
+    shared.ensure_running()?;
     if !(selector <= 5 && (0. ..=100.).contains(&pressure)) {
         return Err(Error::Request("a gas flow test needs 0–5 and 0–100 bar".into()));
     }
@@ -905,7 +905,7 @@ pub async fn import_soft_reviewed(
     bytes: &[u8],
     expected: Option<&str>,
 ) -> Result<()> {
-    shared.epoch()?;
+    shared.ensure_running()?;
     let candidate = crate::soft_settings::SoftSettings::parse(name, bytes)?;
     let mut coordinator = shared.lock().await;
     coordinator.idle()?;
@@ -942,7 +942,7 @@ pub async fn import_soft_reviewed(
 /// Switches the laser mode. The XY reference carries over while the
 /// controller keeps reporting it; parameters are verified again.
 pub async fn switch_mode(shared: &Shared, mode: LaserMode) -> Result<()> {
-    shared.epoch()?;
+    shared.ensure_running()?;
     {
         let mut c = shared.lock().await;
         if c.mode == Some(mode) {
@@ -1031,7 +1031,7 @@ pub async fn run_reviewed(
     // Placement capture would re-pin the held job's origin: refuse first.
     shared.lock().await.not_held()?;
     crate::placement::prepare(shared).await?;
-    let epoch = shared.epoch()?;
+    let epoch = shared.ensure_running()?;
     let requested = Instant::now();
     let (owner, compiled, sheet_offset, binding, name, material, origin, sheet) = {
         let mut coordinator = shared.lock().await;
@@ -1089,7 +1089,7 @@ pub async fn resume_reviewed(
     shared: &Shared,
     confirmation: Option<&PreflightConfirmation>,
 ) -> Result<()> {
-    let epoch = shared.epoch()?;
+    let epoch = shared.ensure_running()?;
     let requested = Instant::now();
     let (owner, recovery, binding, pierce) = {
         let mut c = shared.lock().await;
@@ -1134,7 +1134,7 @@ pub async fn resume_reviewed(
 
 /// Move to the chosen restart point with the laser off and the head retracted.
 pub async fn move_restart(shared: &Shared, revision: u64) -> Result<()> {
-    shared.epoch()?;
+    shared.ensure_running()?;
     let requested = Instant::now();
     let motion = {
         let c = shared.lock().await;
@@ -1315,7 +1315,7 @@ async fn start_run(
         let Built { program, held, execution, fresh } = result?;
         {
             let mut coordinator = shared.lock().await;
-            if shared.epoch()? != epoch || coordinator.operation != Some(owner) {
+            if shared.ensure_running()? != epoch || coordinator.operation != Some(owner) {
                 return Err(Error::Refused("the operation was cancelled".into()));
             }
             if coordinator.acceptance()? != program.configuration {
@@ -1438,7 +1438,7 @@ impl crate::Coordinator {
 pub async fn frame(shared: &Shared) -> Result<()> {
     shared.lock().await.not_held()?;
     crate::placement::prepare(shared).await?;
-    let epoch = shared.epoch()?;
+    let epoch = shared.ensure_running()?;
     let requested = Instant::now();
     let (owner, compiled, binding, settings, name, material, origin) = {
         let mut coordinator = shared.lock().await;
@@ -1575,7 +1575,7 @@ async fn build_revision(
     revision: u64,
     automatic: bool,
 ) -> Result<()> {
-    shared.epoch()?;
+    shared.ensure_running()?;
     let revision = select_draft_mode(shared, revision).await?;
     let inputs = {
         let mut coordinator = shared.lock().await;

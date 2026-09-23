@@ -203,7 +203,7 @@ pub async fn save(shared: &Shared, change: Change) -> Result<()> {
 
 /// Projects and applies the currently bound XML. Caller owns configuration admission.
 pub(crate) async fn initialize(shared: &Shared) -> Result<()> {
-    let epoch = shared.epoch()?;
+    let epoch = shared.ensure_running()?;
     let (doc, mode) = {
         let mut c = shared.lock().await;
         c.accepted = None;
@@ -214,7 +214,7 @@ pub(crate) async fn initialize(shared: &Shared) -> Result<()> {
     let before = shared.machine.read_parameters().await?;
     let plan = initialization::Plan::from_document(&doc, before.scale, mode)?;
     let expected = expected_parameters(&before, &plan)?;
-    if shared.epoch()? != epoch {
+    if shared.ensure_running()? != epoch {
         return Err(Error::Refused("initialization was cancelled".into()));
     }
     shared

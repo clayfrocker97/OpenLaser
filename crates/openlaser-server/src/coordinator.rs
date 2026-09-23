@@ -167,7 +167,8 @@ pub struct SharedState {
     /// Direct handle for stop, release and lease renewal.
     pub machine: Machine,
     coordinator: Mutex<Coordinator>,
-    /// Cancels any enabling work still being built off the lock.
+    /// Counts Stop presses and the shutdown. Work that is built off the lock
+    /// records it first and gives up if it has moved on when it returns.
     pub(crate) stop_epoch: AtomicU64,
     /// Once set, no new work is admitted.
     pub(crate) closing: watch::Sender<bool>,
@@ -179,7 +180,9 @@ impl SharedState {
         self.coordinator.lock().await
     }
 
-    pub(crate) fn epoch(&self) -> Result<u64> {
+    /// Refuses new work once the server is shutting down; otherwise the
+    /// current stop epoch, for the caller to compare again after awaiting.
+    pub(crate) fn ensure_running(&self) -> Result<u64> {
         if *self.closing.borrow() {
             return Err(Error::Refused("the server is shutting down".into()));
         }
