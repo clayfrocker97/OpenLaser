@@ -26,7 +26,7 @@ pub(crate) async fn after_connect(shared: &Shared) -> Option<String> {
         let c = shared.lock().await;
         c.draft
             .as_ref()
-            .and_then(|d| d.recipe.as_ref())
+            .and_then(|d| d.current.recipe.as_ref())
             .map(|r| r.laser)
             .or(c.mode)
             .unwrap_or(LaserMode::Fiber)
@@ -324,9 +324,9 @@ pub async fn home(shared: &Shared) -> Result<()> {
             if let Some(draft) = &mut c.draft
                 && crate::placement::is_head(draft)
             {
-                draft.sheet_offset = None;
+                draft.current.sheet_offset = None;
                 draft.capture_epoch = None;
-                if draft.correction.is_some() {
+                if draft.current.correction.is_some() {
                     draft.compiled = None;
                 }
             }
@@ -972,7 +972,7 @@ pub(crate) async fn select_draft_mode(shared: &Shared, revision: u64) -> Result<
     let mode = {
         let c = shared.lock().await;
         c.check_draft(revision)?;
-        let mode = c.draft.as_ref().and_then(|d| d.recipe.as_ref()).map(|r| r.laser);
+        let mode = c.draft.as_ref().and_then(|d| d.current.recipe.as_ref()).map(|r| r.laser);
         mode.filter(|mode| Some(*mode) != c.mode)
     };
     let Some(mode) = mode else { return Ok(revision) };
@@ -1047,7 +1047,7 @@ pub async fn run_reviewed(
         let sheet_offset = draft.sheet_offset()?;
         let binding = Execution::new(&coordinator, &configuration, sheet_offset)?;
         let name = coordinator.draft_name(draft);
-        let material = draft.recipe.as_ref().map(crate::document::MaterialView::from);
+        let material = draft.current.recipe.as_ref().map(crate::document::MaterialView::from);
         let origin = draft.origin().ok_or_else(|| Error::Refused("no job origin".into()))?;
         let sheet = if compiled.dry_run { None } else { coordinator.sheet_plan(draft)? };
         let owner = coordinator.reserve()?;
@@ -1454,7 +1454,7 @@ pub async fn frame(shared: &Shared) -> Result<()> {
             .ok_or_else(|| Error::Refused("connect and compile again".into()))?;
         let binding = Execution::new(&coordinator, &configuration, draft.sheet_offset()?)?;
         let name = coordinator.draft_name(draft);
-        let material = draft.recipe.as_ref().map(crate::document::MaterialView::from);
+        let material = draft.current.recipe.as_ref().map(crate::document::MaterialView::from);
         let origin = draft.origin().ok_or_else(|| Error::Refused("no job origin".into()))?;
         let settings = coordinator.bound()?.frame;
         if ((settings.cadence_ms * 1000.).round() - f64::from(configuration.verified.cycle_us))
@@ -1552,7 +1552,7 @@ pub(crate) async fn compile_automatically(shared: &Shared, revision: u64) -> Res
             let c = shared.lock().await;
             c.check_draft(revision)?;
             let Some(draft) = &c.draft else { return Ok(()) };
-            if draft.prepared.is_none() || draft.recipe.is_none() || c.bundle.is_none() {
+            if draft.prepared.is_none() || draft.current.recipe.is_none() || c.bundle.is_none() {
                 return Ok(());
             }
             if draft.compiled.as_ref().is_some_and(|p| {

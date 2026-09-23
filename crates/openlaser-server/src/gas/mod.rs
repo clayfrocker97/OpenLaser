@@ -745,7 +745,11 @@ impl crate::Coordinator {
                 key: crate::workspace::key(draft),
                 job: draft.job.clone(),
                 name: self.draft_name(draft),
-                nozzle: draft.recipe.as_ref().and_then(|r| Nozzle::of_attributes(&r.attributes)),
+                nozzle: draft
+                    .current
+                    .recipe
+                    .as_ref()
+                    .and_then(|r| Nozzle::of_attributes(&r.attributes)),
                 started: openlaser_library::now(),
             }
         });

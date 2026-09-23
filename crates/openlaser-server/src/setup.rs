@@ -37,7 +37,7 @@ impl Calibration {
 }
 
 fn material(c: &Coordinator) -> Option<(String, u64)> {
-    c.draft.as_ref()?.recipe.as_ref().map(|r| (r.name.clone(), r.thickness_mm.to_bits()))
+    c.draft.as_ref()?.current.recipe.as_ref().map(|r| (r.name.clone(), r.thickness_mm.to_bits()))
 }
 
 /// Calibration status for the material selected in the current job.

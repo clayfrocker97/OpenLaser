@@ -80,7 +80,7 @@ async fn offline_head_jobs_save_intent_and_fixed_jobs_save_homed_xy() {
     machine::compile(&shared, false).await.unwrap();
     let mut c = shared.lock().await;
     let d = c.draft.as_ref().unwrap();
-    assert!(d.sheet_offset.is_none(), "offline compilation must not invent a bed location");
+    assert!(d.current.sheet_offset.is_none(), "offline compilation must not invent a bed location");
     assert!(d.compiled.is_some());
     assert_eq!(d.dock(), Some([100., 80.]));
     let head = c.save_job("Loose sheets").unwrap();
@@ -88,7 +88,7 @@ async fn offline_head_jobs_save_intent_and_fixed_jobs_save_homed_xy() {
     assert_eq!(saved.placement, Some(Placement::Head {}));
     assert!(saved.sheet_offset.is_none());
     assert!(c.change_placement(PlacementChange::SetOrigin {}).is_err());
-    assert!(c.draft.as_ref().unwrap().sheet_offset.is_none());
+    assert!(c.draft.as_ref().unwrap().current.sheet_offset.is_none());
     c.set_stock(StockChoice::Rectangle { width: 250., height: 200. }).unwrap();
     drop(c);
     machine::prepare(&shared).await.unwrap();
@@ -134,7 +134,7 @@ async fn absolute_origin_captures_machine_coordinates_and_reuses_them_after_jog_
         let mut c = shared.lock().await;
         c.change_placement(PlacementChange::FixedHead {}).unwrap();
         near(c.draft.as_ref().unwrap().origin().unwrap(), [150., 120.]);
-        near(c.draft.as_ref().unwrap().sheet_offset.unwrap(), [50., 40.]);
+        near(c.draft.as_ref().unwrap().current.sheet_offset.unwrap(), [50., 40.]);
         c.save_job("Absolute fixture").unwrap()
     };
     assert!(control.writes().is_empty(), "saving an absolute origin never moves the head");
@@ -162,7 +162,7 @@ async fn absolute_origin_captures_machine_coordinates_and_reuses_them_after_jog_
         c.change_placement(PlacementChange::SetOrigin {}).unwrap();
         near(c.draft.as_ref().unwrap().origin().unwrap(), [175., 140.]);
         c.change_placement(PlacementChange::NewRun {}).unwrap();
-        assert!(c.draft.as_ref().unwrap().sheet_offset.is_none());
+        assert!(c.draft.as_ref().unwrap().current.sheet_offset.is_none());
     }
 }
 
@@ -250,13 +250,13 @@ async fn set_origin_pins_this_run_jogs_and_resume_keep_it_and_new_runs_recapture
         let job = c.save_job("Repeat loose sheet").unwrap();
         assert!(c.library.job(&job.id).unwrap().sheet_offset.is_none());
         c.change_placement(PlacementChange::NewRun {}).unwrap();
-        assert!(c.draft.as_ref().unwrap().sheet_offset.is_none());
+        assert!(c.draft.as_ref().unwrap().current.sheet_offset.is_none());
         job
     };
     {
         let mut c = shared.lock().await;
         c.open_job(&job.id).unwrap();
-        assert!(c.draft.as_ref().unwrap().sheet_offset.is_none());
+        assert!(c.draft.as_ref().unwrap().current.sheet_offset.is_none());
     }
     openlaser_server::shutdown(&shared).await.unwrap();
 }
@@ -287,7 +287,7 @@ async fn correction_waits_for_capture_recompiles_on_reposition_and_checks_travel
         let c = shared.lock().await;
         let d = c.draft.as_ref().unwrap();
         assert!(!d.view().placement.correction_pending);
-        let map = openlaser_correction::Map::new(d.correction.as_ref().unwrap()).unwrap();
+        let map = openlaser_correction::Map::new(d.current.correction.as_ref().unwrap()).unwrap();
         let first = d
             .compiled
             .as_ref()
@@ -297,7 +297,7 @@ async fn correction_waits_for_capture_recompiles_on_reposition_and_checks_travel
             .iter()
             .find(|m| m.kind == PathKind::Cut)
             .unwrap();
-        let zero = Point::from(d.sheet_offset.unwrap());
+        let zero = Point::from(d.current.sheet_offset.unwrap());
         let physical = map.forward(Point::from(first.points[0]) + zero);
         let wanted = Point::from(d.preview.as_ref().unwrap().contours[0].start) + zero;
         assert!(physical.distance(wanted) < 0.02);
@@ -352,8 +352,8 @@ async fn calibration_keeps_normal_kerf_leads_and_editing_with_correction_off() {
     machine::compile(&shared, false).await.unwrap();
     let mut c = shared.lock().await;
     let d = c.draft.as_ref().unwrap();
-    assert!(d.calibration && d.correction.is_none());
-    assert_eq!(d.features, features);
+    assert!(d.calibration && d.current.correction.is_none());
+    assert_eq!(d.current.features, features);
     let compiled = &d.compiled.as_ref().unwrap().view;
     assert_eq!(compiled.plan.len(), 9);
     assert!(compiled.moves.iter().any(|m| m.kind == PathKind::LeadIn));

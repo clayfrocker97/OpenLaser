@@ -329,7 +329,7 @@ mod tests {
         let view = draft.view();
         assert_eq!((view.past, view.future), (1, 1));
         assert_eq!(view.sheet_offset, Some([12.5, 7.25]));
-        assert!(draft.sheets.is_some());
+        assert!(draft.current.sheets.is_some());
         let state = draft.authoring_state();
         let written =
             encode(&Stored { version: super::super::version(state.parts()), draft: state })

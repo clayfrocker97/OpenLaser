@@ -89,14 +89,14 @@ async fn numbered_sheets_switch_persist_and_save_as_one_history_edit() {
     assert!(other.preview.is_some());
     nesting::apply(&shared, task.id).await.unwrap();
     let count = result.sheets.len();
-    let first = shared.lock().await.draft.as_ref().unwrap().placed.clone();
+    let first = shared.lock().await.draft.as_ref().unwrap().current.placed.clone();
     shared.lock().await.select_sheet(1).unwrap();
     machine::prepare(&shared).await.unwrap();
-    let second = shared.lock().await.draft.as_ref().unwrap().placed.clone();
+    let second = shared.lock().await.draft.as_ref().unwrap().current.placed.clone();
     assert_ne!(first, second);
     shared.lock().await.select_sheet(0).unwrap();
     machine::prepare(&shared).await.unwrap();
-    assert_eq!(shared.lock().await.draft.as_ref().unwrap().placed, first);
+    assert_eq!(shared.lock().await.draft.as_ref().unwrap().current.placed, first);
     shared.lock().await.select_sheet(1).unwrap();
     machine::prepare(&shared).await.unwrap();
     let mut c = shared.lock().await;
@@ -139,16 +139,16 @@ async fn stock_quantity_one_undo_save_and_restart() {
         let c = shared.lock().await;
         let d = c.draft.as_ref().unwrap();
         assert_eq!(d.groups.len(), 2, "removed stock must not keep all enclosed parts grouped");
-        assert_eq!(d.placed.len(), 3);
-        assert!(d.placed.iter().all(|p| p.source != 0));
-        (d.placed.clone(), d.view().past, c.document().draft_revision)
+        assert_eq!(d.current.placed.len(), 3);
+        assert!(d.current.placed.iter().all(|p| p.source != 0));
+        (d.current.placed.clone(), d.view().past, c.document().draft_revision)
     };
     let work = nesting::start(&shared, revision, request()).await.unwrap();
     let view = finished(&shared, work.id).await;
     assert!(view.error.is_none(), "{:?}", view.error);
     assert_eq!(view.total, 5);
     assert_eq!(
-        shared.lock().await.draft.as_ref().unwrap().placed,
+        shared.lock().await.draft.as_ref().unwrap().current.placed,
         before,
         "preview must not mutate the draft"
     );
@@ -156,17 +156,17 @@ async fn stock_quantity_one_undo_save_and_restart() {
     let (placed, stock, config) = {
         let c = shared.lock().await;
         let d = c.draft.as_ref().unwrap();
-        assert_eq!(d.placed.len(), 9);
+        assert_eq!(d.current.placed.len(), 9);
         assert_eq!(d.groups.len(), 5);
         assert_eq!(d.view().past, past + 1);
-        assert_eq!(d.placed.iter().filter(|p| p.source == 2).count(), 4);
-        assert!(d.placed.iter().all(|p| p.source != 0));
+        assert_eq!(d.current.placed.iter().filter(|p| p.source == 2).count(), 4);
+        assert!(d.current.placed.iter().all(|p| p.source != 0));
         assert!(d.prepared.is_some());
-        (d.placed.clone(), d.nesting.clone(), c.config.clone())
+        (d.current.placed.clone(), d.current.nesting.clone(), c.config.clone())
     };
     shared.lock().await.undo().unwrap();
     machine::prepare(&shared).await.unwrap();
-    assert_eq!(shared.lock().await.draft.as_ref().unwrap().placed, before);
+    assert_eq!(shared.lock().await.draft.as_ref().unwrap().current.placed, before);
     shared.lock().await.redo().unwrap();
     machine::prepare(&shared).await.unwrap();
     let job = shared.lock().await.save_job("Nested sheet").unwrap();
@@ -183,8 +183,8 @@ async fn stock_quantity_one_undo_save_and_restart() {
     .await;
     let c = reopened.lock().await;
     let d = c.draft.as_ref().unwrap();
-    assert_eq!(d.placed, placed);
-    assert_eq!(d.nesting, stock);
+    assert_eq!(d.current.placed, placed);
+    assert_eq!(d.current.nesting, stock);
     assert_eq!(c.library.job(&job.id).unwrap().nesting, stock);
     drop(c);
     openlaser_server::shutdown(&reopened).await.unwrap();
@@ -202,13 +202,13 @@ async fn edited_and_cancelled_results_cannot_apply() {
     assert!(nesting::apply(&shared, work.id).await.is_err());
     machine::prepare(&shared).await.unwrap();
     let revision = shared.lock().await.document().draft_revision;
-    let before = shared.lock().await.draft.as_ref().unwrap().placed.clone();
+    let before = shared.lock().await.draft.as_ref().unwrap().current.placed.clone();
     let work = nesting::start(&shared, revision, request()).await.unwrap();
     nesting::cancel(&shared, work.id).await.unwrap();
     let view = finished(&shared, work.id).await;
     assert!(view.error.is_some());
     assert!(nesting::apply(&shared, work.id).await.is_err());
-    assert_eq!(shared.lock().await.draft.as_ref().unwrap().placed, before);
+    assert_eq!(shared.lock().await.draft.as_ref().unwrap().current.placed, before);
     openlaser_server::shutdown(&shared).await.unwrap();
 }
 
@@ -230,7 +230,8 @@ async fn rectangle_keeps_the_fixture_position_after_nesting() {
     let c = shared.lock().await;
     let d = c.draft.as_ref().unwrap();
     let drawing = d.drawing().unwrap();
-    let bounds = nesting::stock(drawing, d.nesting.as_ref().unwrap()).unwrap().bounds().unwrap();
+    let bounds =
+        nesting::stock(drawing, d.current.nesting.as_ref().unwrap()).unwrap().bounds().unwrap();
     assert!((bounds.min.x + d.sheet_offset().unwrap()[0] - 146.).abs() < 1e-9);
     assert!((bounds.min.y + d.sheet_offset().unwrap()[1] - 673.).abs() < 1e-9);
     drop(c);
@@ -252,14 +253,14 @@ async fn repeat_without_selection_and_retry_after_no_fit_preserve_counts() {
     assert!(view.error.is_none(), "{:?}", view.error);
     assert_eq!(view.total, 5, "no selection means all current parts at their existing counts");
     nesting::apply(&shared, second.id).await.unwrap();
-    let before = shared.lock().await.draft.as_ref().unwrap().placed.clone();
+    let before = shared.lock().await.draft.as_ref().unwrap().current.placed.clone();
     shared.lock().await.set_stock(StockChoice::Rectangle { width: 15., height: 15. }).unwrap();
     machine::prepare(&shared).await.unwrap();
     let revision = shared.lock().await.document().draft_revision;
     let failed = nesting::start(&shared, revision, again.clone()).await.unwrap();
     assert!(finished(&shared, failed.id).await.error.unwrap().contains("empty sheet"));
     assert!(nesting::apply(&shared, failed.id).await.is_err());
-    assert_eq!(shared.lock().await.draft.as_ref().unwrap().placed, before);
+    assert_eq!(shared.lock().await.draft.as_ref().unwrap().current.placed, before);
     shared.lock().await.set_stock(StockChoice::Rectangle { width: 240., height: 160. }).unwrap();
     machine::prepare(&shared).await.unwrap();
     let revision = shared.lock().await.document().draft_revision;

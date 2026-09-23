@@ -90,7 +90,7 @@ async fn local_edits_follow_copies_transforms_deletion_undo_and_saved_jobs_after
         let mut c = shared.lock().await;
         let draft = c.draft.as_ref().unwrap();
         let target = draft.prepared.as_ref().unwrap().preview.contours[0].lead_target.unwrap();
-        let mut features = draft.features.clone();
+        let mut features = draft.current.features.clone();
         features.leads.as_mut().unwrap().overrides.push(LeadOverride {
             location: target,
             entry: Some(lead(3.)),
@@ -107,7 +107,8 @@ async fn local_edits_follow_copies_transforms_deletion_undo_and_saved_jobs_after
     machine::prepare(&shared).await.unwrap();
     {
         let mut c = shared.lock().await;
-        let edits = c.draft.as_ref().unwrap().features.leads.as_ref().unwrap().overrides.clone();
+        let edits =
+            c.draft.as_ref().unwrap().current.features.leads.as_ref().unwrap().overrides.clone();
         assert_eq!(
             c.add_with_leads(&[(0, Transform::translation(Point::new(30., 0.)))], &edits).unwrap(),
             [1]
@@ -117,7 +118,7 @@ async fn local_edits_follow_copies_transforms_deletion_undo_and_saved_jobs_after
     assert_lengths(shared.lock().await.draft.as_ref().unwrap(), &[3., 3.]);
     {
         let mut c = shared.lock().await;
-        let mut features = c.draft.as_ref().unwrap().features.clone();
+        let mut features = c.draft.as_ref().unwrap().current.features.clone();
         features.leads.as_mut().unwrap().overrides[1].entry = Some(lead(5.));
         c.set_features(features).unwrap();
         // Mirror and scale the copy. Leads retain their machining dimensions.
@@ -127,7 +128,7 @@ async fn local_edits_follow_copies_transforms_deletion_undo_and_saved_jobs_after
     assert_lengths(shared.lock().await.draft.as_ref().unwrap(), &[3., 5.]);
     let (job, config, features) = {
         let mut c = shared.lock().await;
-        let features = c.draft.as_ref().unwrap().features.clone();
+        let features = c.draft.as_ref().unwrap().current.features.clone();
         assert_eq!(features.leads.as_ref().unwrap().entry, Some(lead(2.)));
         let job = c.save_job("Local leads").unwrap();
         assert_eq!(c.library.job(&job.id).unwrap().features, features);
@@ -138,12 +139,12 @@ async fn local_edits_follow_copies_transforms_deletion_undo_and_saved_jobs_after
     common::until(&reopened, 5, |d| d.draft.as_ref().is_some_and(|d| d.preview.is_some())).await;
     {
         let mut c = reopened.lock().await;
-        assert_eq!(c.draft.as_ref().unwrap().features, features);
+        assert_eq!(c.draft.as_ref().unwrap().current.features, features);
         assert_lengths(c.draft.as_ref().unwrap(), &[3., 5.]);
         c.open_job(&job).unwrap();
-        assert_eq!(c.draft.as_ref().unwrap().features, features);
+        assert_eq!(c.draft.as_ref().unwrap().current.features, features);
         c.remove(&[0]).unwrap();
-        let edits = &c.draft.as_ref().unwrap().features.leads.as_ref().unwrap().overrides;
+        let edits = &c.draft.as_ref().unwrap().current.features.leads.as_ref().unwrap().overrides;
         assert_eq!(edits.len(), 1);
         assert_eq!(edits[0].location.contour, 0);
         assert_eq!(edits[0].entry, Some(lead(5.)));

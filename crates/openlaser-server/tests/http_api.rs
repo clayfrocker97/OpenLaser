@@ -455,7 +455,7 @@ async fn completed_sheet_survives_edits_and_becomes_stock_with_all_cutouts_exclu
         let mut c = server.shared.lock().await;
         let d = c.draft.as_ref().unwrap();
         assert_eq!(d.stock_cutouts.len(), 2);
-        let n = d.nesting.as_ref().unwrap();
+        let n = d.current.nesting.as_ref().unwrap();
         let drawing = d.drawing().unwrap();
         let openlaser_core::nesting::NestStock::Remnant { cutouts, .. } = &n.stock else {
             panic!("expected remnant stock");
@@ -463,7 +463,7 @@ async fn completed_sheet_survives_edits_and_becomes_stock_with_all_cutouts_exclu
         openlaser_nest::check_region(
             &nesting::stock(drawing, n).unwrap(),
             cutouts,
-            &openlaser_server::draft::place(drawing, &d.placed).contours,
+            &openlaser_server::draft::place(drawing, &d.current.placed).contours,
             n.settings.margin,
         )
         .unwrap();
@@ -566,10 +566,11 @@ async fn several_parts_nest_on_a_remnant_and_overflow_onto_a_fresh_sheet() {
         let c = server.shared.lock().await;
         let draft = c.draft.as_ref().unwrap();
         assert_eq!(draft.stock_cutouts.len(), 1, "the cut area is reserved");
-        let remnant = nesting::stock(draft.drawing().unwrap(), draft.nesting.as_ref().unwrap())
-            .unwrap()
-            .bounds()
-            .unwrap();
+        let remnant =
+            nesting::stock(draft.drawing().unwrap(), draft.current.nesting.as_ref().unwrap())
+                .unwrap()
+                .bounds()
+                .unwrap();
         (c.document().draft_revision, remnant)
     };
     let settings = NestSettings {
@@ -604,10 +605,10 @@ async fn several_parts_nest_on_a_remnant_and_overflow_onto_a_fresh_sheet() {
         let c = server.shared.lock().await;
         let d = c.draft.as_ref().unwrap();
         assert!(d.error.is_none(), "{:?}", d.error);
-        let n = d.nesting.as_ref().unwrap();
+        let n = d.current.nesting.as_ref().unwrap();
         let NestStock::Remnant { cutouts, .. } = &n.stock else { panic!("remnant stock") };
         let drawing = d.drawing().unwrap();
-        let placed = openlaser_server::draft::place(drawing, &d.placed);
+        let placed = openlaser_server::draft::place(drawing, &d.current.placed);
         openlaser_nest::check_region(
             &nesting::stock(drawing, n).unwrap(),
             cutouts,
@@ -623,7 +624,7 @@ async fn several_parts_nest_on_a_remnant_and_overflow_onto_a_fresh_sheet() {
         let c = server.shared.lock().await;
         let d = c.draft.as_ref().unwrap();
         assert!(d.error.is_none(), "{:?}", d.error);
-        let NestStock::Rectangle { bounds } = &d.nesting.as_ref().unwrap().stock else {
+        let NestStock::Rectangle { bounds } = &d.current.nesting.as_ref().unwrap().stock else {
             panic!("fresh rectangular stock")
         };
         assert!((bounds.width() - remnant.width()).abs() < 1e-9);

@@ -13,43 +13,58 @@ use openlaser_library::{Anchor, Id};
 use serde::{Deserialize, Serialize};
 
 /// Geometry specific to a sheet; material and correction belong to the job set.
+///
+/// These are the sheet-specific fields of the draft's
+/// [`Snapshot`](crate::draft::Snapshot), under the same stored names, plus
+/// the sheet's part count for the switcher.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SheetLayout {
+    /// See `Snapshot::placement`.
     #[serde(default)]
     placement: Option<openlaser_library::placement::Placement>,
+    /// See `Snapshot::nesting`.
     nesting: Option<Nesting>,
+    /// See `Snapshot::placed`.
     placed: Vec<Placed>,
+    /// See `Snapshot::grouping`.
     grouping: Grouping,
+    /// See `Snapshot::features`.
     features: Features,
-    /// Where this sheet lies on the bed; see `Draft::sheet_offset`.
+    /// See `Snapshot::sheet_offset`.
     #[serde(rename = "zero")]
     sheet_offset: Option<[f64; 2]>,
+    /// See `Snapshot::anchor`.
     anchor: Anchor,
+    /// How many parts (contour groups) the sheet holds.
     parts: usize,
 }
 
 impl SheetLayout {
+    /// The sheet the draft shows now.
     fn capture(draft: &Draft) -> Self {
+        let current = &draft.current;
         Self {
-            placement: draft.placement.clone(),
-            nesting: draft.nesting.clone(),
-            placed: draft.placed.clone(),
-            grouping: draft.grouping.clone(),
-            features: draft.features.clone(),
-            sheet_offset: draft.sheet_offset,
-            anchor: draft.anchor,
+            placement: current.placement.clone(),
+            nesting: current.nesting.clone(),
+            placed: current.placed.clone(),
+            grouping: current.grouping.clone(),
+            features: current.features.clone(),
+            sheet_offset: current.sheet_offset,
+            anchor: current.anchor,
             parts: draft.groups.len(),
         }
     }
 
+    /// Shows this sheet in the draft, keeping the job-wide fields.
     fn load(&self, draft: &mut Draft) {
-        draft.placement.clone_from(&self.placement);
-        draft.nesting.clone_from(&self.nesting);
-        draft.placed.clone_from(&self.placed);
-        draft.grouping.clone_from(&self.grouping);
-        draft.features.clone_from(&self.features);
-        draft.sheet_offset = self.sheet_offset;
-        draft.anchor = self.anchor;
+        let current = &mut draft.current;
+        current.placement.clone_from(&self.placement);
+        current.nesting.clone_from(&self.nesting);
+        current.placed.clone_from(&self.placed);
+        current.grouping.clone_from(&self.grouping);
+        current.features.clone_from(&self.features);
+        current.sheet_offset = self.sheet_offset;
+        current.anchor = self.anchor;
         crate::placement::fresh(draft);
     }
 
@@ -147,7 +162,7 @@ pub(crate) fn attach(original: &Draft, candidates: &[Draft]) -> Result<Draft> {
         .cloned()
         .ok_or_else(|| Error::Refused("nesting returned no sheets".into()))?;
     let replacements: Vec<_> = candidates.iter().map(SheetLayout::capture).collect();
-    let mut set = original.sheets.as_ref().map_or_else(
+    let mut set = original.current.sheets.as_ref().map_or_else(
         || SheetSet { active: 0, pages: vec![SheetLayout::capture(original)] },
         |set| set.synchronized(original),
     );
@@ -155,13 +170,13 @@ pub(crate) fn attach(original: &Draft, candidates: &[Draft]) -> Result<Draft> {
     if set.pages.len() > 500 {
         return Err(Error::Refused("a job set can contain at most 500 sheets".into()));
     }
-    result.sheets = (set.pages.len() > 1).then_some(set);
+    result.current.sheets = (set.pages.len() > 1).then_some(set);
     Ok(result)
 }
 
 impl Coordinator {
     pub(crate) fn sheet_navigation(&self, draft: &Draft) -> Option<SheetNavigation> {
-        if let Some(set) = &draft.sheets {
+        if let Some(set) = &draft.current.sheets {
             return Some(SheetNavigation {
                 active: set.active,
                 pages: set
@@ -201,6 +216,7 @@ impl Coordinator {
     pub fn select_sheet(&mut self, index: usize) -> Result<()> {
         let draft = self.draft.as_mut().ok_or_else(|| Error::Refused("open a job first".into()))?;
         let set = draft
+            .current
             .sheets
             .as_ref()
             .ok_or_else(|| Error::Refused("this job has no unsaved sheet set".into()))?;
@@ -210,7 +226,7 @@ impl Coordinator {
         let mut set = set.synchronized(draft);
         set.active = index;
         set.pages[index].load(draft);
-        draft.sheets = Some(set);
+        draft.current.sheets = Some(set);
         self.draft_generation += 1;
         self.reprepare();
         Ok(())
@@ -220,6 +236,7 @@ impl Coordinator {
     pub(crate) fn save_sheets(&mut self, name: &str) -> Result<crate::document::JobView> {
         let draft = self.draft.as_ref().ok_or_else(|| Error::Refused("open a job first".into()))?;
         let set = draft
+            .current
             .sheets
             .as_ref()
             .ok_or_else(|| Error::Refused("no sheet set".into()))?
@@ -228,7 +245,7 @@ impl Coordinator {
         let mut jobs = Vec::with_capacity(set.pages.len());
         for layout in &set.pages {
             let mut page = draft.clone();
-            page.sheets = None;
+            page.current.sheets = None;
             layout.load(&mut page);
             // Each sheet becomes a job of its own, cutting only its parts.
             page.prune_parts();
@@ -237,7 +254,7 @@ impl Coordinator {
         let (_, jobs) = self.library.add_sheet_set(name, jobs)?;
         let saved = &jobs[set.active];
         if let Some(draft) = &mut self.draft {
-            draft.sheets = None;
+            draft.current.sheets = None;
             draft.adopt(saved);
         }
         self.attach_draft()?;

@@ -42,8 +42,8 @@ async fn restored_library_compiles_and_executes() {
             let d = c.draft.as_ref().unwrap();
             assert!(d.prepared.is_some(), "restored draft was not prepared: {:?}", d.error);
             (
-                d.placed.len(),
-                d.recipe.as_ref().map(|r| (r.id.clone(), r.name.clone())),
+                d.current.placed.len(),
+                d.current.recipe.as_ref().map(|r| (r.id.clone(), r.name.clone())),
                 serde_json::to_value(d).unwrap(),
             )
         };

@@ -230,7 +230,7 @@ impl Coordinator {
         let draft =
             self.draft.as_mut().ok_or_else(|| Error::Refused("open a part first".into()))?;
         draft.remember();
-        draft.preflight = policy;
+        draft.current.preflight = policy;
         self.draft_changed();
         Ok(())
     }
@@ -252,7 +252,7 @@ impl Coordinator {
                     .as_ref()
                     .ok_or_else(|| Error::Refused("compile the job first".into()))?;
                 let defaults = self.preflight.checklist(compiled.job.settings.mode);
-                (&compiled.job, compiled.dry_run, draft.preflight.steps(defaults).to_vec())
+                (&compiled.job, compiled.dry_run, draft.current.preflight.steps(defaults).to_vec())
             }
             PreflightIntent::Resume => {
                 let recovery = self
@@ -371,11 +371,11 @@ impl Coordinator {
             }
             CheckAction::MoveXy { x, y } => referenced && near(head, [*x, *y]),
             CheckAction::SetOrigin {} => {
-                draft.anchor == Anchor::FrontLeft
+                draft.current.anchor == Anchor::FrontLeft
                     && draft.origin().is_some_and(|origin| near(origin, head))
             }
             CheckAction::SetOriginAt { point } => {
-                draft.anchor == *point
+                draft.current.anchor == *point
                     && draft
                         .origin()
                         .zip(self.bed_point(*point).ok())

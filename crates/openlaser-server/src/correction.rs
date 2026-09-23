@@ -245,10 +245,10 @@ impl Coordinator {
         let sources = self.library.job_drawing(std::slice::from_ref(&part.id))?;
         let mut draft = Draft::new(std::sync::Arc::new(sources));
         draft.calibration = true;
-        draft.placement =
+        draft.current.placement =
             Some(openlaser_library::placement::Placement::Fixed { origin: bed.min.into() });
-        draft.sheet_offset = Some([0., 0.]);
-        draft.nesting = Some(Nesting {
+        draft.current.sheet_offset = Some([0., 0.]);
+        draft.current.nesting = Some(Nesting {
             stock: NestStock::Rectangle { bounds: bed },
             settings: NestSettings::default(),
         });

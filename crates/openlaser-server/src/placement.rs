@@ -58,21 +58,22 @@ pub enum PlacementChange {
 }
 
 pub(crate) fn is_head(draft: &Draft) -> bool {
-    matches!(draft.placement, Some(Placement::Head {}))
+    matches!(draft.current.placement, Some(Placement::Head {}))
 }
 
 pub(crate) fn view(draft: &Draft) -> PlacementView {
     PlacementView {
         mode: if is_head(draft) { PlacementMode::Head } else { PlacementMode::Fixed },
-        captured: draft.sheet_offset.is_some(),
-        correction_pending: draft.correction.is_some() && draft.sheet_offset.is_none(),
+        captured: draft.current.sheet_offset.is_some(),
+        correction_pending: draft.current.correction.is_some()
+            && draft.current.sheet_offset.is_none(),
         saved: draft.saved_base.as_ref().is_some_and(|saved| matches_saved(draft, saved)),
     }
 }
 
 /// Stock keeps its reference even when the parts inside it are rearranged.
 pub(crate) fn reference_bounds(draft: &Draft) -> Option<Bounds> {
-    match draft.nesting.as_ref().map(|n| &n.stock) {
+    match draft.current.nesting.as_ref().map(|n| &n.stock) {
         Some(NestStock::Rectangle { bounds }) => Some(*bounds),
         Some(NestStock::Remnant { outline, .. }) => outline.bounds(),
         Some(NestStock::Outline { .. }) => {
@@ -92,17 +93,17 @@ pub(crate) fn fresh(draft: &mut Draft) {
     draft.capture_epoch = None;
     draft.capture_used = false;
     if is_head(draft) {
-        draft.sheet_offset = None;
+        draft.current.sheet_offset = None;
         draft.compiled = None;
     }
 }
 
 pub(crate) fn matches_saved(draft: &Draft, saved: &openlaser_library::Job) -> bool {
-    match (&draft.placement, &saved.placement) {
+    match (&draft.current.placement, &saved.placement) {
         (Some(Placement::Head {}), Some(Placement::Head {})) => true,
         (Some(current), Some(previous)) => current == previous,
         // Legacy jobs store the translation; preserve it until explicitly edited.
-        (_, None) => !is_head(draft) && draft.sheet_offset == saved.sheet_offset,
+        (_, None) => !is_head(draft) && draft.current.sheet_offset == saved.sheet_offset,
         _ => false,
     }
 }
@@ -139,8 +140,8 @@ impl Coordinator {
         }
         match change {
             PlacementChange::Head {} => {
-                draft.placement = Some(Placement::Head {});
-                draft.anchor = openlaser_library::Anchor::FrontLeft;
+                draft.current.placement = Some(Placement::Head {});
+                draft.current.anchor = openlaser_library::Anchor::FrontLeft;
                 fresh(draft);
             }
             PlacementChange::SetOrigin {} if is_head(draft) => {
@@ -149,20 +150,20 @@ impl Coordinator {
             PlacementChange::SetOrigin {} | PlacementChange::FixedHead {} => {
                 let origin = head_position(draft, &self.machine.state())?;
                 draft.remember();
-                draft.anchor = openlaser_library::Anchor::FrontLeft;
+                draft.current.anchor = openlaser_library::Anchor::FrontLeft;
                 draft.pin(origin)?;
-                draft.placement = Some(Placement::Fixed { origin });
+                draft.current.placement = Some(Placement::Fixed { origin });
                 draft.capture_epoch = None;
                 draft.capture_used = false;
             }
             PlacementChange::Fixed { origin } => {
-                draft.anchor = openlaser_library::Anchor::FrontLeft;
+                draft.current.anchor = openlaser_library::Anchor::FrontLeft;
                 draft.pin(origin)?;
-                draft.placement = Some(Placement::Fixed { origin });
+                draft.current.placement = Some(Placement::Fixed { origin });
             }
             PlacementChange::Reposition {} => {
                 if is_head(draft) {
-                    draft.sheet_offset = None;
+                    draft.current.sheet_offset = None;
                     draft.capture_epoch = None;
                 }
             }
@@ -190,7 +191,9 @@ impl Coordinator {
             fresh(draft);
         }
         if is_head(draft)
-            && (draft.sheet_offset.is_none() || epoch.is_none() || draft.capture_epoch != epoch)
+            && (draft.current.sheet_offset.is_none()
+                || epoch.is_none()
+                || draft.capture_epoch != epoch)
         {
             pin_head(draft, &state, false)?;
             self.draft_changed();
@@ -223,10 +226,10 @@ fn pin_head(draft: &mut Draft, state: &openlaser_controller::State, remember: bo
         draft.remember();
     }
     draft.pin(origin)?;
-    draft.placement = Some(Placement::Head {});
+    draft.current.placement = Some(Placement::Head {});
     draft.capture_epoch = state.configuration.map(|c| c.epoch);
     draft.capture_used = false;
-    if draft.correction.is_some() {
+    if draft.current.correction.is_some() {
         draft.compiled = None;
     }
     Ok(())

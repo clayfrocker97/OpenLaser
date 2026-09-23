@@ -436,7 +436,7 @@ fn footprints(contours: &[Contour], group: &[usize]) -> Vec<Contour> {
 }
 
 fn command_shift(draft: &Draft) -> Result<[f64; 2]> {
-    let Some(recipe) = &draft.recipe else { return Ok([0., 0.]) };
+    let Some(recipe) = &draft.current.recipe else { return Ok([0., 0.]) };
     let shift = if draft.calibration {
         [0., 0.]
     } else if let Some(compiled) = &draft.compiled {
@@ -453,7 +453,7 @@ fn command_shift(draft: &Draft) -> Result<[f64; 2]> {
 }
 
 fn previous_clearance(draft: &Draft, prepared: &crate::draft::Prepared) -> f64 {
-    (draft.features.kerf.as_ref().map_or(0., |k| k.width.0)
+    (draft.current.features.kerf.as_ref().map_or(0., |k| k.width.0)
         + prepared
             .contours
             .iter()
@@ -465,7 +465,7 @@ fn previous_clearance(draft: &Draft, prepared: &crate::draft::Prepared) -> f64 {
                     .sum::<f64>()
             })
             .fold(0., f64::max))
-    .max(draft.nesting.as_ref().map_or(0., |n| match &n.stock {
+    .max(draft.current.nesting.as_ref().map_or(0., |n| match &n.stock {
         NestStock::Remnant { clearance, .. } => *clearance,
         _ => 0.,
     }))
@@ -475,24 +475,24 @@ impl Coordinator {
     /// Snapshot the active stock, outer part regions and open cut traces.
     pub(crate) fn sheet_plan(&self, draft: &Draft) -> Result<Option<Arc<SheetPlan>>> {
         let Some(prepared) = &draft.prepared else { return Ok(None) };
-        let Some(recipe) = &draft.recipe else { return Ok(None) };
+        let Some(recipe) = &draft.current.recipe else { return Ok(None) };
         let drawing = draft.drawing()?;
         let machining_shift = command_shift(draft)?;
         let prepared = prepared.shifted(machining_shift)?;
         let moved = Transform::translation(Point::from(machining_shift));
         let placed = Drawing {
-            contours: crate::draft::place(drawing, &draft.placed)
+            contours: crate::draft::place(drawing, &draft.current.placed)
                 .contours
                 .iter()
                 .map(|c| moved.contour(c))
                 .collect(),
         };
-        let outline = if let Some(nesting) = &draft.nesting {
+        let outline = if let Some(nesting) = &draft.current.nesting {
             crate::nesting::stock(drawing, nesting)?
         } else {
             let extent =
                 self.extent().ok_or_else(|| Error::Refused("no sheet dimensions".into()))?;
-            let zero = Point::from(draft.sheet_offset.unwrap_or([0., 0.]));
+            let zero = Point::from(draft.current.sheet_offset.unwrap_or([0., 0.]));
             rectangle(Bounds {
                 min: Point::new(extent[0][0], extent[1][0]) - zero,
                 max: Point::new(extent[0][1], extent[1][1]) - zero,
@@ -516,8 +516,8 @@ impl Coordinator {
                             p.kind == PassKind::Cut
                                 && p.instances.iter().any(|instance| {
                                     group.iter().any(|i| {
-                                        draft.placed[*i].source == instance.source
-                                            && draft.placed[*i].copy == instance.copy
+                                        draft.current.placed[*i].source == instance.source
+                                            && draft.current.placed[*i].copy == instance.copy
                                     })
                                 })
                         })
@@ -533,7 +533,7 @@ impl Coordinator {
             return Ok(None);
         }
         let name = self.draft_name(draft);
-        let parent = draft.nesting.as_ref().and_then(|n| {
+        let parent = draft.current.nesting.as_ref().and_then(|n| {
             if let NestStock::Remnant { reference, .. } = &n.stock {
                 Some(reference.clone())
             } else {
@@ -549,14 +549,15 @@ impl Coordinator {
             thickness_mm: recipe.thickness_mm,
             outline: shift.contour(&outline),
             existing: draft
+                .current
                 .nesting
                 .as_ref()
                 .map(|n| crate::nesting::cutouts(n).iter().map(|c| shift.contour(c)).collect())
                 .unwrap_or_default(),
             areas,
             parent,
-            boundary_known: draft.nesting.is_some(),
-            correction: draft.correction.clone(),
+            boundary_known: draft.current.nesting.is_some(),
+            correction: draft.current.correction.clone(),
             // Reserve a conservative band around nominal removed regions.
             // It follows saved stock through future jobs and cannot be reduced
             // by choosing a smaller margin in the nesting form.
@@ -595,8 +596,8 @@ impl Coordinator {
         let sources = Arc::new(self.library.job_drawing(&saved.parts)?);
         let mut draft = Draft::new(sources.clone());
         draft.adopt(&saved);
-        if draft.placed.is_empty() {
-            draft.placed = openlaser_core::geometry::Placed::all(sources.contours());
+        if draft.current.placed.is_empty() {
+            draft.current.placed = openlaser_core::geometry::Placed::all(sources.contours());
         }
         draft.prepare(sources.drawing());
         let plan = self

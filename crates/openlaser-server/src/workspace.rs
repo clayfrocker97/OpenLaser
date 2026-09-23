@@ -96,7 +96,7 @@ pub fn key(draft: &Draft) -> String {
     draft.job.as_ref().map_or_else(
         || {
             draft.workspace_id.as_ref().map_or_else(
-                || format!("part-{}", draft.parts.first().map_or("", Id::as_str)),
+                || format!("part-{}", draft.current.parts.first().map_or("", Id::as_str)),
                 |id| format!("draft-{id}"),
             )
         },
@@ -123,7 +123,7 @@ fn path(root: &Path, key: &str) -> Result<PathBuf> {
 impl Coordinator {
     /// Saves the draft as a job, or updates the job it was opened from.
     pub fn save_job(&mut self, name: &str) -> Result<JobView> {
-        if self.draft.as_ref().is_some_and(|d| d.sheets.is_some()) {
+        if self.draft.as_ref().is_some_and(|d| d.current.sheets.is_some()) {
             return self.save_sheets(name);
         }
         let draft =
@@ -202,7 +202,7 @@ impl Coordinator {
                 let Some(stored) = read::<Stored>(&path(&self.config.data_dir, key)?)? else {
                     return Ok(None);
                 };
-                if !(version(stored.draft.parts.len())..=NEWEST).contains(&stored.version)
+                if !(version(stored.draft.current.parts.len())..=NEWEST).contains(&stored.version)
                     || key != self::key(&stored.draft)
                 {
                     return Err(Error::Refused(
@@ -271,9 +271,9 @@ impl Coordinator {
                 pending.push(PendingDraft {
                     key: key.to_owned(),
                     name: self.draft_name(&draft),
-                    parts: draft.parts,
+                    parts: draft.current.parts,
                     job: draft.job,
-                    can_save: draft.recipe.is_some(),
+                    can_save: draft.current.recipe.is_some(),
                     problem: None,
                 });
             }
@@ -410,8 +410,8 @@ async fn discard_owned(shared: &Shared, key: &str) -> Result<()> {
         c.draft_changed();
         if let Some(id) = draft.job.filter(|id| c.library.job(id).is_ok()) {
             c.open_job(&id)?;
-        } else if draft.parts.iter().all(|id| c.library.part(id).is_ok()) {
-            c.open_parts(&draft.parts)?;
+        } else if draft.current.parts.iter().all(|id| c.library.part(id).is_ok()) {
+            c.open_parts(&draft.current.parts)?;
         }
     }
     drop(c);
@@ -428,46 +428,50 @@ pub async fn flush(shared: &Shared) -> Result<()> {
 impl Draft {
     /// Current authoring values as a saved-job candidate.
     pub(crate) fn job_value(&self, name: &str) -> Result<Job> {
-        let recipe =
-            self.recipe.clone().ok_or_else(|| Error::Refused("choose a material first".into()))?;
+        let recipe = self
+            .current
+            .recipe
+            .clone()
+            .ok_or_else(|| Error::Refused("choose a material first".into()))?;
         let mut job = self.saved_base.clone().unwrap_or_else(|| Job {
             placement: None,
             sheet: None,
             correction: None,
             calibration: false,
-            grouping: self.grouping.clone(),
+            grouping: self.current.grouping.clone(),
             nesting: None,
             tags: Vec::new(),
             notes: String::new(),
             quantity: 1,
-            preflight: self.preflight.clone(),
+            preflight: self.current.preflight.clone(),
             id: Id::from(""),
             name: name.to_owned(),
             folder: None,
-            parts: self.parts.clone(),
+            parts: self.current.parts.clone(),
             recipe: recipe.clone(),
             film: None,
-            features: self.features.clone(),
+            features: self.current.features.clone(),
             placed: Vec::new(),
             sheet_offset: None,
-            anchor: self.anchor,
+            anchor: self.current.anchor,
             favourite: false,
             created: 0,
             updated: 0,
         });
         name.clone_into(&mut job.name);
-        job.parts.clone_from(&self.parts);
+        job.parts.clone_from(&self.current.parts);
         job.recipe = recipe;
-        job.film.clone_from(&self.film);
-        job.features.clone_from(&self.features);
-        job.placed.clone_from(&self.placed);
-        job.grouping.clone_from(&self.grouping);
-        job.placement.clone_from(&self.placement);
-        job.sheet_offset = if crate::placement::is_head(self) { None } else { self.sheet_offset };
-        job.anchor = self.anchor;
-        job.preflight.clone_from(&self.preflight);
-        job.nesting.clone_from(&self.nesting);
-        job.correction.clone_from(&self.correction);
+        job.film.clone_from(&self.current.film);
+        job.features.clone_from(&self.current.features);
+        job.placed.clone_from(&self.current.placed);
+        job.grouping.clone_from(&self.current.grouping);
+        job.placement.clone_from(&self.current.placement);
+        job.sheet_offset =
+            if crate::placement::is_head(self) { None } else { self.current.sheet_offset };
+        job.anchor = self.current.anchor;
+        job.preflight.clone_from(&self.current.preflight);
+        job.nesting.clone_from(&self.current.nesting);
+        job.correction.clone_from(&self.current.correction);
         job.calibration = self.calibration;
         Ok(job)
     }
@@ -477,23 +481,23 @@ impl Draft {
     pub(crate) fn adopt(&mut self, job: &Job) {
         let retained_capture = crate::placement::is_head(self)
             && matches!(job.placement, Some(openlaser_library::placement::Placement::Head {}));
-        self.parts.clone_from(&job.parts);
+        self.current.parts.clone_from(&job.parts);
         self.job = Some(job.id.clone());
         self.saved_base = Some(job.clone());
-        self.recipe = Some(job.recipe.clone());
-        self.film.clone_from(&job.film);
-        self.features.clone_from(&job.features);
-        self.placed.clone_from(&job.placed);
-        self.grouping.clone_from(&job.grouping);
-        self.placement.clone_from(&job.placement);
+        self.current.recipe = Some(job.recipe.clone());
+        self.current.film.clone_from(&job.film);
+        self.current.features.clone_from(&job.features);
+        self.current.placed.clone_from(&job.placed);
+        self.current.grouping.clone_from(&job.grouping);
+        self.current.placement.clone_from(&job.placement);
         if !retained_capture {
-            self.sheet_offset = job.sheet_offset;
+            self.current.sheet_offset = job.sheet_offset;
             self.capture_epoch = None;
         }
-        self.anchor = job.anchor;
-        self.preflight.clone_from(&job.preflight);
-        self.nesting.clone_from(&job.nesting);
-        self.correction.clone_from(&job.correction);
+        self.current.anchor = job.anchor;
+        self.current.preflight.clone_from(&job.preflight);
+        self.current.nesting.clone_from(&job.nesting);
+        self.current.correction.clone_from(&job.correction);
         self.calibration = job.calibration;
     }
 }
@@ -598,6 +602,7 @@ fn save_library_job(library: &mut Library, draft: &Draft, name: &str) -> Result<
     let mut job = draft.job_value(name)?;
     if draft.saved_base.is_none() {
         let parts = draft
+            .current
             .parts
             .iter()
             .map(|id| library.part(id))
@@ -653,14 +658,14 @@ fn describe(job: &mut Job, parts: &[&openlaser_library::Part]) {
 }
 
 fn preparation_changed(draft: &Draft, saved: &Job) -> bool {
-    draft.parts != saved.parts
-        || draft.correction != saved.correction
+    draft.current.parts != saved.parts
+        || draft.current.correction != saved.correction
         || draft.calibration != saved.calibration
-        || draft.nesting != saved.nesting
-        || draft.recipe.as_ref() != Some(&saved.recipe)
-        || draft.film != saved.film
-        || draft.features != saved.features
-        || draft.placed != saved.placed
+        || draft.current.nesting != saved.nesting
+        || draft.current.recipe.as_ref() != Some(&saved.recipe)
+        || draft.current.film != saved.film
+        || draft.current.features != saved.features
+        || draft.current.placed != saved.placed
         || !crate::placement::matches_saved(draft, saved)
-        || draft.anchor != saved.anchor
+        || draft.current.anchor != saved.anchor
 }

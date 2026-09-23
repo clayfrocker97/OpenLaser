@@ -184,7 +184,7 @@ async fn defaults_and_job_policies_survive_restart_without_completed_checkboxes(
         assert_eq!(c.preflight.co2.steps.len(), 2);
         c.open_job(&job).unwrap();
         assert_eq!(
-            c.draft.as_ref().unwrap().preflight,
+            c.draft.as_ref().unwrap().current.preflight,
             JobPreflight::Custom { steps: vec![check("Clamps are clear")] }
         );
     }
@@ -205,10 +205,10 @@ async fn process_import_rebinds_cut_and_film_and_rejects_bad_or_stale_replacemen
     {
         let mut c = shared.lock().await;
         let draft = c.draft.as_mut().unwrap();
-        let mut film = draft.recipe.clone().unwrap();
+        let mut film = draft.current.recipe.clone().unwrap();
         film.attributes.remove("WithFilm");
-        draft.film = Some(film);
-        draft.recipe.as_mut().unwrap().attributes.insert("WithFilm".into(), "1".into());
+        draft.current.film = Some(film);
+        draft.current.recipe.as_mut().unwrap().attributes.insert("WithFilm".into(), "1".into());
     }
     machine::compile(&shared, false).await.unwrap();
     let stale = shared.lock().await.compile_inputs(false).unwrap();
@@ -411,7 +411,7 @@ async fn automatic_checks_follow_current_facts_and_origin_edits_do_not_move_axes
     {
         let c = shared.lock().await;
         let draft = c.draft.as_ref().unwrap();
-        assert_eq!(draft.anchor, Anchor::BackLeft);
+        assert_eq!(draft.current.anchor, Anchor::BackLeft);
         assert_eq!(draft.origin(), Some(c.bed_point(Anchor::BackLeft).unwrap()));
     }
     assert!(machine::run_reviewed(&shared, Some(&old)).await.is_err());
@@ -655,7 +655,7 @@ async fn compiling_selects_the_recipe_mode_offline_and_on_a_connected_simulator(
     setup(&shared).await;
     let (fiber, co2) = {
         let mut c = shared.lock().await;
-        let fiber = c.draft.as_ref().unwrap().recipe.as_ref().unwrap().id.clone();
+        let fiber = c.draft.as_ref().unwrap().current.recipe.as_ref().unwrap().id.clone();
         let co2 = c
             .add_recipe(&NewRecipe {
                 name: "Plywood".into(),
