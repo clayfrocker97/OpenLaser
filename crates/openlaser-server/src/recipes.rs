@@ -16,6 +16,10 @@ use openlaser_xml::{Bundle, layer_file};
 
 use crate::{Error, Result};
 
+pub mod setup;
+
+use setup::HeadSetup;
+
 /// A recipe from a vendor recipe file.
 pub fn from_file(file_name: &str, bytes: &[u8]) -> Result<Recipe> {
     let file = layer_file::parse(bytes).map_err(|e| Error::Request(format!("{file_name}: {e}")))?;
@@ -25,7 +29,7 @@ pub fn from_file(file_name: &str, bytes: &[u8]) -> Result<Recipe> {
     let (name, thickness_mm, rest) = material(short);
     let tags = [process, rest].into_iter().map(clean).filter(|s| !s.is_empty()).collect();
     let gas = gas(stem, &file.attributes);
-    Ok(recipe(
+    let mut recipe = recipe(
         name,
         thickness_mm,
         gas,
@@ -34,7 +38,9 @@ pub fn from_file(file_name: &str, bytes: &[u8]) -> Result<Recipe> {
         file.attributes,
         Some(file_name),
         tags,
-    ))
+    );
+    read_setup(&mut recipe.attributes, stem);
+    Ok(recipe)
 }
 
 /// A recipe from a layer bank of the machine files, named by the operator.
@@ -48,7 +54,10 @@ pub fn from_bank(
     let attributes = bundle.group(&layer_file::group(laser, bank), "GP")?.clone();
     let words = attributes.get("LayerFileName").cloned().unwrap_or_default();
     let gas = gas(&words, &attributes);
-    Ok(recipe(name.to_owned(), thickness_mm, gas, laser, bank, attributes, None, Vec::new()))
+    let mut recipe =
+        recipe(name.to_owned(), thickness_mm, gas, laser, bank, attributes, None, Vec::new());
+    read_setup(&mut recipe.attributes, "");
+    Ok(recipe)
 }
 
 #[allow(clippy::too_many_arguments, reason = "the two sources fill the same record")]
@@ -58,11 +67,10 @@ fn recipe(
     gas: String,
     laser: LaserMode,
     bank: u8,
-    mut attributes: Attributes,
+    attributes: Attributes,
     file_name: Option<&str>,
     tags: Vec<String>,
 ) -> Recipe {
-    import_setup(&mut attributes);
     Recipe {
         id: Id::from(""),
         name,
@@ -83,32 +91,13 @@ fn recipe(
     }
 }
 
-/// The clean material library records manual setup separately from its native
-/// process values. Keep `CutFocusPos` and every other controller field intact.
-fn import_setup(attributes: &mut Attributes) {
+/// The head setup the note, the layer name and the file name state, added
+/// where the attributes do not already hold it. Every controller field,
+/// `CutFocusPos` included, stays as the file has it.
+fn read_setup(attributes: &mut Attributes, stem: &str) {
     let note = attributes.get("Note").cloned().unwrap_or_default();
-    for line in note.lines().map(str::trim) {
-        if let Some(value) = line.strip_prefix("NOZZLE: ") {
-            let mut words = value.split_whitespace();
-            if let (Some(kind @ ("SINGLE" | "DOUBLE")), Some(diameter)) =
-                (words.next(), words.next())
-                && diameter.parse::<f64>().is_ok_and(|v| v.is_finite() && v > 0. && v <= 20.)
-            {
-                attributes
-                    .entry("OpenLaserNozzleType".into())
-                    .or_insert_with(|| kind.to_lowercase());
-                attributes
-                    .entry("OpenLaserNozzleDiameter".into())
-                    .or_insert_with(|| diameter.into());
-            }
-        }
-        if let Some(value) =
-            line.strip_prefix("FOCUS (SOURCE NOTE/FILENAME): ").and_then(|v| v.strip_suffix(" mm"))
-            && value.parse::<f64>().is_ok_and(|v| v.is_finite() && (-1000. ..=1000.).contains(&v))
-        {
-            attributes.entry("OpenLaserManualFocus".into()).or_insert_with(|| value.into());
-        }
-    }
+    let layer = attributes.get("LayerFileName").cloned().unwrap_or_default();
+    HeadSetup::read(&[&note, &layer, stem]).apply(attributes, false);
 }
 
 /// The material name, the thickness and whatever follows, from the
