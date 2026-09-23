@@ -9,6 +9,7 @@
 //! when a row leaves: most rows leave with their bit, custom rows may latch
 //! until relieved, and gas rows are retained but never block.
 
+use crate::alarm_text::{self, Plain};
 use crate::snapshot::Snapshot;
 use crate::state::AlarmView;
 use openlaser_protocol::alarms::{
@@ -81,6 +82,8 @@ pub struct Row {
     pub source: String,
     /// The label.
     pub label: String,
+    /// The plain name and fix operators read.
+    pub plain: Plain,
     /// Whether the row blocks operations.
     pub blocking: bool,
     /// Whether the row is latched.
@@ -184,6 +187,7 @@ impl Monitor {
             let retain = self.rules.iter().any(|old| old.same_binding(new));
             if retain {
                 row.label.clone_from(&new.label);
+                row.plain = alarm_text::for_rule(new.id, &new.label);
             }
             retain
         });
@@ -206,6 +210,7 @@ impl Monitor {
                 id: alarm.id,
                 source: describe(alarm.source),
                 label: alarm.label.map_or_else(|| describe(alarm.source), str::to_owned),
+                plain: alarm_text::for_source(alarm.source),
                 blocking: true,
                 latched: false,
                 active: true,
@@ -218,6 +223,7 @@ impl Monitor {
                 id: Some(HEAD_REFERENCE),
                 source: "head".into(),
                 label: "Head requires Home".into(),
+                plain: alarm_text::head_reference(),
                 blocking: true,
                 latched: false,
                 active: true,
@@ -272,6 +278,7 @@ impl Monitor {
                     id: Some(rule.id),
                     source: format!("input {}", rule.input),
                     label: rule.label.clone(),
+                    plain: alarm_text::for_rule(rule.id, &rule.label),
                     blocking: !rule.is_gas(),
                     latched,
                     active,
@@ -343,13 +350,14 @@ impl Monitor {
                 }
             }
         };
-        let labels: Vec<&str> = self
-            .rows
-            .iter()
-            .filter(|(key, row)| row.blocking && !conceded(key, row))
-            .map(|(_, row)| row.label.as_str())
-            .collect();
-        (!labels.is_empty()).then(|| labels.join("; "))
+        // Plain names, once each: a head fault often raises three rows.
+        let mut titles: Vec<&str> = Vec::new();
+        for (_, row) in self.rows.iter().filter(|(key, row)| row.blocking && !conceded(key, row)) {
+            if !titles.contains(&row.plain.title.as_str()) {
+                titles.push(&row.plain.title);
+            }
+        }
+        (!titles.is_empty()).then(|| titles.join("; "))
     }
 
     /// The rows, in a stable order.
@@ -374,6 +382,8 @@ impl Monitor {
                 id: row.id,
                 source: row.source.clone(),
                 label: row.label.clone(),
+                title: row.plain.title.clone(),
+                fix: row.plain.fix.clone(),
                 blocking: row.blocking,
                 latched: row.latched,
                 active: row.active,
@@ -479,7 +489,7 @@ mod tests {
         let details = DetailCache::default();
         let mut monitor = Monitor::new(vec![], true);
         monitor.observe(&snapshot_with(&[], &[], &[]), &details);
-        assert_eq!(monitor.blocked().as_deref(), Some("Head requires Home"));
+        assert_eq!(monitor.blocked().as_deref(), Some("Head needs homing"));
         assert_eq!(monitor.blocked_for(Concession::HeadReference), None);
         monitor.observe(&snapshot_with(&[(6, 1 << 24)], &[], &[(1, 1 << 12)]), &details);
         assert!(monitor.blocked_for(Concession::HeadReference).is_some());

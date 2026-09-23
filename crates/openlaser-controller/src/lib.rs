@@ -27,6 +27,7 @@
     )
 )]
 
+pub mod alarm_text;
 pub mod alarms;
 pub mod bindings;
 pub mod config;

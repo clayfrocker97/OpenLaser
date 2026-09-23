@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { diagnosticText } from '../lib/units.svelte';
   import { distance, quantity, unitLabel } from '../lib/units.svelte';
   // The run page: the compiled program on the bed with its layers, the head,
   // progress from the controller's item tag, and the three controls.
@@ -9,6 +8,9 @@
   import Recovery from '../components/Recovery.svelte';
   import RunSide from './RunSide.svelte';
   import RunControls from '../components/RunControls.svelte';
+  import StatusLine from '../components/StatusLine.svelte';
+  import type { NamedGate } from '../lib/plain';
+  import { access } from '../lib/access.svelte';
   import FlightChecklist from '../components/FlightChecklist.svelte';
   import type { ExecutionView, PreflightReview } from '../api';
   import Stage from '../components/Stage.svelte';
@@ -110,7 +112,17 @@
     }
     if (execution && program?.state === 'completed') return execution.frame ? 'Frame finished.' : compiled?.dry_run ? 'Dry run finished.' : 'Program finished. Check the cut.';
     if (execution && program?.state === 'stopped') return 'Job stopped.';
-    return doc.readiness.run.ok ? 'Press Start.' : diagnosticText(doc.readiness.run.reason ?? '');
+    return doc.readiness.run.ok ? 'Ready. Hold Start to run.' : doc.readiness.run.reason ?? '';
+  });
+  const statusTone = $derived(doc.readiness.run.ok || running ? 'ready' : 'info');
+  // The controls the status line explains when they are unavailable.
+  const statusGates = $derived.by((): NamedGate[] => {
+    const readiness = doc.readiness;
+    if (!access.canControl) return [['Machine controls', { ok: false, reason: 'Take control to move the machine' }]];
+    const gates: NamedGate[] = [['Start', readiness.run], ['Home', readiness.home], ['Frame', readiness.frame], ['Jog', readiness.jog]];
+    if (doc.bindings?.head_enabled) gates.push(['Calibrate', readiness.calibrate]);
+    gates.push(['Go origin', readiness.position.ok && !draft?.origin ? { ok: false, reason: 'set a job origin first' } : readiness.position]);
+    return gates;
   });
 
   let remnant = $state<string | null>(null);
@@ -160,7 +172,6 @@
       <span>{execution?.frame ? 'Laser off' : `${done} / ${contours} passes`}</span>
       {#if !execution?.frame}<span>{execution && !recovering && program?.state === 'completed' ? 'done' : eta}</span>{/if}
     </div>
-    <div class="actions"><span class="muted">{message}</span></div>
   </div>
 
   {#if compiled?.plan.some((pass) => pass.omitted_cooling > 0)}
@@ -216,7 +227,8 @@
 
   {#if doc.completed_sheet && !running && !recovering}<div class="sheet-complete"><span><strong>Sheet complete</strong><small>Inspect the parts and remaining material.</small></span><button class="btn btn-ghost" onclick={() => remnant = doc.completed_sheet}>Save remaining sheet</button></div>{/if}
   {#if !recovering}
-  <RunControls onaction={act} busy={reviewing} showStop={!compact} />
+  <StatusLine status={message} gates={running || paused ? [] : statusGates} tone={statusTone} />
+  <RunControls onaction={act} busy={reviewing} showStop={!compact} explain={false} />
   {/if}
 </section>
 
@@ -237,7 +249,6 @@
 .run-material { flex:1; }
 .run-correction { flex:none; }
 .run-meta { white-space:nowrap; gap:10px; align-items:center; }
-.panel-head > .actions { display:block; min-width:0; text-align:right; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .stock-reference { fill:var(--accent); fill-opacity:.035; stroke:var(--accent); stroke-width:1; }
 .stock-cutout { fill:var(--ink-3); fill-opacity:.2; stroke:var(--ink-3); stroke-width:1; }
 .path.skipped { opacity:0.25; stroke-dasharray:5 5; } .path.restart-selected { stroke:var(--hold); stroke-width:3; opacity:1; }

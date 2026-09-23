@@ -250,6 +250,8 @@ fn alarm(active: bool) -> AlarmView {
         id: Some(60),
         source: "source input".into(),
         label: "Laser source warning".into(),
+        title: "Laser source alarm".into(),
+        fix: "Read the alarm on the laser source.".into(),
         blocking: true,
         latched: false,
         age_seconds: 0,

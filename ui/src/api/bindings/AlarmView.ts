@@ -26,6 +26,14 @@ source: string,
  */
 label: string,
 /**
+ * The plain name operators read, such as "Emergency stop pressed".
+ */
+title: string,
+/**
+ * One sentence on how to clear the row.
+ */
+fix: string,
+/**
  * Whether the row blocks operations.
  */
 blocking: boolean,

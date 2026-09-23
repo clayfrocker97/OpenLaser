@@ -140,6 +140,10 @@ pub struct AlarmView {
     pub source: String,
     /// The vendor's label, or the host rule's.
     pub label: String,
+    /// The plain name operators read, such as "Emergency stop pressed".
+    pub title: String,
+    /// One sentence on how to clear the row.
+    pub fix: String,
     /// Whether the row blocks operations.
     pub blocking: bool,
     /// Whether the row stays until relieved even when the cause is gone.

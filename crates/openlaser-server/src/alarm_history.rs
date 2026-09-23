@@ -29,7 +29,7 @@ pub struct AlarmRecord {
     pub id: Option<u32>,
     /// Where the alarm was observed.
     pub source: String,
-    /// Latest human-readable description.
+    /// Latest plain name, as operators read it.
     pub label: String,
     /// First trip in seconds since the epoch.
     pub first: u64,
@@ -263,7 +263,7 @@ impl Journal {
         for alarm in observation.alarms {
             let key = alarm_key(&alarm.source, alarm.id);
             present.push(key.clone());
-            self.trip(alarm.id, alarm.source, alarm.label, alarm.active, observation.at);
+            self.trip(alarm.id, alarm.source, alarm.title, alarm.active, observation.at);
         }
         if let Some(reason) = observation.fault {
             present.push("connection".into());

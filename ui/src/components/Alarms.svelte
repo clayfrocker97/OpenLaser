@@ -6,6 +6,7 @@
   import { server } from '../stores/server.svelte';
   import { ui } from '../stores/ui.svelte';
   import { explain } from '../lib/format';
+  import { alarmTitles, groupAlarms } from '../lib/plain';
   import type { AlarmSession, HistoryPage } from '../api';
 
   let { onclose }: { onclose: () => void } = $props();
@@ -57,18 +58,26 @@
   {#if faulted}
     <div class="alarm-item"><div class="bar"></div><div><strong>Controller link lost</strong><span class="muted">{faulted}. Reconnect from the top bar.</span></div></div>
   {/if}
-  {#each alarms as alarm (keyOf(alarm.source, alarm.id))}
+  {#each groupAlarms(alarms) as group (group.alarms.map((alarm) => keyOf(alarm.source, alarm.id)).join())}
+    {@const titles = alarmTitles(group.alarms)}
+    {@const first = group.alarms[0]!}
     <div class="alarm-item">
-      <div class="bar" class:warn={!alarm.blocking}></div>
-      <div><strong>{alarm.label}</strong><span class="muted">{alarm.active ? 'Active now' : 'Condition cleared · reset retained alarm'}</span></div>
-      {#if alarm.relief.moves_axes}<HoldButton class="btn btn-move" disabled={resetting || !server.link} onhold={() => relieve(alarm.id)} title="Moves the Z head to establish its reference">{alarm.relief.label}</HoldButton>
-      {:else}<button class="btn btn-ghost" disabled={resetting || !server.link} onclick={() => relieve(alarm.id)} title="Resets this live alarm">{alarm.relief.label}</button>{/if}
+      <div class="bar" class:warn={!group.alarms.some((alarm) => alarm.blocking)}></div>
+      <div class="alarm-text">
+        <strong>{titles[0]}</strong>
+        {#if titles.length > 1}<span class="also">Also: {titles.slice(1).join(' · ')}</span>{/if}
+        <span class="fix">{group.relief.moves_axes ? 'Home the head. Holding the button moves the head up to find its reference.' : first.fix}</span>
+        <span class="muted">{group.alarms.some((alarm) => alarm.active) ? 'Active now' : 'Condition cleared · reset to remove'}</span>
+      </div>
+      {#if group.relief.moves_axes}<HoldButton class="btn btn-move" disabled={resetting || !server.link} onhold={() => relieve(first.id)} title="Moves the Z head to establish its reference">{group.relief.label}</HoldButton>
+      {:else}<button class="btn btn-ghost" disabled={resetting || !server.link} onclick={() => relieve(first.id)} title="Resets this alarm">{group.relief.label}</button>{/if}
+      <details class="alarm-technical"><summary>Details</summary>{#each group.alarms as alarm (keyOf(alarm.source, alarm.id))}<span>{alarm.label} · {alarm.source}{#if alarm.id !== null} · {alarm.id}{/if}</span>{/each}</details>
     </div>
   {:else}
     {#if !faulted}<div class="all-clear"><i class="ic ic-check"></i><strong>No current alarms</strong></div>{/if}
   {/each}
   {#if alarms.length > 0}
-    <div class="live-footer"><span class="muted">Reset does not resume cutting.</span><button class="btn btn-ghost" disabled={resetting || !server.link} onclick={() => relieve(null)}>Common reset</button></div>
+    <div class="live-footer"><span class="muted">Reset does not resume cutting.</span><button class="btn btn-ghost" disabled={resetting || !server.link} onclick={() => relieve(null)}>Reset all</button></div>
   {/if}
 
   {#if recordingError}<p class="warn-text" role="alert">History could not be saved: {recordingError}</p>{/if}
@@ -100,6 +109,12 @@
 </Modal>
 
 <style>
+  .alarm-text { display: grid; gap: 3px; min-width: 0; }
+  .alarm-text .also { color: var(--ink-2); font-size: var(--t-sm); }
+  .alarm-text .fix { color: var(--ink); font-size: var(--t-sm); }
+  .alarm-technical { grid-column: 2 / -1; font-size: var(--t-xs); color: var(--ink-3); }
+  .alarm-technical summary { min-height: 32px; padding: 0; }
+  .alarm-technical span { display: block; }
   .all-clear { display: flex; gap: 10px; align-items: center; padding: 12px 0; color: var(--move); }
   .live-footer, .history-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   .live-footer { font-size: var(--t-sm); }

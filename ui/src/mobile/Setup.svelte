@@ -5,7 +5,7 @@
   import { ui, type FeatureId } from '../stores/ui.svelte';
   import { osk } from '../lib/osk.svelte';
   import { explain, recipeLabel, size } from '../lib/format';
-  import { diagnosticText } from '../lib/units.svelte';
+  import { plain } from '../lib/plain';
   import { TOOLS, isOn, stateOf } from '../lib/features';
   import Preview from './Preview.svelte';
   import Modal from '../components/Modal.svelte';
@@ -70,7 +70,7 @@
   {#if draft}<div class="phone-run-footer">
     <div class="phone-secondary-actions"><button class="btn btn-ghost" disabled={blocked || !draft.recipe} onclick={save}>{draft.sheets?.pages.some(p => !p.job) ? `Save ${draft.sheets.pages.length} sheets` : 'Save job'}</button><button class="btn btn-ghost" disabled={blocked || !doc.readiness.compile.ok} onclick={() => review(true)}>Dry run</button></div>
     <button class="phone-primary" disabled={blocked || !doc.readiness.compile.ok} onclick={() => review(false)}>{busy ? 'Preparing…' : 'Go to Run'}<i class="ic ic-arrow-right"></i></button>
-    {#if !doc.readiness.compile.ok}<p class="phone-readiness">{diagnosticText(doc.readiness.compile.reason ?? '')}</p>{/if}
+    {#if !doc.readiness.compile.ok}<p class="phone-readiness">{plain(doc.readiness.compile.reason).text}</p>{/if}
   </div>{/if}
 </div>
 

@@ -18,7 +18,7 @@ id: number | null,
  */
 source: string,
 /**
- * Latest human-readable description.
+ * Latest plain name, as operators read it.
  */
 label: string,
 /**

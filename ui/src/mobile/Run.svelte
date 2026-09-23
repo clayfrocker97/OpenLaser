@@ -7,10 +7,11 @@
   import { server } from '../stores/server.svelte';
   import { ui } from '../stores/ui.svelte';
   import { explain, recipeLabel, seconds } from '../lib/format';
-  import { diagnosticText, quantity } from '../lib/units.svelte';
+  import { quantity } from '../lib/units.svelte';
   import Preview from './Preview.svelte';
   import FlightChecklist from '../components/FlightChecklist.svelte';
   import RunControls from '../components/RunControls.svelte';
+  import StatusLine from '../components/StatusLine.svelte';
   import HoldButton from '../components/HoldButton.svelte';
   import { onlyPart } from '../lib/job-parts';
 
@@ -80,7 +81,7 @@
     {#if draft}
       <RunControls onaction={act} {busy} showStop={false} explain={false} />
       {#if !draft.recipe && !recovering}<button class="phone-text-action phone-setup-link" onclick={() => ui.tab = 'setup'}>Choose material</button>
-      {:else if !running && !completed && !recovering}<p class="phone-readiness">{diagnosticText(draft.error ?? doc.readiness.run.reason ?? '')}</p>{/if}
+      {:else if !running && !completed && !recovering}<StatusLine status={draft.error ?? doc.readiness.run.reason ?? 'Ready. Hold Start to run.'} gates={[['Start', doc.readiness.run], ['Frame', doc.readiness.frame]]} tone={doc.readiness.run.ok ? 'ready' : 'info'} />{/if}
     {/if}
     <div class="phone-run-tools"><button onclick={controls}><i class="ic ic-target"></i>Controls</button><HoldButton class="" disabled={blocked || !doc.readiness.frame.ok} onhold={() => perform(() => api.machine('frame'))}><i class="ic ic-frame"></i>Frame</HoldButton></div>
   </div>
