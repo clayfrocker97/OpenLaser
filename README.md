@@ -8,6 +8,14 @@
 
 <p align="center"><strong>Laser control, from drawing to cut.</strong></p>
 
+<p align="center">
+  <a href="https://www.youtube.com/watch?v=mE4t7rmcuec">
+    <img src="https://img.youtube.com/vi/mE4t7rmcuec/maxresdefault.jpg" alt="Watch: OpenLaser, the free, open-source M-Laser replacement for fiber and CO₂ lasers" width="640">
+  </a>
+  <br>
+  <sub>▶ Watch the overview on YouTube</sub>
+</p>
+
 Open-source control software for fiber and CO₂ laser cutters using the MCC100
 motion controller, including the Au3tech NexCut X1 card in Gweike M-series
 machines supplied with M-Laser.
