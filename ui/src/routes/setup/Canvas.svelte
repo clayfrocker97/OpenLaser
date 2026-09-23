@@ -48,14 +48,15 @@
   const toDrawing = (p: Point): Point => [p[0] - zero[0], p[1] - zero[1]];
 
   const view = new Viewport();
+  // Fit frames the parts; the bed is only the fallback with nothing drawn.
   const fit = () => {
     view.setLimit(frame.bed);
-    if (frame.bed) view.home();
-    else if (preview?.bounds) { const b = boxOfBounds(preview.bounds); view.fit({ minX: b.minX + zero[0], maxX: b.maxX + zero[0], minY: b.minY + zero[1], maxY: b.maxY + zero[1] }); }
+    if (preview?.bounds) { const b = boxOfBounds(preview.bounds); view.fit({ minX: b.minX + zero[0], maxX: b.maxX + zero[0], minY: b.minY + zero[1], maxY: b.maxY + zero[1] }); }
+    else if (frame.bed) view.home();
   };
   let fitted = '';
   $effect(() => {
-    const key = `${draft?.generation ?? ''}/${draft?.job ?? ''}/${frame.bed ? 'bed' : ''}`;
+    const key = `${draft?.generation ?? ''}/${draft?.job ?? ''}/${frame.bed ? 'bed' : ''}/${preview?.bounds ? 'parts' : ''}`;
     if (key !== fitted) { fitted = key; untrack(fit); }
   });
   $effect(() => () => { ui.picking = null; });
@@ -624,7 +625,7 @@
 </div>
 <div class="drawing-toolbar" role="toolbar" aria-label="Drawing tools">
   <div class="tool-row">
-    <button class="rail-btn" title="Show the bed" onclick={fit}><i class="ic ic-fit"></i><small>Fit</small></button>
+    <button class="rail-btn" title="Frame the parts" onclick={fit}><i class="ic ic-fit"></i><small>Fit</small></button>
     <button class="rail-btn" title="Zoom in" onclick={() => view.zoom(1.25)}><i class="ic ic-plus"></i><small>Zoom in</small></button>
     <button class="rail-btn" title="Zoom out" onclick={() => view.zoom(0.8)}><i class="ic ic-minus"></i><small>Zoom out</small></button>
     <button class="rail-btn" class:on={layersOpen} title="Layers" onclick={() => (layersOpen = !layersOpen)} disabled={!layers.length}><i class="ic ic-layers"></i><small>Layers</small></button>
