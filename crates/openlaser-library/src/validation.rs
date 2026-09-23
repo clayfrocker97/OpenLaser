@@ -163,12 +163,13 @@ pub(crate) fn job(job: &Job, library: &Library) -> Result<()> {
     id(&job.id)?;
     clean_name(&job.name)?;
     folder(job.folder.as_ref(), library)?;
-    let part = library.part(&job.part)?;
-    job_layout(job, part)?;
+    let contours = crate::job_parts::contour_count(&job.parts, library)?;
+    job_layout(job, contours)?;
     job_process(job)
 }
 
-fn job_layout(job: &Job, part: &Part) -> Result<()> {
+/// Checks a job's layout against its drawing of `contours` contours.
+fn job_layout(job: &Job, contours: usize) -> Result<()> {
     if let Some(placement) = &job.placement {
         placement.validate().map_err(Error::Invalid)?;
     }
@@ -185,13 +186,13 @@ fn job_layout(job: &Job, part: &Part) -> Result<()> {
         return Err(Error::Invalid("calibration jobs cannot have correction".into()));
     }
     if let Some(nesting) = &job.nesting {
-        nesting.validate(part.drawing.contours.len()).map_err(Error::Invalid)?;
+        nesting.validate(contours).map_err(Error::Invalid)?;
     }
     if !job.placed.is_empty() {
-        openlaser_core::geometry::Placed::validate_all(&job.placed, part.drawing.contours.len())
+        openlaser_core::geometry::Placed::validate_all(&job.placed, contours)
             .map_err(Error::Invalid)?;
     }
-    let count = if job.placed.is_empty() { part.drawing.contours.len() } else { job.placed.len() };
+    let count = if job.placed.is_empty() { contours } else { job.placed.len() };
     job.grouping.validate(count).map_err(Error::Invalid)?;
     if job.zero.is_some_and(|zero| !zero.iter().all(|value| value.is_finite())) {
         return Err(Error::Invalid("the job origin is not finite".into()));

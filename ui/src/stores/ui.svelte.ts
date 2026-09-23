@@ -71,6 +71,9 @@ class Ui {
   folder = $state<string | null>(null);
   /** The selected library card: a part or a job id. */
   selected = $state<string | null>(null);
+  /** Parts picked to set up as one job, in the order picked; null when
+   *  the library is not picking. */
+  partPicks = $state<string[] | null>(null);
   selectedRecipe = $state<string | null>(null);
   setupPanel = $state<FeatureId | 'copy' | 'clipboard' | 'nest' | null>(null);
   nestPreview = $state<Preview | null>(null);

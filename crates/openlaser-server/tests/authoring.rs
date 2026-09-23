@@ -237,7 +237,7 @@ async fn working_copies_history_and_saved_conflicts_survive_a_restart() {
     {
         let mut c = restored.lock().await;
         let document = c.document();
-        assert_eq!(document.draft.as_ref().unwrap().part, other);
+        assert_eq!(document.draft.as_ref().unwrap().parts[0].id, other);
         assert!(document.draft_revision > revision);
         assert!(document.draft.unwrap().compiled.is_none());
         assert!(!document.machine.session.homed);

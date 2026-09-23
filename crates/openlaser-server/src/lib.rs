@@ -3,7 +3,7 @@
 //! The coordinator, HTTP commands and server-sent event stream.
 //!
 //! Parts, Setup and Run as one workflow: a draft is prepared and compiled
-//! from a part, a recipe and machining features; running binds the compiled
+//! from its parts, a recipe and machining features; running binds the compiled
 //! job to the head's live position and streams it; a hold keeps the
 //! checkpoint a continuation resumes from. Every enabling action is
 //! admitted here against the controller's live state; the UI is advisory.
@@ -29,6 +29,7 @@ pub mod draft;
 mod envelope;
 mod font_store;
 mod imports;
+pub mod job_parts;
 mod lan;
 pub mod machine;
 mod machine_files;

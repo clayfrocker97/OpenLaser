@@ -6,7 +6,7 @@
 use openlaser_core::LaserMode;
 use openlaser_core::features::Features;
 use openlaser_core::geometry::{Bounds, Placed};
-use openlaser_library::{Anchor, Folder, Id, Job, Part, Recipe};
+use openlaser_library::{Anchor, Folder, Id, Job, JobDrawing, Part, Recipe};
 use serde::Serialize;
 use std::sync::Arc;
 
@@ -651,8 +651,8 @@ pub struct JobView {
     pub name: String,
     /// Its folder.
     pub folder: Option<Id>,
-    /// The part it cuts.
-    pub part: Id,
+    /// The parts it cuts, in the order of its drawing.
+    pub parts: Vec<Id>,
     /// The recipe it was saved with.
     pub recipe: RecipeView,
     /// Which features are on.
@@ -664,11 +664,12 @@ pub struct JobView {
 }
 
 impl JobView {
-    pub(crate) fn new(job: &Job, part: &Part) -> Self {
+    /// The job, drawn from `drawing`, its parts' joined drawing.
+    pub(crate) fn new(job: &Job, drawing: &JobDrawing) -> Self {
         let drawing = if job.placed.is_empty() {
-            part.drawing.clone()
+            drawing.drawing().clone()
         } else {
-            Arc::new(crate::draft::place(&part.drawing, &job.placed))
+            Arc::new(crate::draft::place(drawing.drawing(), &job.placed))
         };
         Self {
             sheet: job.sheet.clone(),
@@ -681,7 +682,7 @@ impl JobView {
             id: job.id.clone(),
             name: job.name.clone(),
             folder: job.folder.clone(),
-            part: job.part.clone(),
+            parts: job.parts.clone(),
             recipe: RecipeView::new(&job.recipe),
             features_on: features_on(&job.features),
             favourite: job.favourite,
@@ -755,8 +756,10 @@ pub struct DraftView {
     pub generation: u64,
     /// Identity required when editing or picking geometry.
     pub revision: u64,
-    /// The part.
-    pub part: Id,
+    /// The saved job's name, or the name of what it cuts.
+    pub name: String,
+    /// The parts it cuts, in the order of its drawing.
+    pub parts: Vec<DraftPart>,
     /// The saved job it was opened from, if any.
     pub job: Option<Id>,
     /// The recipe, once chosen.
@@ -773,7 +776,7 @@ pub struct DraftView {
     /// joined across bridges.
     pub groups: Vec<Vec<usize>>,
     /// The origin in machine coordinates: where the anchor point lies,
-    /// once the part is prepared.
+    /// once the layout is prepared.
     pub origin: Option<[f64; 2]>,
     /// What the machine adds to a drawing coordinate, once the sheet is
     /// placed.
@@ -792,6 +795,19 @@ pub struct DraftView {
     pub compiled: Option<Arc<Compiled>>,
     /// Why preparation or compilation failed.
     pub error: Option<String>,
+}
+
+/// One part of the job being set up and its contours in the job's drawing.
+#[cfg_attr(feature = "typescript", derive(ts_rs::TS), ts(export))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct DraftPart {
+    /// The library part.
+    pub id: Id,
+    /// Its first contour: placed contours with sources from `first` to
+    /// `first + contours` are this part's.
+    pub first: usize,
+    /// How many contours its drawing has.
+    pub contours: usize,
 }
 
 /// The prepared toolpath as polylines.
@@ -1044,7 +1060,8 @@ mod tests {
 
     #[test]
     fn an_unchanged_motion_artifact_is_not_serialized_into_a_patch() {
-        let mut draft = crate::draft::Draft::new(Id::from("part"), 0).view();
+        let empty = openlaser_core::geometry::Drawing { contours: Vec::new() };
+        let mut draft = crate::draft::Draft::of(empty).view();
         draft.compiled = Some(Arc::new(Compiled {
             dry_run: false,
             seconds: 1.,

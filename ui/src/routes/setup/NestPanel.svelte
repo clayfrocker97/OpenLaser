@@ -23,7 +23,7 @@
   const stock = $derived(draft.nesting?.stock);
   const stockName = $derived(stock?.kind === 'remnant' ? stock.name : stock?.kind === 'outline' ? 'Drawing outline' : stock?.kind === 'rectangle' ? `${distance(stock.bounds.max.x - stock.bounds.min.x)} × ${distance(stock.bounds.max.y - stock.bounds.min.y)} ${unitLabel('mm')}` : 'Choose a sheet');
   $effect(() => {
-    const key = `${draft.part}/${draft.job ?? ''}/${draft.sheets?.active ?? 0}`;
+    const key = `${draft.generation}/${draft.job ?? ''}/${draft.sheets?.active ?? 0}`;
     if (key === initial) return; initial = key;
     untrack(() => { settings = structuredClone($state.snapshot(draft.nesting?.settings) ?? { spacing: 3, margin: 3, remnant_clearance: 10, rotation: 'any' }); });
   });

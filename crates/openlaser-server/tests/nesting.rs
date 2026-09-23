@@ -229,7 +229,7 @@ async fn rectangle_keeps_the_fixture_position_after_nesting() {
     nesting::apply(&shared, work.id).await.unwrap();
     let c = shared.lock().await;
     let d = c.draft.as_ref().unwrap();
-    let drawing = &c.library.part(&d.part).unwrap().drawing;
+    let drawing = d.drawing().unwrap();
     let bounds = nesting::stock(drawing, d.nesting.as_ref().unwrap()).unwrap().bounds().unwrap();
     assert!((bounds.min.x + d.zero().unwrap()[0] - 146.).abs() < 1e-9);
     assert!((bounds.min.y + d.zero().unwrap()[1] - 673.).abs() < 1e-9);

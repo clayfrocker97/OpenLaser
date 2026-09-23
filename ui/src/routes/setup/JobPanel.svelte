@@ -9,11 +9,15 @@
   import { osk } from '../../lib/osk.svelte';
   import { ago, explain, laserLabel, seconds, size, value } from '../../lib/format';
   import { TOOLS, isOn } from '../../lib/features';
+  import AddParts from '../../components/AddParts.svelte';
 
   const doc = $derived(server.doc!);
   const draft = $derived(doc.draft!);
   const recipe = $derived(draft.recipe);
-  const part = $derived(doc.library.parts.find((p) => p.id === draft.part) ?? null);
+  /** Selects a part's shapes on the drawing, when there is one to select on. */
+  let { onselectpart }: { onselectpart?: (first: number, count: number) => void } = $props();
+  const nameOf = (id: string) => doc.library.parts.find((p) => p.id === id)?.name ?? 'Missing part';
+  let adding = $state(false);
   const job = $derived(doc.library.jobs.find((j) => j.id === draft.job) ?? null);
   const on = $derived(TOOLS.filter((t) => t.optional && isOn(draft.features, t.id)).length);
   const optional = TOOLS.filter((t) => t.optional).length;
@@ -28,7 +32,7 @@
   function save(): void {
     const batch = draft.sheets?.pages.some(p => !p.job) ?? false;
     const total = draft.sheets?.pages.length ?? 1;
-    osk.text(batch ? 'Folder for numbered sheets' : 'Job name', job?.name ?? part?.name ?? 'job', (name) => {
+    osk.text(batch ? 'Folder for numbered sheets' : 'Job name', job?.name ?? (draft.name || 'job'), (name) => {
       if (!name.trim()) return;
       run(async () => {
         if (batch) { await api.saveJob(name.trim()); ui.say(`Saved ${total} numbered sheets in ${name.trim()}.`); return; }
@@ -44,6 +48,21 @@
     run(async () => { if (draft.dry_run !== dryRun) await api.compile(dryRun); }, () => { ui.tab = 'run'; });
   }
 </script>
+
+<div class="job-scroll">
+<div class="card2">
+  <div class="card2-head"><div><h3>Parts</h3><span class="muted">{draft.parts.length === 1 ? nameOf(draft.parts[0]!.id) : `${draft.parts.length} parts`}</span></div><button class="btn btn-ghost" onclick={() => (adding = true)}>Add parts</button></div>
+  {#if draft.parts.length > 1}
+    <ul class="job-parts">
+      {#each draft.parts as part (part.id)}
+        {@const here = draft.placed.filter((p) => p.source >= part.first && p.source < part.first + part.contours).length}
+        {@const copies = Math.max(1, Math.round(here / Math.max(1, part.contours)))}
+        <li><button class="job-part" disabled={!onselectpart || !here} onclick={() => onselectpart?.(part.first, part.contours)}><span>{nameOf(part.id)}</span><small>{!here ? 'Not on this sheet' : copies > 1 ? `${copies} copies · Select` : `${part.contours} path${part.contours === 1 ? '' : 's'} · Select`}</small></button></li>
+      {/each}
+    </ul>
+    <p class="muted">Delete a part's shapes on the drawing to take it out of the job.</p>
+  {/if}
+</div>
 
 <div class="card2" role="button" tabindex="0" onclick={() => (sheet = true)} onkeydown={(e) => { if (e.key === 'Enter') sheet = true; }}>
   <div class="card2-head"><h3>Material</h3><span class="link">Change</span></div>
@@ -81,6 +100,7 @@
   <p class="muted">{draft.compiled.plan.reduce((n, pass) => n + pass.omitted_cooling, 0)} cooling points skipped within {quantity(0.2, 'mm')} of endpoints.</p>
 {/if}
 {#if draft.error}<div class="warn-text" style="font-size:13px">{draft.error}</div>{/if}
+</div>
 
 <div class="stack">
   <div class="row">
@@ -91,6 +111,16 @@
 </div>
 
 {#if sheet}<MaterialSheet onclose={() => (sheet = false)} />{/if}
+{#if adding}<AddParts onclose={() => (adding = false)} />{/if}
 {#if checklist}<PreflightEditor scope="job" onclose={() => (checklist = false)} />{/if}
 
-<style>.correction-status { padding:10px 12px; font-size:11px; color:var(--ink-3); border-left:2px solid var(--accent); }</style>
+<style>
+  /* The cards scroll on a short screen; saving and Go to Run stay in reach. */
+  .job-scroll { flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; display:flex; flex-direction:column; gap:12px; margin:-2px; padding:2px; }
+  .stack { flex-shrink:0; }
+  .correction-status { padding:10px 12px; font-size:11px; color:var(--ink-3); border-left:2px solid var(--accent); }
+  .job-parts { list-style:none; margin:0; padding:0; display:grid; gap:6px; max-height:220px; overflow-y:auto; }
+  .job-part { width:100%; min-height:48px; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:8px 12px; border:1px solid var(--line); border-radius:10px; background:var(--panel-2); color:var(--ink); text-align:left; cursor:pointer; }
+  .job-part span { font-weight:600; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .job-part small { flex:none; color:var(--ink-3); font-size:var(--t-sm); }
+</style>

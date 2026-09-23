@@ -594,7 +594,7 @@ impl Coordinator {
                 .library
                 .jobs()
                 .filter_map(|job| {
-                    self.library.part(&job.part).ok().map(|part| JobView::new(job, part))
+                    self.library.job_drawing(&job.parts).ok().map(|d| JobView::new(job, &d))
                 })
                 .collect(),
             skipped: self
@@ -613,6 +613,7 @@ impl Coordinator {
         self.draft_view = self.draft.as_ref().map(|draft| {
             let mut view = draft.view();
             view.sheets = self.sheet_navigation(draft);
+            view.name = self.draft_name(draft);
             view.revision = self.revisions.draft;
             view.generation = self.draft_generation;
             Arc::new(view)
@@ -810,7 +811,7 @@ impl Coordinator {
     /// Removes a part.
     pub fn remove_part(&mut self, id: &Id) -> Result<()> {
         self.library.remove_part(id)?;
-        if self.draft.as_ref().is_some_and(|d| &d.part == id) {
+        if self.draft.as_ref().is_some_and(|d| d.parts.contains(id)) {
             self.draft = None;
             self.draft_changed();
         }
@@ -1059,13 +1060,17 @@ impl Coordinator {
     pub fn duplicate_job(&mut self, id: &Id) -> Result<JobView> {
         let copy = self.library.duplicate_job(id)?;
         self.library_changed();
-        Ok(JobView::new(&copy, self.library.part(&copy.part)?))
+        Ok(JobView::new(&copy, &self.library.job_drawing(&copy.parts)?))
     }
 
     /// Undoes or redoes saved library data; machine execution is independent.
     pub fn undo_saved(&mut self, back: bool, revision: u64) -> Result<()> {
         self.library.undo_saved(back, revision)?;
-        if self.draft.as_ref().is_some_and(|d| self.library.part(&d.part).is_err()) {
+        if self
+            .draft
+            .as_ref()
+            .is_some_and(|d| d.parts.iter().any(|p| self.library.part(p).is_err()))
+        {
             self.draft = None;
             self.draft_changed();
         }
@@ -1082,33 +1087,14 @@ impl Coordinator {
 
     // Draft ---------------------------------------------------------------------
 
-    /// Starts a fresh job draft from the source drawing. Unfinished setups
-    /// remain available through pending changes, not through the part card.
-    pub fn open_part(&mut self, part: &Id) -> Result<()> {
-        let source = self.library.part(part)?;
-        let count = source.drawing.contours.len();
-        let correction = if source.file_name.to_ascii_lowercase().ends_with(".dxf") {
-            self.mode.and_then(|mode| self.correction.active(mode))
-        } else {
-            None
-        };
-        self.leave_draft();
-        let mut draft = Draft::new(part.clone(), count);
-        draft.correction = correction;
-        self.draft_generation += 1;
-        self.draft = Some(draft);
-        self.reprepare();
-        Ok(())
-    }
-
     /// Opens a saved job as the draft.
     pub fn open_job(&mut self, id: &Id) -> Result<()> {
         let job = self.library.job(id)?.clone();
-        let count = self.library.part(&job.part)?.drawing.contours.len();
-        if job.placed.iter().any(|p| p.source >= count) {
-            return Err(Error::Refused("the job's placement does not fit its part".into()));
+        let sources = Arc::new(self.library.job_drawing(&job.parts)?);
+        if job.placed.iter().any(|p| p.source >= sources.contours()) {
+            return Err(Error::Refused("the job's placement does not fit its parts".into()));
         }
-        let mut draft = Draft::new(job.part.clone(), count);
+        let mut draft = Draft::new(sources);
         draft.saved_base = Some(job.clone());
         draft.job = Some(job.id.clone());
         draft.recipe = Some(job.recipe.clone());
@@ -1144,13 +1130,11 @@ impl Coordinator {
             .library
             .last_job_on(&recipe.key())
             .map(|job| (job.id.clone(), job.name.clone(), job.updated, job.features.reusable()));
+        let dxf = self.draft.as_ref().is_some_and(|d| self.any_dxf(&d.parts));
         let draft =
             self.draft.as_mut().ok_or_else(|| Error::Refused("open a part first".into()))?;
         draft.remember();
-        if draft.job.is_none()
-            && !draft.calibration
-            && self.library.part(&draft.part)?.file_name.to_ascii_lowercase().ends_with(".dxf")
-        {
+        if draft.job.is_none() && !draft.calibration && dxf {
             draft.correction = self.correction.active(recipe.laser);
         }
         draft.recipe = Some(recipe);
@@ -1247,8 +1231,7 @@ impl Coordinator {
         {
             return Err(Error::Request("the layout exceeds 100000 contours".into()));
         }
-        let part = draft.part.clone();
-        let count = self.library.part(&part)?.drawing.contours.len();
+        let count = draft.drawing()?.contours.len();
         if contours.is_empty() {
             return Err(Error::Request("nothing to add".into()));
         }
@@ -1276,21 +1259,33 @@ impl Coordinator {
         if (0..draft.placed.len()).all(|i| contours.contains(&i)) {
             return Err(Error::Refused("keep at least one contour".into()));
         }
-        draft.remove(&self.library.part(&draft.part)?.drawing, contours)?;
+        let drawing = draft.drawing()?.clone();
+        draft.remove(&drawing, contours)?;
+        draft.prune_parts();
         self.reprepare();
         Ok(())
     }
 
-    /// Takes back the last edit to the placement or the features.
+    /// Takes back the last edit to the parts, the placement or the features.
     pub fn undo(&mut self) -> Result<()> {
-        self.draft_mut()?.undo()?;
-        self.reprepare();
-        Ok(())
+        self.step(true)
     }
 
     /// Does the last edit undone again.
     pub fn redo(&mut self) -> Result<()> {
-        self.draft_mut()?.redo()?;
+        self.step(false)
+    }
+
+    /// Steps through the history, attaching the parts' drawing when the
+    /// step changes them; a step whose parts no longer fit is taken back.
+    fn step(&mut self, back: bool) -> Result<()> {
+        let draft = self.draft_mut()?;
+        if back { draft.undo() } else { draft.redo() }?;
+        if let Err(error) = self.attach_draft() {
+            let draft = self.draft_mut()?;
+            if back { draft.redo() } else { draft.undo() }?;
+            return Err(error);
+        }
         self.reprepare();
         Ok(())
     }
@@ -1313,15 +1308,14 @@ impl Coordinator {
         if !(at.iter().all(|v| v.is_finite()) && tolerance.is_finite() && tolerance >= 0.) {
             return Err(Error::Request("the pick is not finite".into()));
         }
-        let part = self.library.part(&draft.part)?;
         let mut staged = draft.clone();
         if let Some(features) = features {
             staged.features = features;
         }
-        draft::pick(&part.drawing, &staged, at, tolerance, bridging)
+        draft::pick(draft.drawing()?, &staged, at, tolerance, bridging)
     }
 
-    /// Puts the part's anchor point at `origin`, in machine coordinates.
+    /// Puts the layout's anchor point at `origin`, in machine coordinates.
     pub fn set_origin(&mut self, origin: [f64; 2]) -> Result<()> {
         self.set_origin_at(origin, None)
     }
@@ -1351,7 +1345,7 @@ impl Coordinator {
         Ok(())
     }
 
-    /// Chooses which point of the part the origin stands for; the part
+    /// Chooses which point of the layout the origin stands for; the layout
     /// stays where it is.
     pub fn set_anchor(&mut self, anchor: openlaser_library::Anchor) -> Result<()> {
         self.draft_mut()?.remember();
@@ -1360,7 +1354,7 @@ impl Coordinator {
         Ok(())
     }
 
-    /// Puts the part's anchor point where the head is now.
+    /// Puts the layout's anchor point where the head is now.
     pub fn origin_here(&mut self) -> Result<()> {
         self.origin_here_at(None)
     }
@@ -1404,7 +1398,7 @@ impl Coordinator {
         Ok(Some(Preparation {
             revision: self.revisions.draft,
             draft: draft.clone(),
-            drawing: self.library.part(&draft.part)?.drawing.clone(),
+            drawing: draft.drawing()?.clone(),
             extent: self.extent(),
         }))
     }
@@ -1523,8 +1517,7 @@ impl Coordinator {
             if let Some(draft) = &self.draft
                 && let Some(nesting) = &draft.nesting
             {
-                let drawing = &self.library.part(&draft.part)?.drawing;
-                let stock = crate::nesting::stock(drawing, nesting)?;
+                let stock = crate::nesting::stock(draft.drawing()?, nesting)?;
                 let map = draft
                     .correction
                     .as_ref()

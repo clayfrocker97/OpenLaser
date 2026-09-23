@@ -10,13 +10,13 @@ export type PendingDraft = {
  */
 key: string, 
 /**
- * Name of the saved job or source part.
+ * Name of the saved job or of its parts.
  */
 name: string, 
 /**
- * Source part.
+ * The parts it cuts.
  */
-part: Id, 
+parts: Array<Id>, 
 /**
  * Saved job, if there is one.
  */

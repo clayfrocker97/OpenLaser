@@ -34,7 +34,7 @@ export class Server {
     // preview. Retain only this opening's scene, never another job's.
     const preparing = next?.error === 'preparing geometry' && !next.preview;
     const sameOpening = previous && next && previous.generation === next.generation
-      && previous.part === next.part && previous.job === next.job;
+      && previous.key === next.key && previous.job === next.job;
     this.canvasDraft = preparing && sameOpening && previous.preview ? previous : next;
     this.doc = doc;
   }

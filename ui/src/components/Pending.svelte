@@ -121,7 +121,7 @@
   {#if reviewing}
     <section class="pending-item"><h3>Resolve {reviewing.name}</h3>
       {#each reviewing.review.conflicts as conflict}
-        <div class="conflict"><strong>{conflict.path}</strong><small>Base: {conflictText(conflict.base, conflict.path)}</small>
+        <div class="conflict"><strong>{conflict.path === '/part' ? 'Parts and their layout' : conflict.path}</strong><small>Base: {conflictText(conflict.base, conflict.path)}</small>
           <button class="choice" class:chosen={reviewing.choices[conflict.path] === true} onclick={() => { if (reviewing) reviewing.choices[conflict.path] = true; }}>Keep draft: {conflictText(conflict.draft, conflict.path)}</button>
           <button class="choice" class:chosen={reviewing.choices[conflict.path] === false} onclick={() => { if (reviewing) reviewing.choices[conflict.path] = false; }}>Keep saved: {conflictText(conflict.saved, conflict.path)}</button>
         </div>
@@ -131,7 +131,7 @@
   {/if}
   {#each drafts as draft (draft.key)}
     <section class="pending-item"><div class="row"><div><h3>{draft.name}</h3><small>{draft.job ? 'Job' : 'Unsaved job setup'}{draft.problem ? ` · ${draft.problem}` : !draft.can_save ? ' · choose a material before saving' : ''}</small></div>
-      <div class="actions"><button class="btn btn-ghost" disabled={busy || !!draft.problem} onclick={() => run(async () => { await open(draft); ui.tab = 'setup'; onclose(); })}>Open</button><button class="btn btn-ghost" disabled={busy} onclick={() => run(async () => { await api.discardDraft(draft.key); reviewing = null; })}>Discard</button><button class="btn btn-primary" disabled={busy || !draft.can_save} onclick={() => run(() => saveDraft(draft))}>Save job</button></div></div>
+      <div class="actions"><button class="btn btn-ghost" disabled={busy || !!draft.problem} onclick={() => run(async () => { await open(draft); ui.tab = 'setup'; onclose(); })}>Open</button><button class="btn btn-ghost" disabled={busy} onclick={async () => { if (await ui.confirm({ title: 'Discard this job setup?', body: `The working copy of “${draft.name}” is deleted. Saved jobs and parts stay as they are.`, confirm: 'Discard setup', danger: true })) run(async () => { await api.discardDraft(draft.key); reviewing = null; }); }}>Discard</button><button class="btn btn-primary" disabled={busy || !draft.can_save} onclick={() => run(() => saveDraft(draft))}>Save job</button></div></div>
     </section>
   {/each}
   {#each recipeEdits.pending as id (id)}

@@ -49,6 +49,12 @@ struct Intent {
     committed: bool,
 }
 
+impl store::Schema for EditHistory {}
+
+impl store::Schema for Change {}
+
+impl store::Schema for Intent {}
+
 fn directory(root: &Path) -> PathBuf {
     root.join("edit-history")
 }
@@ -240,14 +246,17 @@ impl Change {
         Ok(())
     }
 
-    fn read_after<T: serde::de::DeserializeOwned>(&self, root: &Path) -> Result<Option<T>> {
+    fn read_after<T: serde::de::DeserializeOwned + store::Schema>(
+        &self,
+        root: &Path,
+    ) -> Result<Option<T>> {
         let Some(hash) = &self.after else { return Ok(None) };
         let path = object(root, hash)?;
         let bytes = store::read_content(&path, hash)?;
         store::decode(&path, &bytes).map(Some)
     }
 
-    fn stage_item<T: store::HasId + serde::de::DeserializeOwned>(
+    fn stage_item<T: store::HasId + serde::de::DeserializeOwned + store::Schema>(
         &self,
         root: &Path,
         id: Id,
@@ -369,7 +378,7 @@ fn record(path: &Path, after: Option<&[u8]>) -> Result<()> {
     transact(root, Intent { change, before: current, after: next, committed: false })
 }
 
-pub(crate) fn write<T: Serialize>(path: &Path, item: &T) -> Result<()> {
+pub(crate) fn write<T: Serialize + store::Schema>(path: &Path, item: &T) -> Result<()> {
     record(path, Some(&store::encode(path, item)?))
 }
 

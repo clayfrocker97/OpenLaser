@@ -4,7 +4,7 @@
 
 pub(crate) use crate::atomic_write as write_bytes;
 use crate::storage::sync_parent;
-use crate::{Error, Result, VERSION};
+use crate::{Error, Result};
 use serde::{Serialize, de::DeserializeOwned};
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -15,6 +15,20 @@ struct Envelope<T> {
     version: u32,
     #[serde(flatten)]
     item: T,
+}
+
+/// The schema versions of one kind of library file. A kind takes a new
+/// version only when an older build would misread the new form, and each
+/// item is written with the oldest version that holds it, so an older
+/// build keeps reading every item it can represent.
+pub trait Schema {
+    /// The newest version this build reads and writes.
+    const NEWEST: u32 = 1;
+
+    /// The oldest version that holds this item.
+    fn version(&self) -> u32 {
+        1
+    }
 }
 
 fn io(path: &Path, error: &std::io::Error) -> Error {
@@ -49,23 +63,23 @@ pub(crate) fn remove(path: &Path) -> Result<()> {
     std::fs::remove_file(path).and_then(|()| sync_parent(path)).map_err(|e| io(path, &e))
 }
 
-/// Writes an item with this build's schema version.
-pub(crate) fn write<T: Serialize>(path: &Path, item: &T) -> Result<()> {
+/// Writes an item with the oldest schema version that holds it.
+pub(crate) fn write<T: Serialize + Schema>(path: &Path, item: &T) -> Result<()> {
     write_bytes(path, &encode(path, item)?)
 }
 
-pub(crate) fn encode<T: Serialize>(path: &Path, item: &T) -> Result<Vec<u8>> {
-    serde_json::to_vec_pretty(&Envelope { version: VERSION, item })
+pub(crate) fn encode<T: Serialize + Schema>(path: &Path, item: &T) -> Result<Vec<u8>> {
+    serde_json::to_vec_pretty(&Envelope { version: item.version(), item })
         .map_err(|e| Error::Format { path: path.display().to_string(), reason: e.to_string() })
 }
 
-/// Reads an item, migrating an older schema and refusing a newer one.
-pub(crate) fn read<T: DeserializeOwned>(path: &Path) -> Result<T> {
+/// Reads an item of a schema version this build knows, refusing a newer one.
+pub(crate) fn read<T: DeserializeOwned + Schema>(path: &Path) -> Result<T> {
     let bytes = read_bytes(path)?;
     decode(path, &bytes)
 }
 
-pub(crate) fn decode<T: DeserializeOwned>(path: &Path, bytes: &[u8]) -> Result<T> {
+pub(crate) fn decode<T: DeserializeOwned + Schema>(path: &Path, bytes: &[u8]) -> Result<T> {
     let format = |reason: String| Error::Format { path: path.display().to_string(), reason };
     let value: serde_json::Value =
         serde_json::from_slice(bytes).map_err(|e| format(e.to_string()))?;
@@ -74,25 +88,32 @@ pub(crate) fn decode<T: DeserializeOwned>(path: &Path, bytes: &[u8]) -> Result<T
         .and_then(serde_json::Value::as_u64)
         .and_then(|v| u32::try_from(v).ok())
         .ok_or_else(|| format("no schema version".into()))?;
-    if version > VERSION {
-        return Err(Error::Newer { path: path.display().to_string(), version });
+    if version > T::NEWEST {
+        return Err(Error::Newer { path: path.display().to_string(), version, newest: T::NEWEST });
     }
-    if version != VERSION {
-        return Err(format(format!("unsupported schema version {version}")));
+    if version == 0 {
+        return Err(format("unsupported schema version 0".into()));
     }
     let envelope: Envelope<T> = serde_json::from_value(value).map_err(|e| format(e.to_string()))?;
+    // An older version must not carry what only a newer one can hold.
+    if envelope.item.version() > version {
+        return Err(format(format!(
+            "the item needs schema version {}, not {version}",
+            envelope.item.version()
+        )));
+    }
     Ok(envelope.item)
 }
 
 /// Reads an item that may not exist yet.
-pub(crate) fn read_optional<T: DeserializeOwned>(path: &Path) -> Result<Option<T>> {
+pub(crate) fn read_optional<T: DeserializeOwned + Schema>(path: &Path) -> Result<Option<T>> {
     if path.exists() { read(path).map(Some) } else { Ok(None) }
 }
 
 /// Reads every `.json` item in `root/kind`, keyed by id. A file that cannot
 /// be read as an item is left where it is and listed in `skipped`; only a
 /// directory that cannot be listed fails the read.
-pub(crate) fn read_all<T: DeserializeOwned + HasId>(
+pub(crate) fn read_all<T: DeserializeOwned + HasId + Schema>(
     root: &Path,
     kind: &str,
     skipped: &mut Vec<crate::Skipped>,
@@ -124,7 +145,7 @@ pub(crate) fn read_all<T: DeserializeOwned + HasId>(
 }
 
 /// A validated item becomes visible only after its file has been replaced.
-pub(crate) fn commit<T: Serialize + Clone + HasId>(
+pub(crate) fn commit<T: Serialize + Clone + HasId + Schema>(
     path: &Path,
     items: &mut BTreeMap<crate::Id, T>,
     item: T,
@@ -182,3 +203,9 @@ impl HasId for crate::Job {
         &self.id
     }
 }
+
+impl Schema for crate::Folders {}
+
+impl Schema for crate::Part {}
+
+impl Schema for crate::Recipe {}

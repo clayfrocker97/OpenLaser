@@ -1,8 +1,8 @@
 import { expect, it } from 'vitest';
-import { pasteBatch, type CopiedShapes, type PasteDirection } from './copy-paste';
+import { pasteBatch, pasteable, type CopiedShapes, type PasteDirection } from './copy-paste';
 
 const copied = (): CopiedShapes => ({
-  part: 'part-a', width: 20, height: 10, offset: [0, 0],
+  parts: ['part-a'], width: 20, height: 10, offset: [0, 0],
   contours: [
     { source: 8, transform: [0, 1, -1, 0, 10, 20] },
     { source: 2, transform: [-2, 0, 0, 2, 15, 25] },
@@ -10,6 +10,16 @@ const copied = (): CopiedShapes => ({
   ],
   grouping: [[0, 1], [2]],
   leads: [{ location: { contour: 1, fraction: .25 }, entry: { shape: 'line', length: 4, radius: 1, angle: 70 }, exit: null }],
+});
+
+it('pastes into jobs whose parts begin with the parts copied from', () => {
+  const job = (...ids: string[]) => ({ parts: ids.map((id, i) => ({ id, first: i * 10, contours: 10 })) });
+  expect(pasteable(copied(), job('part-a'))).toBe(true);
+  expect(pasteable(copied(), job('part-a', 'part-b'))).toBe(true);
+  expect(pasteable(copied(), job('part-b', 'part-a'))).toBe(false);
+  expect(pasteable({ ...copied(), parts: ['part-a', 'part-b'] }, job('part-a'))).toBe(false);
+  expect(pasteable(null, job('part-a'))).toBe(false);
+  expect(pasteable(copied(), null)).toBe(false);
 });
 
 it('batches complete selections and remaps groups and local leads for every copy', () => {

@@ -14,6 +14,7 @@
   import { explain } from './lib/format';
   import { WORKFLOW, SETTINGS } from './lib/navigation';
   import { confirmDisconnect, connectionLabel } from './lib/connection';
+  import { partsOf, sourceLabel } from './lib/job-parts';
 
   const doc = $derived(server.doc);
   const connected = $derived(doc?.machine.connection.state === 'connected');
@@ -22,11 +23,7 @@
   const busy = $derived(!!link && link.phase !== 'idle' && link.phase !== 'failed');
   const label = $derived(connectionLabel(doc));
   const alarms = $derived(doc?.machine.alarms.length ?? 0);
-  const brandSub = $derived.by(() => {
-    if (!doc?.draft) return '';
-    const part = doc.library.parts.find((p) => p.id === doc.draft?.part);
-    return part ? part.file_name : '';
-  });
+  const brandSub = $derived(doc?.draft ? sourceLabel(partsOf(doc.draft, doc.library.parts)) : '');
 
   function setTab(tab: Tab): void {
     ui.tab = tab;

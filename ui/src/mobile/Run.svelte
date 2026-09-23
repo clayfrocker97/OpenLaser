@@ -12,11 +12,12 @@
   import FlightChecklist from '../components/FlightChecklist.svelte';
   import RunControls from '../components/RunControls.svelte';
   import HoldButton from '../components/HoldButton.svelte';
+  import { onlyPart } from '../lib/job-parts';
 
   let { controls, review }: { controls:() => void; review:(restart?: boolean) => void } = $props();
   const doc = $derived(server.doc!);
   const draft = $derived(doc.draft);
-  const part = $derived(doc.library.parts.find(p => p.id === draft?.part));
+  const part = $derived(onlyPart(draft, doc.library.parts));
   const execution = $derived(doc.execution);
   let original = $state<ExecutionView | null>(null);
   $effect(() => {
@@ -29,7 +30,7 @@
   const retained = $derived(execution && !execution.frame && original?.id === doc.recovery?.id ? original : null);
   const compiled = $derived(retained?.compiled ?? execution?.compiled ?? draft?.compiled);
   const material = $derived(execution?.material ?? draft?.recipe);
-  const name = $derived(execution?.name ?? doc.library.jobs.find(j => j.id === draft?.job)?.name ?? part?.name ?? 'Current job');
+  const name = $derived(execution?.name ?? (draft?.name || 'Current job'));
   const program = $derived(doc.machine.program);
   const running = $derived(program?.state === 'running' || program?.state === 'finishing');
   const paused = $derived(program?.state === 'held');

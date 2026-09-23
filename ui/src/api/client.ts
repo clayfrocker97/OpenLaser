@@ -45,8 +45,8 @@ async function draftPost<T = object>(path: string, body?: unknown, revision = se
   return reply;
 }
 
-async function openDraft(path: string): Promise<DraftReply> {
-  const reply = await post<DraftReply>(path);
+async function openDraft(path: string, body?: unknown): Promise<DraftReply> {
+  const reply = await post<DraftReply>(path, body);
   server.applyDraft(reply.draft, reply.draft_revision);
   return reply;
 }
@@ -146,6 +146,10 @@ export const api = {
   removeJob: (id: string) => del(`/api/jobs/${id}`),
 
   openPart: (id: string) => openDraft(`/api/draft/part/${id}`),
+  /** A new job cutting these parts, side by side in this order. */
+  openParts: (parts: string[]) => openDraft('/api/draft/parts', { parts }),
+  /** Adds parts to the open job beside what is on the sheet; one undo step. */
+  addParts: (parts: string[]) => draftPost('/api/draft/parts/add', { parts }),
   openJob: (id: string) => openDraft(`/api/draft/job/${id}`),
   setRecipe: (id: string) => draftPost(`/api/draft/recipe/${id}`),
   setFeatures: (features: Features, revision?: number) => draftPost('/api/draft/features', features, revision),

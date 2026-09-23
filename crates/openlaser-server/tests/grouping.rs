@@ -10,6 +10,13 @@ use openlaser_core::units::{Degrees, Millimeters};
 use openlaser_server::coordinator::{NewRecipe, Values};
 use openlaser_server::document::PathKind;
 use openlaser_server::{Coordinator, draft::Draft, machine};
+use std::sync::Arc;
+
+/// A draft of one part with `drawing`.
+fn draft_of(drawing: &Drawing) -> Draft {
+    let part = (openlaser_library::Id::from("parts"), Arc::new(drawing.clone()));
+    Draft::new(Arc::new(openlaser_library::JobDrawing::new(vec![part])))
+}
 
 fn parts() -> Drawing {
     let mut contours = Vec::new();
@@ -43,7 +50,7 @@ fn lead(length: f64) -> Lead {
 #[test]
 fn only_corresponding_right_holes_change_on_two_selected_parts() {
     let drawing = parts();
-    let mut draft = Draft::new("parts".into(), 9);
+    let mut draft = draft_of(&drawing);
     draft.features.leads = Some(Leads {
         entry: Some(lead(1.)),
         exit: Some(lead(0.5)),
@@ -99,7 +106,7 @@ fn only_corresponding_right_holes_change_on_two_selected_parts() {
 #[test]
 fn partial_selection_groups_expand_and_paste_delete_undo_preserve_membership() {
     let drawing = parts();
-    let mut draft = Draft::new("parts".into(), 9);
+    let mut draft = draft_of(&drawing);
     draft.prepare(&drawing);
     draft.set_grouped(&[1, 5], true);
     draft.prepare(&drawing);
@@ -120,16 +127,17 @@ fn partial_selection_groups_expand_and_paste_delete_undo_preserve_membership() {
     draft.prepare(&drawing);
     assert_eq!(draft.groups.len(), 3);
     let mut restored: Draft = serde_json::from_slice(&serde_json::to_vec(&draft).unwrap()).unwrap();
-    restored.validate_saved(9).unwrap();
+    restored.validate_saved(|_| Some(9)).unwrap();
     restored.prepare(&drawing);
     assert_eq!(restored.groups, draft.groups);
     restored.grouping.0.push(vec![0]);
-    assert!(restored.validate_saved(9).is_err());
+    assert!(restored.validate_saved(|_| Some(9)).is_err());
 }
 
 #[test]
 fn copying_repeated_sources_and_high_copy_ids_keeps_every_instance_unique() {
-    let mut draft = Draft::new("parts".into(), 3);
+    let three = Drawing { contours: parts().contours.into_iter().take(3).collect() };
+    let mut draft = draft_of(&three);
     draft.placed[0].copy = u32::MAX;
     let contours: Vec<_> =
         [0, 1, 2, 0, 1, 2].into_iter().map(|i| (i, Transform::IDENTITY)).collect();

@@ -89,7 +89,7 @@ async fn machine_ticks_share_views_and_deleting_the_open_part_publishes_its_clea
     c.note("second failure", true);
     let second = c.document().message.unwrap();
     assert_ne!(first.id, second.id);
-    c.remove_part(&before.draft.as_ref().unwrap().part).unwrap();
+    c.remove_part(&before.draft.as_ref().unwrap().parts[0].id).unwrap();
     assert!(subscriber.has_changed().unwrap());
     let deleted = subscriber.borrow_and_update().clone();
     assert!(deleted.draft.is_none());
@@ -237,7 +237,9 @@ async fn http_edits_are_revision_qualified_and_the_live_stream_clears_and_closes
     assert!(shared.lock().await.document().draft.unwrap().features.skip_layers.is_empty());
     assert_eq!(request(address, "POST", "/api/machine/heartbeat", json!({})).await.0, 400);
     assert_eq!(
-        request(address, "DELETE", &format!("/api/parts/{}", initial.part), json!(null)).await.0,
+        request(address, "DELETE", &format!("/api/parts/{}", initial.parts[0].id), json!(null))
+            .await
+            .0,
         200
     );
     tokio::time::timeout(Duration::from_secs(5), async {

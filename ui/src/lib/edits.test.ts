@@ -7,7 +7,7 @@ import type { DraftView, Features, PreviewContour, RecipeView } from '../api';
 
 const recipe = (id: string, laser: 'fiber' | 'co2' = 'fiber'): RecipeView => ({ id, laser, name: 'shared name', attributes: { CutPower: '10' }, film: null, thickness_mm: 1, gas: 'Air', photo: null, layer: 1, key: id, summary: { speed: null, power: null, pressure: null, height: null, frequency: null, gas: null }, note: '', tags: [], file_name: null, favourite: false, updated: 0 });
 const features = (): Features => ({ common: null, leads: null, joints: null, cooling: null, bridges: null, kerf: { width: 0.2, side: 'auto' }, start: { position: 'keep', direction: 'keep', spots: [] }, seam: 'seal', order: { strategy: 'as_drawn', inner_first: true, circles_first: false, spread_heat: false }, skip_layers: [] });
-const drawing = (part = 'part-a', revision = 1, generation = 1): DraftView => ({ part, revision, generation, features: features() } as DraftView);
+const drawing = (key = 'part-a', revision = 1, generation = 1): DraftView => ({ key, revision, generation, features: features() } as DraftView);
 
 describe('recipe staging', () => {
   it('acknowledges only submitted revisions, including a return to the old value', () => {
