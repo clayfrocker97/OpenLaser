@@ -471,7 +471,7 @@ impl Coordinator {
         matches!(self.machine.state().connection, Connection::Connected { .. })
     }
 
-    /// What the server would accept now.
+    /// Manual Z moves also need a configured head jog output.
     fn head_jog_gate(&self, gate: Gate) -> Gate {
         if self.bound.as_ref().is_some_and(|b| b.outputs.head_jog_tenths.is_some()) {
             gate
@@ -480,6 +480,8 @@ impl Coordinator {
         }
     }
 
+    /// Manual XY moves also need axis parameters, which limit recovery may
+    /// read before initialization.
     fn xy_jog_gate(&self, gate: Gate) -> Gate {
         if !gate.ok {
             return gate;
@@ -487,6 +489,7 @@ impl Coordinator {
         self.jog_parameters().map_or_else(|error| Gate::closed(error.to_string()), |_| Gate::open())
     }
 
+    /// Which commands the server would accept now, and why not otherwise.
     fn readiness(&self, machine: &openlaser_controller::State, can_resume: bool) -> Readiness {
         use openlaser_controller::state::ProgramState;
         let connected = matches!(machine.connection, Connection::Connected { .. });
@@ -495,52 +498,14 @@ impl Coordinator {
             .as_ref()
             .is_some_and(|p| matches!(p.state, ProgramState::Running | ProgramState::Finishing));
         let base = |blocked: &Option<String>| self.operation_gate(machine, blocked.as_deref());
-        let motion = |referenced: bool, blocked: &Option<String>| -> Gate {
-            let gate = base(blocked);
-            if !gate.ok {
-                return gate;
-            }
-            if referenced && !machine.session.homed {
-                return Gate::closed("home XY first");
-            }
-            let parameters =
-                if referenced { self.acceptance() } else { self.measured_configuration() };
-            if let Err(error) = parameters {
-                return Gate::closed(error.to_string());
-            }
-            Gate::open()
+        let motion = |referenced: bool, blocked: &Option<String>| {
+            self.motion_gate(machine, referenced, blocked.as_deref())
         };
-        let draft = self.draft.as_ref();
-        let compile = match draft {
-            None => Gate::closed("open a part first"),
-            Some(d) if d.current.recipe.is_none() => Gate::closed("choose a material first"),
-            Some(d) if d.prepared.is_none() => {
-                Gate::closed(d.error.clone().unwrap_or_else(|| "nothing prepared".into()))
-            }
-            Some(_) => Gate::open(),
-        };
-        let run = {
-            let gate = motion(true, &machine.blocked);
-            match draft {
-                _ if !gate.ok => gate,
-                _ if self.held.is_some() => Gate::closed(HELD),
-                Some(d) if d.compiled.is_none() => d
-                    .error
-                    .as_ref()
-                    .map_or_else(|| compile.clone(), |error| Gate::closed(error.clone())),
-                Some(_) => Gate::open(),
-                None => Gate::closed("open a part first"),
-            }
-        };
+        let compile = self.compile_gate();
+        let run = self.run_gate(motion(true, &machine.blocked), &compile);
         let frame = run.clone();
         Readiness {
-            connect: if connected {
-                Gate::closed("already connected")
-            } else if self.link.busy() {
-                Gate::closed("connecting")
-            } else {
-                Gate::open()
-            },
+            connect: self.connect_gate(connected),
             home: base(&machine.motion_blocked),
             calibrate: if self.bound.as_ref().is_some_and(|b| b.head_enabled) {
                 base(&machine.setup_blocked)
@@ -571,6 +536,68 @@ impl Coordinator {
             stop: if connected { Gate::open() } else { Gate::closed("connect the machine first") },
             mode: base(&machine.motion_blocked),
             frame,
+        }
+    }
+
+    /// Connecting needs no connection and no attempt under way.
+    fn connect_gate(&self, connected: bool) -> Gate {
+        if connected {
+            Gate::closed("already connected")
+        } else if self.link.busy() {
+            Gate::closed("connecting")
+        } else {
+            Gate::open()
+        }
+    }
+
+    /// Moving the head: an operation could start, and the axis parameters
+    /// are known. A `referenced` move also needs Home and parameters that
+    /// match the machine files.
+    fn motion_gate(
+        &self,
+        machine: &openlaser_controller::State,
+        referenced: bool,
+        blocked: Option<&str>,
+    ) -> Gate {
+        let gate = self.operation_gate(machine, blocked);
+        if !gate.ok {
+            return gate;
+        }
+        if referenced && !machine.session.homed {
+            return Gate::closed("home XY first");
+        }
+        let parameters = if referenced { self.acceptance() } else { self.measured_configuration() };
+        if let Err(error) = parameters {
+            return Gate::closed(error.to_string());
+        }
+        Gate::open()
+    }
+
+    /// Compiling needs an open draft with a material and prepared geometry.
+    fn compile_gate(&self) -> Gate {
+        match &self.draft {
+            None => Gate::closed("open a part first"),
+            Some(d) if d.current.recipe.is_none() => Gate::closed("choose a material first"),
+            Some(d) if d.prepared.is_none() => {
+                Gate::closed(d.error.clone().unwrap_or_else(|| "nothing prepared".into()))
+            }
+            Some(_) => Gate::open(),
+        }
+    }
+
+    /// Running or framing needs a referenced `motion` gate, no held job and a
+    /// compiled draft; without one, the reason it failed to compile or the
+    /// `compile` gate says why.
+    fn run_gate(&self, motion: Gate, compile: &Gate) -> Gate {
+        match &self.draft {
+            _ if !motion.ok => motion,
+            _ if self.held.is_some() => Gate::closed(HELD),
+            Some(d) if d.compiled.is_none() => d
+                .error
+                .as_ref()
+                .map_or_else(|| compile.clone(), |error| Gate::closed(error.clone())),
+            Some(_) => Gate::open(),
+            None => Gate::closed("open a part first"),
         }
     }
 
@@ -1638,61 +1665,14 @@ impl Coordinator {
     ) -> Result<()> {
         self.check_compile(stamp)?;
         let result = result.and_then(|compiled| {
-            if let Some(draft) = &self.draft
-                && let Some(nesting) = &draft.current.nesting
-            {
-                let stock = crate::nesting::stock(draft.drawing()?, nesting)?;
-                let map = draft
-                    .current
-                    .correction
-                    .as_ref()
-                    .filter(|_| draft.current.sheet_offset.is_some() && !draft.calibration)
-                    .map(openlaser_correction::Map::new)
-                    .transpose()
-                    .map_err(|e| Error::Refused(e.to_string()))?;
-                let zero = openlaser_core::geometry::Point::from(
-                    draft.current.sheet_offset.unwrap_or([0., 0.]),
-                );
-                let physical: Vec<Vec<[f64; 2]>> = compiled
-                    .view
-                    .moves
-                    .iter()
-                    .filter(|m| m.kind != crate::document::PathKind::Travel)
-                    .map(|m| {
-                        m.points
-                            .iter()
-                            .map(|p| {
-                                map.as_ref().map_or(*p, |map| {
-                                    (map.forward(openlaser_core::geometry::Point::from(*p) + zero)
-                                        - zero)
-                                        .into()
-                                })
-                            })
-                            .collect()
-                    })
-                    .collect();
-                openlaser_nest::check_region_polylines(
-                    &stock,
-                    crate::nesting::cutouts(nesting),
-                    physical.iter().map(Vec::as_slice),
-                    nesting.margin(),
-                )
-                .map_err(|e| Error::Refused(e.to_string()))?;
+            if let Some(draft) = &self.draft {
+                check_within_stock(draft, &compiled)?;
             }
             Ok(compiled)
         });
         let outcome = result.as_ref().map(|_| ()).map_err(Clone::clone);
         if let Some(draft) = &mut self.draft {
-            match result {
-                Ok(compiled) => {
-                    draft.compiled = Some(Arc::new(compiled));
-                    draft.error = None;
-                }
-                Err(error) => {
-                    draft.compiled = None;
-                    draft.error = Some(error.to_string());
-                }
-            }
+            install_compiled(draft, result);
         }
         self.draft_changed();
         if self.operation.is_none() && self.held.is_none() {
@@ -1765,6 +1745,62 @@ impl Coordinator {
         self.operation = Some(self.operation_serial);
         self.publish();
         Ok(self.operation_serial)
+    }
+}
+
+/// Refuses a compiled job of a nested draft whose cutting moves leave the
+/// stock or cross material already removed, checked where the head will
+/// really go: after the bed correction, when one applies.
+fn check_within_stock(draft: &Draft, compiled: &draft::CompiledJob) -> Result<()> {
+    let Some(nesting) = &draft.current.nesting else { return Ok(()) };
+    let stock = crate::nesting::stock(draft.drawing()?, nesting)?;
+    let physical = physical_cuts(draft, compiled)?;
+    openlaser_nest::check_region_polylines(
+        &stock,
+        crate::nesting::cutouts(nesting),
+        physical.iter().map(Vec::as_slice),
+        nesting.margin(),
+    )
+    .map_err(|e| Error::Refused(e.to_string()))
+}
+
+/// The compiled cutting moves (not travel) in drawing coordinates, moved
+/// as the bed correction moves them once the sheet is placed. A calibration
+/// job and an unplaced sheet are not corrected.
+fn physical_cuts(draft: &Draft, compiled: &draft::CompiledJob) -> Result<Vec<Vec<[f64; 2]>>> {
+    use openlaser_core::geometry::Point;
+    let map = draft
+        .current
+        .correction
+        .as_ref()
+        .filter(|_| draft.current.sheet_offset.is_some() && !draft.calibration)
+        .map(openlaser_correction::Map::new)
+        .transpose()
+        .map_err(|e| Error::Refused(e.to_string()))?;
+    let offset = Point::from(draft.current.sheet_offset.unwrap_or([0., 0.]));
+    let corrected = |p: &[f64; 2]| -> [f64; 2] {
+        map.as_ref().map_or(*p, |map| (map.forward(Point::from(*p) + offset) - offset).into())
+    };
+    Ok(compiled
+        .view
+        .moves
+        .iter()
+        .filter(|m| m.kind != crate::document::PathKind::Travel)
+        .map(|m| m.points.iter().map(corrected).collect())
+        .collect())
+}
+
+/// Puts a compile's result on the draft: the job, or why there is none.
+fn install_compiled(draft: &mut Draft, result: Result<draft::CompiledJob>) {
+    match result {
+        Ok(compiled) => {
+            draft.compiled = Some(Arc::new(compiled));
+            draft.error = None;
+        }
+        Err(error) => {
+            draft.compiled = None;
+            draft.error = Some(error.to_string());
+        }
     }
 }
 
