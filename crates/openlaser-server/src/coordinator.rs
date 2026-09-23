@@ -794,6 +794,43 @@ impl Coordinator {
         Ok(PartView::new(&copy))
     }
 
+    /// What simplifying a part's drawing did; with `save`, the result is
+    /// kept as a new part beside it, and the part itself stays as it is for
+    /// the jobs that use it.
+    pub fn simplified_part(
+        &mut self,
+        id: &Id,
+        result: openlaser_prep::simplify::Simplified,
+        save: bool,
+    ) -> Result<crate::document::SimplifyView> {
+        let part = self.library.part(id)?;
+        let base = format!("{} simplified", part.name.chars().take(100).collect::<String>());
+        // Another simplification of the same part is numbered, not a namesake.
+        let name = (1..=999)
+            .map(|n| if n == 1 { base.clone() } else { format!("{base} {n}") })
+            .find(|name| !self.library.parts().any(|p| &p.name == name))
+            .unwrap_or(base);
+        let mut view = crate::document::SimplifyView {
+            curves_before: result.curves_before,
+            curves_after: result.curves_after,
+            contours_before: part.drawing.contours.len(),
+            contours_after: result.drawing.contours.len(),
+            repeats: result.repeats,
+            specks: result.specks,
+            part: None,
+        };
+        if save {
+            if !result.changed() {
+                return Err(Error::Refused(
+                    "the drawing is already as simple as this tolerance allows".into(),
+                ));
+            }
+            view.part = Some(self.library.add_derived_part(id, &name, result.drawing)?.id);
+            self.library_changed();
+        }
+        Ok(view)
+    }
+
     /// Renames, moves or stars a part.
     pub fn update_part(&mut self, id: &Id, change: ItemChange) -> Result<()> {
         self.library.update_part(id, |part| {

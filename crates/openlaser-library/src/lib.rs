@@ -631,6 +631,28 @@ impl Library {
         store::commit(&self.path("parts", &copy.id), &mut self.parts, copy)
     }
 
+    /// A part drawn from another's geometry, such as a simplified drawing:
+    /// the same original file and details under a new name. The part it
+    /// came from is unchanged for the jobs that use it; the same result
+    /// again is the part already made.
+    pub fn add_derived_part(&mut self, from: &Id, name: &str, drawing: Drawing) -> Result<Part> {
+        let source = self.part(from)?;
+        if let Some(existing) =
+            self.parts.values().find(|p| p.sha256 == source.sha256 && *p.drawing == drawing)
+        {
+            return Ok(existing.clone());
+        }
+        let mut part = source.clone();
+        part.id = Id::generate();
+        part.name = clean_name(name)?;
+        part.drawing = std::sync::Arc::new(drawing);
+        part.favourite = false;
+        part.created = now();
+        part.updated = part.created;
+        validation::part(&part, self)?;
+        store::commit(&self.path("parts", &part.id), &mut self.parts, part)
+    }
+
     /// Changes a part's name, folder or star.
     pub fn update_part(&mut self, id: &Id, change: impl FnOnce(&mut Part)) -> Result<Part> {
         let mut part = store::edited(self.part(id)?, change)?;

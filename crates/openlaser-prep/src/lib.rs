@@ -30,6 +30,7 @@ mod leads;
 mod order;
 mod provenance;
 mod shape;
+pub mod simplify;
 mod topology;
 
 pub use bridge::project;
@@ -69,6 +70,9 @@ pub enum Error {
     /// Contours overlap, so inside and outside are ambiguous.
     #[error("{0}")]
     Topology(String),
+    /// The drawing holds more than one sheet can prepare.
+    #[error("{0}")]
+    Limit(String),
     /// The drawing is larger than preparation is willing to handle.
     #[error("the drawing exceeds the {0} budget")]
     Budget(&'static str),
@@ -77,8 +81,23 @@ pub enum Error {
 /// The crate's result type.
 pub type Result<T> = std::result::Result<T, Error>;
 
-/// The most contours a drawing may hold.
-pub const MAX_CONTOURS: usize = 5000;
+/// The most contours one drawing, or one nested sheet, may hold.
+/// Preparation runs on every edit and grows about linearly with contours:
+/// some 0.3 s at this size with leads and kerf on a current desktop. Every
+/// screen receives each prepared contour for its canvas, so what an edit
+/// sends grows with it too, some 17 MB at this size.
+pub const MAX_CONTOURS: usize = 20_000;
+
+/// The most lines and arcs a drawing may hold, over all its contours.
+/// Matching prepared curves to their sources grows with the square of a
+/// contour's own curves, so drawings of dense curves reach this first.
+pub const MAX_CURVES: usize = 200_000;
+
+/// The most prepared lines and arcs, leads and compensation included.
+pub const MAX_PREPARED_CURVES: usize = 400_000;
+
+/// Work allowed to match prepared curves to the source curves they lie on.
+const MATCHING_WORK: usize = 40_000_000;
 
 /// A tolerance for comparing distances along a contour.
 const EPS: f64 = 1e-8;
@@ -220,16 +239,24 @@ pub fn prepare(drawing: &Drawing, features: &Features) -> Result<Toolpath> {
     let bridged = bridge::apply(&kept(drawing, features), features.bridges.as_ref())?;
     let mapped = provenance::remap(drawing, &bridged, features)?;
     let depths = prepared_depths(drawing, &bridged, features)?;
-    let mut preparation =
-        Preparation { drawing, features, mapped: &mapped, warnings: Vec::new(), work: 10_000_000 };
+    let mut preparation = Preparation {
+        drawing,
+        features,
+        mapped: &mapped,
+        warnings: Vec::new(),
+        work: MATCHING_WORK,
+    };
     let mut prepared = Vec::with_capacity(bridged.len());
     let mut items = Vec::with_capacity(bridged.len());
     let mut segment_count = 0usize;
     for (index, (sourced, depth)) in bridged.iter().zip(depths).enumerate() {
         let (contour, item) = preparation.contour(index, sourced, depth)?;
         segment_count = segment_count.saturating_add(contour.segments.len());
-        if segment_count > 100_000 {
-            return Err(Error::Budget("prepared segments"));
+        if segment_count > MAX_PREPARED_CURVES {
+            return Err(Error::Limit(format!(
+                "leads and compensation make more than {MAX_PREPARED_CURVES} lines and arcs, \
+                 more than one sheet can prepare; split the parts over more sheets"
+            )));
         }
         prepared.push(contour);
         items.push(item);
@@ -245,11 +272,19 @@ pub fn prepare(drawing: &Drawing, features: &Features) -> Result<Toolpath> {
 }
 
 fn validate_drawing(drawing: &Drawing, features: &Features) -> Result<()> {
-    if drawing.contours.len() > MAX_CONTOURS {
-        return Err(Error::Budget("contour count"));
+    let contours = drawing.contours.len();
+    if contours > MAX_CONTOURS {
+        return Err(Error::Limit(format!(
+            "the drawing has {contours} contours; one sheet can prepare up to {MAX_CONTOURS}, \
+             so split the parts over more sheets"
+        )));
     }
-    if drawing.contours.iter().map(|c| c.curves.len()).sum::<usize>() > 100_000 {
-        return Err(Error::Budget("source segments"));
+    let curves = drawing.contours.iter().map(|c| c.curves.len()).sum::<usize>();
+    if curves > MAX_CURVES {
+        return Err(Error::Limit(format!(
+            "the drawing has {curves} lines and arcs; one sheet can prepare up to {MAX_CURVES}, \
+             so split the parts over more sheets or simplify dense curves"
+        )));
     }
     for (index, contour) in kept(drawing, features) {
         validate(index, contour)?;

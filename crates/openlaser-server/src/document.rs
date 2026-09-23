@@ -797,6 +797,26 @@ pub struct DraftView {
     pub error: Option<String>,
 }
 
+/// What simplifying a part's drawing does, and the part it made once saved.
+#[cfg_attr(feature = "typescript", derive(ts_rs::TS), ts(export))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct SimplifyView {
+    /// Lines and arcs before.
+    pub curves_before: usize,
+    /// Lines and arcs after.
+    pub curves_after: usize,
+    /// Contours before.
+    pub contours_before: usize,
+    /// Contours after.
+    pub contours_after: usize,
+    /// Contours dropped for repeating another on the same layer.
+    pub repeats: usize,
+    /// Contours dropped for being smaller than the tolerance.
+    pub specks: usize,
+    /// The simplified part, once saved.
+    pub part: Option<Id>,
+}
+
 /// One part of the job being set up and its contours in the job's drawing.
 #[cfg_attr(feature = "typescript", derive(ts_rs::TS), ts(export))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]

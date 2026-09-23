@@ -22,6 +22,8 @@ on a working controller connection and is not a replacement for it.
 - [First machine setup](#first-machine-setup)
 - [Parts, jobs, materials and sheets](#parts-jobs-materials-and-sheets)
 - [Run your first job](#run-your-first-job)
+- [Several parts in one job](#several-parts-in-one-job)
+- [Simplify a drawing](#simplify-a-drawing)
 - [Nest parts and reuse a remnant](#nest-parts-and-reuse-a-remnant)
 - [Pause, resume, stop and restart](#pause-resume-stop-and-restart)
 - [Materials and process settings](#materials-and-process-settings)
@@ -205,6 +207,44 @@ Open a saved JOB ────→ Saved setup ──→ Review or change ─┘
 
 Position-dependent correction is finished after placement. Check framing again
 when changing stock, origin, placement or correction.
+
+## Several parts in one job
+
+A job can cut several library parts. On **Parts**, press **Pick parts** (or
+**Cut with other parts…** in a part's details), tap each part to cut, then
+**Set up job with N parts**. They open side by side, 10 mm apart and in the
+order picked, wrapping onto a new row at the bed's width; nest them to fill a
+sheet. Folders still open while picking, so parts can come from several. Saved
+jobs cannot be picked: a job keeps its own parts.
+
+In Setup, the **Parts** card lists the job's parts. **Add parts** puts more
+beside the layout as one undoable edit, and tapping a part in the list selects
+its shapes on the drawing. A part cannot be added twice; copy it on the sheet
+instead. Delete a part's shapes and the part leaves the job; Undo brings it back.
+
+The job is saved with its parts, and each part stays in the library as it was.
+A part cannot be deleted while a saved job cuts it. Saving a set of nested
+sheets makes one job per sheet, each cutting only the parts on its sheet.
+Matrix correction applies when any of the parts came from a DXF. Jobs of one
+part are stored exactly as before; a job of several parts needs this version or
+later to open.
+
+## Simplify a drawing
+
+CAD exports often flatten splines, ellipses and fillets into thousands of very
+short lines. In a part's details, **Simplify drawing…** joins such runs into the
+arcs and lines they follow, drops contours that repeat another on the same
+layer (which would otherwise be cut twice), and drops specks smaller than the
+tolerance. Choose **Fine** (0.01 mm), **Standard** (0.02 mm), **Coarse**
+(0.05 mm) or **Rough** (0.1 mm); nothing moves further than that, and the
+dialog shows the line, arc and contour counts before anything is saved. The
+result is saved as a new part named "… simplified"; the original stays for the
+jobs that use it. Simpler drawings prepare faster, stay further from the sheet
+limits below and send less to each screen.
+
+One sheet prepares up to 20 000 contours and 200 000 lines and arcs; nearest-next
+cut ordering takes up to 10 000 contours. Split larger work over several sheets
+with nesting.
 
 ## Nest parts and reuse a remnant
 
@@ -458,6 +498,8 @@ by a newer one. Restore the matching data snapshot when reverting versions.
 | Start or Frame is unavailable | Check connection, homing, laser mode, compiled job, active screen ownership and reported errors |
 | A remnant is incompatible | Check material name, thickness and laser mode against the selected recipe |
 | Nesting added sheets | Requested copies did not fit; review every sheet, spacing, margin and remnant clearance |
+| "One sheet can prepare up to 20000" | Split the parts over more sheets with nesting, or [simplify](#simplify-a-drawing) dense drawings |
+| A part cannot be deleted | A saved job cuts it; the message names the job |
 | Reopened part has no sheet | Expected: open a saved job to restore a full setup, or Pending changes for an unfinished draft |
 | Imported material has no nozzle/focus | Older MLaser XML may omit these optional values; enter them in Head setup |
 | Windows has no native UI | Check whether the one-time WebView2 setup completed |

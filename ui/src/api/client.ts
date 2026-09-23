@@ -3,7 +3,7 @@
 import type { PostflightReview, ExecutionView, RecoveryChange, TableRequest, Preview, EditHistory, PendingDraft, MergeReview, PreflightConfirmation, PreflightIntent, PreflightPreferences, PreflightReview, JobPreflight, HistoryPage, HoldTimes, Document, DraftView, Lease, Features, LeadOverride, ItemChange, JogRequest, LaserMode, NewRecipe, OutputRequest, Anchor, PickView, RecipeChange, RouteChange, Transform } from './index';
 import { server } from '../stores/server.svelte';
 import type { SheetPage, SheetView, SaveRemnant, NestSheetPreview, CorrectionView, CorrectionChange, NestRequest, NestView, StockChoice } from './index';
-import type { PlacementChange } from './index';
+import type { PlacementChange, SimplifyView } from './index';
 import type { MachineSettings, XmlField } from '../lib/machine-settings';
 import { deviceName, pageId } from '../lib/identity';
 
@@ -128,6 +128,8 @@ export const api = {
   createText: (name: string, text: TextOptions) => post<{ ok: true; id: string; warnings: string[] }>('/api/parts/text', { name, text }),
   updatePart: (id: string, change: ItemChange) => post(`/api/parts/${id}`, change),
   duplicatePart: (id: string) => post<{ ok: true; id: string }>(`/api/parts/${id}/duplicate`),
+  /** What simplifying a part's drawing within `tolerance` mm does; `save` keeps it as a new part. */
+  simplifyPart: (id: string, tolerance: number, save: boolean) => post<SimplifyView>(`/api/parts/${id}/simplify`, { tolerance, save }),
   removePart: (id: string) => del(`/api/parts/${id}`),
   addFolder: (name: string, parent: string | null) => post<{ ok: true; id: string }>('/api/folders', { name, parent }),
   updateFolder: (id: string, change: ItemChange) => post(`/api/folders/${id}`, change),

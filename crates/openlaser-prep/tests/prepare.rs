@@ -377,3 +377,40 @@ fn split_features_have_one_owner_and_removed_points_are_refused() {
         Err(openlaser_prep::Error::Feature { feature: "start", .. })
     ));
 }
+
+/// A sheet of many small parts prepares past the former 5000-contour
+/// limit; a drawing over the limit, or ordered by a search too large for
+/// it, is refused with the limit and what to do instead.
+#[test]
+fn large_sheets_prepare_and_oversized_ones_name_the_limit() {
+    use openlaser_core::geometry::Contour;
+    let square = |i: usize| {
+        let corner = Point::new(
+            f64::from(u32::try_from(i % 100).unwrap()) * 3.,
+            f64::from(u32::try_from(i / 100).unwrap()) * 3.,
+        );
+        let corners =
+            [(0., 0.), (2., 0.), (2., 2.), (0., 2.)].map(|(x, y)| corner + Point::new(x, y));
+        Contour {
+            layer: "0".into(),
+            curves: (0..4)
+                .map(|k| Curve::Line { start: corners[k], end: corners[(k + 1) % 4] })
+                .collect(),
+        }
+    };
+    let sheet = Drawing { contours: (0..6000).map(square).collect() };
+    let toolpath = openlaser_prep::prepare(&sheet, &Features::default()).unwrap();
+    assert_eq!(toolpath.contours.len(), 6000);
+
+    let over = Drawing { contours: (0..=openlaser_prep::MAX_CONTOURS).map(square).collect() };
+    let refused = openlaser_prep::prepare(&over, &Features::default()).unwrap_err().to_string();
+    assert!(refused.contains(&format!("up to {}", openlaser_prep::MAX_CONTOURS)), "{refused}");
+
+    let nearest = Features {
+        order: CutOrder { strategy: OrderStrategy::Nearest, ..CutOrder::default() },
+        ..Features::default()
+    };
+    let many = Drawing { contours: (0..10_001).map(square).collect() };
+    let refused = openlaser_prep::prepare(&many, &nearest).unwrap_err().to_string();
+    assert!(refused.contains("nearest-next ordering takes up to 10000"), "{refused}");
+}
