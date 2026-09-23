@@ -129,75 +129,8 @@ pub async fn import_file_reviewed(
     expected: Option<&str>,
 ) -> Result<()> {
     let epoch = shared.ensure_running()?;
-    let (owner, dir, mode, scale, connected, previous) = {
-        let mut c = shared.lock().await;
-        if expected
-            .is_some_and(|hash| hash != c.files.backup.as_ref().map_or("", |f| f.sha256.as_str()))
-        {
-            return Err(Error::Refused(
-                "machine backup changed; review pending changes again".into(),
-            ));
-        }
-        let dir = c.config.data_dir.join("machine");
-        let connected = c.connected();
-        let scale = if connected { c.scale()? } else { 1000 };
-        let previous = c.bound.clone();
-        (c.reserve()?, dir, c.mode, scale, connected, previous)
-    };
-    let name = file_name.to_owned();
-    let bytes = bytes.to_vec();
-    let outcome = async {
-        let candidate =
-            work(move || crate::machine_files::stage(dir, &name, &bytes, mode, scale)).await?;
-        if shared.ensure_running()? != epoch {
-            return Err(Error::Refused("import was cancelled".into()));
-        }
-        if connected {
-            shared.machine.configure(crate::bindings::controller(&candidate.bound)).await?;
-        }
-        let committed = work(move || {
-            candidate.commit()?;
-            Ok(candidate)
-        })
-        .await;
-        let candidate = match committed {
-            Ok(candidate) => candidate,
-            Err(error) => {
-                if connected
-                    && let Some(bound) = &previous
-                    && let Err(rollback) =
-                        shared.machine.configure(crate::bindings::controller(bound)).await
-                {
-                    let mut c = shared.lock().await;
-                    c.install_bindings(None);
-                    return Err(Error::Refused(format!(
-                        "{error}; restoring the previous bindings failed: {rollback}"
-                    )));
-                }
-                shared.lock().await.accepted = None;
-                return Err(error);
-            }
-        };
-        let prune = candidate.pruning();
-        {
-            let mut c = shared.lock().await;
-            c.install_files(candidate.loaded);
-            c.install_bindings(connected.then_some(candidate.bound));
-        }
-        let problem = if connected { apply_parameters(shared).await } else { None };
-        // The active reference and published state now agree. Pruning cannot
-        // delete an unrelated file, and failure does not undo the import.
-        tokio::task::spawn_blocking(prune)
-            .await
-            .map_err(|e| Error::Refused(format!("backup cleanup task: {e}")))?;
-        let mut c = shared.lock().await;
-        match problem {
-            None => c.note(format!("Imported {file_name}"), false),
-            Some(problem) => c.note(format!("Imported {file_name}; {problem}"), true),
-        }
-        Ok(())
-    }
-    .await;
+    let (owner, import) = reserve_import(shared, file_name, bytes, expected).await?;
+    let outcome = run_import(shared, import, epoch).await;
     let mut c = shared.lock().await;
     c.release_reservation(owner);
     drop(c);
@@ -205,6 +138,114 @@ pub async fn import_file_reviewed(
         refresh(shared).await;
     }
     outcome
+}
+
+/// What an import needs, captured under the lock when it is reserved.
+struct Import {
+    file_name: String,
+    bytes: Vec<u8>,
+    dir: std::path::PathBuf,
+    mode: Option<LaserMode>,
+    scale: i32,
+    connected: bool,
+    /// The bindings to restore on the controller if the commit fails.
+    previous: Option<openlaser_xml::bindings::Bindings>,
+}
+
+/// Reserves the machine workflow for an import, refusing one reviewed
+/// against a backup that has since changed.
+async fn reserve_import(
+    shared: &Shared,
+    file_name: &str,
+    bytes: &[u8],
+    expected: Option<&str>,
+) -> Result<(u64, Import)> {
+    let mut c = shared.lock().await;
+    if expected
+        .is_some_and(|hash| hash != c.files.backup.as_ref().map_or("", |f| f.sha256.as_str()))
+    {
+        return Err(Error::Refused("machine backup changed; review pending changes again".into()));
+    }
+    let dir = c.config.data_dir.join("machine");
+    let connected = c.connected();
+    let scale = if connected { c.scale()? } else { crate::bindings::OFFLINE_SCALE };
+    let previous = c.bound.clone();
+    let import = Import {
+        file_name: file_name.to_owned(),
+        bytes: bytes.to_vec(),
+        dir,
+        mode: c.mode,
+        scale,
+        connected,
+        previous,
+    };
+    Ok((c.reserve()?, import))
+}
+
+/// Stages, binds, commits and installs the imported files, then verifies
+/// the controller against them and prunes superseded backups.
+async fn run_import(shared: &Shared, import: Import, epoch: u64) -> Result<()> {
+    let Import { file_name, bytes, dir, mode, scale, connected, previous } = import;
+    let name = file_name.clone();
+    let candidate =
+        work(move || crate::machine_files::stage(dir, &name, &bytes, mode, scale)).await?;
+    if shared.ensure_running()? != epoch {
+        return Err(Error::Refused("import was cancelled".into()));
+    }
+    if connected {
+        shared.machine.configure(crate::bindings::controller(&candidate.bound)).await?;
+    }
+    let candidate = commit_import(shared, candidate, connected, previous.as_ref()).await?;
+    let prune = candidate.pruning();
+    {
+        let mut c = shared.lock().await;
+        c.install_files(candidate.loaded);
+        c.install_bindings(connected.then_some(candidate.bound));
+    }
+    let problem = if connected { apply_parameters(shared).await } else { None };
+    // The active reference and published state now agree. Pruning cannot
+    // delete an unrelated file, and failure does not undo the import.
+    tokio::task::spawn_blocking(prune)
+        .await
+        .map_err(|e| Error::Refused(format!("backup cleanup task: {e}")))?;
+    let mut c = shared.lock().await;
+    match problem {
+        None => c.note(format!("Imported {file_name}"), false),
+        Some(problem) => c.note(format!("Imported {file_name}; {problem}"), true),
+    }
+    Ok(())
+}
+
+/// Makes the staged files the active backup. If that fails after the
+/// controller was configured from them, the `previous` bindings go back
+/// on the controller; if even that fails, no bindings are kept.
+async fn commit_import(
+    shared: &Shared,
+    candidate: crate::machine_files::Candidate,
+    connected: bool,
+    previous: Option<&openlaser_xml::bindings::Bindings>,
+) -> Result<crate::machine_files::Candidate> {
+    let committed = work(move || {
+        candidate.commit()?;
+        Ok(candidate)
+    })
+    .await;
+    let error = match committed {
+        Ok(candidate) => return Ok(candidate),
+        Err(error) => error,
+    };
+    if connected
+        && let Some(bound) = previous
+        && let Err(rollback) = shared.machine.configure(crate::bindings::controller(bound)).await
+    {
+        let mut c = shared.lock().await;
+        c.install_bindings(None);
+        return Err(Error::Refused(format!(
+            "{error}; restoring the previous bindings failed: {rollback}"
+        )));
+    }
+    shared.lock().await.accepted = None;
+    Err(error)
 }
 
 /// The fields whose controller banks do not match the machine files.
