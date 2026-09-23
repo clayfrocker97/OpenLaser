@@ -1,18 +1,27 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! Converts resolved SVG paths, preserving explicit subpath boundaries.
+//!
+//! Circles, circular ellipses and circular arc commands reach us as the
+//! standard cubic approximations of arcs; each is recognised and kept as the
+//! exact arc it approximates, and consecutive pieces of one circle join.
+//! Other curves are fitted with lines and arcs within the tolerance, except
+//! text outlines, which are flattened for welding.
 
 use crate::{Error, Result, TOLERANCE};
+use openlaser_core::fit;
 use openlaser_core::geometry::{Contour, Curve, Drawing, Point};
+use std::f64::consts::TAU;
 use usvg::tiny_skia_path::PathSegment;
 
-const MM_PER_PX: f64 = 25.4 / 96.;
 const MAX_SEGMENTS: usize = 1_000_000;
 
-pub(crate) fn drawing(tree: &usvg::Tree) -> Result<Drawing> {
+pub(crate) fn drawing(tree: &usvg::Tree, mm_per_px: f64, tolerance: f64) -> Result<Drawing> {
     let mut reader = Reader {
         drawing: Drawing::default(),
-        height: f64::from(tree.size().height()) * MM_PER_PX,
+        height: f64::from(tree.size().height()) * mm_per_px,
+        mm_per_px,
+        tolerance,
         count: 0,
         paints: None,
     };
@@ -23,6 +32,8 @@ pub(crate) fn drawing(tree: &usvg::Tree) -> Result<Drawing> {
 struct Reader {
     drawing: Drawing,
     height: f64,
+    mm_per_px: f64,
+    tolerance: f64,
     count: usize,
     paints: Option<Vec<(std::ops::Range<usize>, usvg::FillRule)>>,
 }
@@ -83,6 +94,8 @@ impl Reader {
         let mut reader = Self {
             drawing: Drawing::default(),
             height: self.height,
+            mm_per_px: self.mm_per_px,
+            tolerance: self.tolerance,
             count: self.count,
             paints: Some(Vec::new()),
         };
@@ -101,18 +114,18 @@ impl Reader {
 
     fn path(&mut self, path: &usvg::Path, layer: &str) -> Result<()> {
         let transform = path.abs_transform();
-        let height = self.height;
+        let (height, mm_per_px) = (self.height, self.mm_per_px);
         let point = |p: usvg::tiny_skia_path::Point| {
             Point::new(
                 (f64::from(transform.sx) * f64::from(p.x)
                     + f64::from(transform.kx) * f64::from(p.y)
                     + f64::from(transform.tx))
-                    * MM_PER_PX,
+                    * mm_per_px,
                 height
                     - (f64::from(transform.ky) * f64::from(p.x)
                         + f64::from(transform.sy) * f64::from(p.y)
                         + f64::from(transform.ty))
-                        * MM_PER_PX,
+                        * mm_per_px,
             )
         };
         let mut contour = Contour { layer: layer.into(), curves: Vec::new() };
@@ -165,12 +178,7 @@ impl Reader {
     }
 
     fn line(&mut self, contour: &mut Contour, start: Point, end: Point) -> Result<()> {
-        if !start.is_finite()
-            || !end.is_finite()
-            || [start.x, start.y, end.x, end.y].iter().any(|v| v.abs() > 1e6)
-        {
-            return Err(Error("SVG coordinates are outside the supported range".into()));
-        }
+        in_range(start, end)?;
         if start.distance(end) <= 1e-9 {
             return Ok(());
         }
@@ -183,6 +191,34 @@ impl Reader {
     }
 
     fn bezier(&mut self, contour: &mut Contour, curve: [Point; 4]) -> Result<()> {
+        if self.paints.is_some() {
+            return self.flattened(contour, curve);
+        }
+        let [a, _, _, d] = curve;
+        if let Some((center, radius, sweep)) = circular(curve) {
+            in_range(a, d)?;
+            join_arc(&mut contour.curves, a, d, center, radius, sweep);
+            self.count += 1;
+            return Ok(());
+        }
+        let fitted = fit::approximate(|t| bezier(curve, t), 0., 1., self.tolerance, false)
+            .ok_or_else(|| Error("SVG curve cannot be resolved to lines and arcs".into()))?;
+        for piece in fitted {
+            in_range(piece.start(), piece.end())?;
+            if self.count >= MAX_SEGMENTS {
+                return Err(Error("SVG geometry exceeds one million line segments".into()));
+            }
+            match piece {
+                Curve::Arc { .. } => fit::push_arc(&mut contour.curves, piece),
+                Curve::Line { .. } => contour.curves.push(piece),
+            }
+            self.count += 1;
+        }
+        Ok(())
+    }
+
+    /// Text outlines stay lines, flattened to the tolerance, for welding.
+    fn flattened(&mut self, contour: &mut Contour, curve: [Point; 4]) -> Result<()> {
         let mut pending = vec![(curve, 0)];
         while let Some(([a, b, c, d], depth)) = pending.pop() {
             if distance_to_chord(b, a, d).max(distance_to_chord(c, a, d)) <= TOLERANCE {
@@ -203,6 +239,97 @@ impl Reader {
         }
         Ok(())
     }
+}
+
+fn in_range(start: Point, end: Point) -> Result<()> {
+    if !start.is_finite()
+        || !end.is_finite()
+        || [start.x, start.y, end.x, end.y].iter().any(|v| v.abs() > 1e6)
+    {
+        return Err(Error("SVG coordinates are outside the supported range".into()));
+    }
+    Ok(())
+}
+
+/// The point at `t` on a cubic Bézier curve; exact at both ends.
+fn bezier([start, first, second, end]: [Point; 4], t: f64) -> Point {
+    let rest = 1. - t;
+    start * (rest * rest * rest)
+        + first * (3. * rest * rest * t)
+        + second * (3. * rest * t * t)
+        + end * (t * t * t)
+}
+
+/// The circular arc a cubic approximates, as its centre, radius and sweep:
+/// both ends equally far from where their normals meet, both arms the
+/// standard `4/3·tan(sweep/4)` of the radius, and the curve between on the
+/// circle. The approximations of circles, arcs and rounded corners, which
+/// SVG shapes and arc commands become, all qualify.
+fn circular(curve: [Point; 4]) -> Option<(Point, f64, f64)> {
+    let [a, b, c, d] = curve;
+    let (t0, t1) = (b - a, d - c);
+    let (n0, n1) = (t0.perpendicular(), t1.perpendicular());
+    let across = n0.cross(n1);
+    if t0.norm() <= 1e-9 || t1.norm() <= 1e-9 || across.abs() <= 1e-9 * n0.norm() * n1.norm() {
+        return None;
+    }
+    let center = a + n0 * ((d - a).cross(n1) / across);
+    let (r0, r1) = (a.distance(center), d.distance(center));
+    let radius = 0.5 * (r0 + r1);
+    // Coordinates arrive in single precision, so allow for its rounding.
+    let slack = 2e-4 * radius + 1e-5;
+    if !(radius > 1e-6 && radius < 1e6) || (r0 - r1).abs() > slack {
+        return None;
+    }
+    let sweep = (a - center).cross(d - center).atan2((a - center).dot(d - center));
+    if sweep.abs() <= 1e-9 || (a - center).cross(t0).signum() != sweep.signum() {
+        return None;
+    }
+    let arm = 4. / 3. * (sweep.abs() / 4.).tan() * radius;
+    if (t0.norm() - arm).abs() > 5e-3 * arm + 1e-5 || (t1.norm() - arm).abs() > 5e-3 * arm + 1e-5 {
+        return None;
+    }
+    let on_circle = [0.125, 0.25, 0.5, 0.75, 0.875]
+        .iter()
+        .all(|&t| (bezier(curve, t).distance(center) - radius).abs() <= 1e-3 * radius + 1e-5);
+    on_circle.then_some((center, radius, sweep))
+}
+
+/// The arc from `a` to `b` turning through `sweep`, ending exactly on both.
+fn through(a: Point, b: Point, sweep: f64) -> Curve {
+    let chord = a.distance(b);
+    let direction = (b - a) * (1. / chord);
+    let bulge = (sweep / 4.).tan();
+    let sagitta = chord * (1. - bulge * bulge) / (4. * bulge);
+    let center = a.lerp(b, 0.5) + direction.perpendicular() * sagitta;
+    Curve::Arc { center, radius: center.distance(a), start_angle: (a - center).angle(), sweep }
+}
+
+/// Adds the arc from `a` to `b`, joining it to the arc before when both lie
+/// on one circle, so a circle drawn in quarters becomes one full turn.
+fn join_arc(curves: &mut Vec<Curve>, a: Point, b: Point, center: Point, radius: f64, sweep: f64) {
+    if let Some(&Curve::Arc { center: c, radius: r, start_angle, sweep: s }) = curves.last()
+        && c.distance(center) <= 1e-3 * radius + 1e-5
+        && (r - radius).abs() <= 1e-3 * radius + 1e-5
+        && s.signum() == sweep.signum()
+        && (s + sweep).abs() <= TAU + 1e-6
+    {
+        let start = curves[curves.len() - 1].start();
+        let total = s + sweep;
+        curves.pop();
+        if (total.abs() - TAU).abs() <= 1e-6 && start.distance(b) <= 1e-3 * radius + 1e-5 {
+            curves.push(Curve::Arc {
+                center: c,
+                radius: r,
+                start_angle,
+                sweep: TAU * total.signum(),
+            });
+        } else {
+            curves.push(through(start, b, total));
+        }
+        return;
+    }
+    curves.push(through(a, b, sweep));
 }
 
 fn visible_paint(path: &usvg::Path) -> bool {

@@ -1,8 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! SVG centerlines and text outlines in millimetres. Open subpaths stay open;
-//! Bézier curves are flattened after their transforms to a 0.01 mm tolerance.
+//! SVG centerlines and text outlines in millimetres. Open subpaths stay open.
+//! Circles, circular arcs and rounded corners stay exact arcs; other curves
+//! are fitted with lines and arcs after their transforms, within a tolerance.
 //! Images, clipping and effects need conversion to plain paths before import.
+//!
+//! A document sized in real units (mm, cm, in, pt, pc) is read at that size.
+//! One sized in pixels, or not at all, is read at 72 pixels per inch when
+//! Adobe Illustrator wrote it and at 96 when Inkscape did; otherwise its
+//! scale is ambiguous, read at 96 pixels per inch unless [`Options::scale`]
+//! says otherwise, and reported in [`Import::units`] for review.
 
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used, reason = "fixture tests"))]
 
@@ -15,6 +22,7 @@ pub use fonts::{FontFace, Fonts};
 pub use text::{Alignment, Family, Text};
 
 use openlaser_core::geometry::Drawing;
+use openlaser_core::repair::{self, Repairs};
 use std::collections::BTreeSet;
 use std::sync::Mutex;
 
@@ -31,6 +39,62 @@ pub struct Error(pub String);
 /// The result of an SVG or text conversion.
 pub type Result<T> = std::result::Result<T, Error>;
 
+/// How many pixels of a pixel-sized document make an inch, or a millimetre.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Scale {
+    /// 96 pixels per inch, the CSS pixel most programs use.
+    Dpi96,
+    /// 72 pixels per inch, one pixel a point, as Adobe Illustrator writes.
+    Dpi72,
+    /// One pixel, or unitless user unit, is one millimetre.
+    Millimetre,
+}
+
+impl Scale {
+    /// Millimetres per CSS pixel under this scale.
+    #[must_use]
+    pub fn mm_per_px(self) -> f64 {
+        match self {
+            Self::Dpi96 => 25.4 / 96.,
+            Self::Dpi72 => 25.4 / 72.,
+            Self::Millimetre => 1.,
+        }
+    }
+}
+
+/// How the document declares its size.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Units {
+    /// In real units: mm, cm, in, pt or pc.
+    Physical,
+    /// In pixels, written by Adobe Illustrator: 72 per inch.
+    Illustrator,
+    /// In pixels, written by Inkscape: 96 per inch.
+    Inkscape,
+    /// In pixels or not at all, by an unknown program: the scale is a guess.
+    Ambiguous,
+}
+
+/// How to import.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Options {
+    /// How far fitted lines and arcs may stray from the curves they replace,
+    /// in millimetres; also how close two curves must lie to count as one
+    /// drawn twice.
+    pub tolerance: f64,
+    /// The widest gap between two open ends that is closed, in millimetres.
+    pub gap: f64,
+    /// The scale of a document sized in pixels; `None` uses what the
+    /// document's author implies, or 96 pixels per inch.
+    pub scale: Option<Scale>,
+}
+
+impl Default for Options {
+    fn default() -> Self {
+        Self { tolerance: TOLERANCE, gap: 0.05, scale: None }
+    }
+}
+
 /// Imported geometry and visible notices, including any font substitution.
 #[derive(Clone, Debug)]
 pub struct Import {
@@ -38,6 +102,13 @@ pub struct Import {
     pub drawing: Drawing,
     /// Details the operator should review after import.
     pub warnings: Vec<String>,
+    /// How the document declared its size.
+    pub units: Units,
+    /// The scale applied to a pixel-sized document; `None` when it is sized
+    /// in real units.
+    pub scale: Option<Scale>,
+    /// What was repaired, and where.
+    pub repairs: Repairs,
 }
 
 /// Imports SVG paths and text without executing scripts or loading resources.
@@ -47,6 +118,17 @@ pub fn import(bytes: &[u8]) -> Result<Import> {
 
 /// Imports with a snapshot of the bundled and explicitly imported fonts.
 pub fn import_with_fonts(bytes: &[u8], fonts: &Fonts) -> Result<Import> {
+    import_with(bytes, fonts, &Options::default())
+}
+
+/// Imports with fonts and options.
+pub fn import_with(bytes: &[u8], fonts: &Fonts, options: &Options) -> Result<Import> {
+    if !(openlaser_core::fit::MIN_TOLERANCE..=openlaser_core::fit::MAX_TOLERANCE)
+        .contains(&options.tolerance)
+        || !(0. ..=1.).contains(&options.gap)
+    {
+        return Err(Error("the tolerance must be 0.001 to 0.5 mm and the gap 0 to 1 mm".into()));
+    }
     if bytes.len() > MAX_BYTES {
         return Err(Error("the SVG exceeds 64 MiB".into()));
     }
@@ -59,26 +141,70 @@ pub fn import_with_fonts(bytes: &[u8], fonts: &Fonts) -> Result<Import> {
             "SVG entity declarations are not supported; export the drawing as plain SVG".into(),
         ));
     }
-    let options = usvg::roxmltree::ParsingOptions { allow_dtd: true, ..Default::default() };
-    let document = usvg::roxmltree::Document::parse_with_options(source, options)
+    let parsing = usvg::roxmltree::ParsingOptions { allow_dtd: true, ..Default::default() };
+    let document = usvg::roxmltree::Document::parse_with_options(source, parsing)
         .map_err(|e| Error(format!("SVG XML: {e}")))?;
     validate_source(&document)?;
+    let units = units(source, &document);
+    let scale = (units != Units::Physical).then(|| {
+        options.scale.unwrap_or(if units == Units::Illustrator {
+            Scale::Dpi72
+        } else {
+            Scale::Dpi96
+        })
+    });
+    let mm_per_px = scale.map_or(25.4 / 96., Scale::mm_per_px);
     let warnings = Mutex::new(BTreeSet::new());
-    let options = fonts.options(&warnings);
-    let tree = usvg::Tree::from_str(source, &options).map_err(|e| Error(format!("SVG: {e}")))?;
-    let drawing = paths::drawing(&tree)?;
+    let fonts = fonts.options(&warnings);
+    let tree = usvg::Tree::from_str(source, &fonts).map_err(|e| Error(format!("SVG: {e}")))?;
+    let drawing = paths::drawing(&tree, mm_per_px, options.tolerance)?;
     if drawing.contours.is_empty() {
         return Err(Error("the SVG has no visible paths or text outlines".into()));
     }
-    drop(options);
+    drop(fonts);
+    let (contours, duplicates) = repair::without_duplicates(drawing.contours, options.tolerance);
+    let (contours, gaps) = repair::chain(&contours, options.gap);
     Ok(Import {
-        drawing,
+        drawing: Drawing { contours },
         warnings: warnings
             .into_inner()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .into_iter()
             .collect(),
+        units,
+        scale,
+        repairs: Repairs { gaps, duplicates, mirrored: Vec::new() },
     })
+}
+
+/// How the root element sizes the document, and who wrote it.
+fn units(source: &str, document: &usvg::roxmltree::Document<'_>) -> Units {
+    let root = document.root_element();
+    let physical = |name: &str| {
+        root.attribute(name).is_some_and(|value| {
+            let unit = value.trim().trim_start_matches(|c: char| {
+                c.is_ascii_digit() || matches!(c, '.' | '-' | '+' | 'e' | 'E')
+            });
+            matches!(unit.trim(), "mm" | "cm" | "in" | "pt" | "pc" | "q" | "Q")
+        })
+    };
+    if physical("width") || physical("height") {
+        return Units::Physical;
+    }
+    let head = &source[..source.len().min(4096)];
+    let namespaces = root.namespaces().map(usvg::roxmltree::Namespace::uri).collect::<Vec<_>>();
+    if head.contains("Adobe Illustrator")
+        || namespaces.iter().any(|uri| uri.starts_with("http://ns.adobe.com/AdobeIllustrator"))
+    {
+        Units::Illustrator
+    } else if namespaces
+        .iter()
+        .any(|uri| uri.starts_with("http://www.inkscape.org/namespaces/inkscape"))
+    {
+        Units::Inkscape
+    } else {
+        Units::Ambiguous
+    }
 }
 
 fn validate_source(document: &usvg::roxmltree::Document<'_>) -> Result<()> {
@@ -144,7 +270,10 @@ mod tests {
         .unwrap();
         let contour = &result.drawing.contours[0];
         assert!(!contour.is_closed());
-        assert!(contour.curves.len() > 20);
+        assert!((2..20).contains(&contour.curves.len()), "{:?}", contour.curves);
+        assert!(
+            contour.curves.iter().any(|c| matches!(c, openlaser_core::geometry::Curve::Arc { .. }))
+        );
         assert!((contour.curves.last().unwrap().point(1.).x - 40.).abs() < 1e-5);
         assert!(
             contour
