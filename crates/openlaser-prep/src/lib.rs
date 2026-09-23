@@ -112,6 +112,13 @@ fn float(count: usize) -> f64 {
     count as f64
 }
 
+/// Whether a closed contour crosses itself, which leaves its inside and
+/// outside ambiguous; an open contour never does.
+#[must_use]
+pub fn crosses_itself(contour: &Contour) -> bool {
+    contour.is_closed() && topology::polyline(contour).is_err()
+}
+
 /// The drawing's contours with their indices, less the skipped layers.
 fn kept<'a>(drawing: &'a Drawing, features: &Features) -> Vec<(usize, &'a Contour)> {
     drawing

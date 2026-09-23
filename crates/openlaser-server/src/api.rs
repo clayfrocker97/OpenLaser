@@ -58,6 +58,7 @@ pub fn router(shared: Shared, ui_dir: std::path::PathBuf) -> Router {
         .route("/api/sheets/{id}", get(sheet_view).post(save_remnant))
         .route("/api/jobs/{id}/cut-sheet", post(report_cut_sheet))
         .route("/api/parts", post(import_part))
+        .route("/api/parts/review", post(review_part))
         .route("/api/parts/{id}", post(update_part).delete(remove_part))
         .route("/api/parts/{id}/duplicate", post(duplicate_part))
         .route("/api/parts/{id}/simplify", post(simplify_part))
@@ -238,20 +239,58 @@ struct FileImport {
     expected: Option<String>,
 }
 
+/// A drawing file to import, and how.
+#[derive(Deserialize)]
+struct PartImport {
+    name: String,
+    /// JSON [`crate::imports::ImportOptions`].
+    options: Option<String>,
+}
+
+/// Parses an uploaded drawing off the lock.
+async fn parse_part(
+    shared: &Shared,
+    request: &PartImport,
+    body: axum::body::Bytes,
+) -> Result<crate::imports::Import, Error> {
+    let options = crate::imports::options(request.options.as_deref())?;
+    let name = request.name.clone();
+    let fonts = shared.lock().await.fonts.fonts.clone();
+    tokio::task::spawn_blocking(move || crate::imports::part(&name, &body, &fonts, &options))
+        .await
+        .map_err(|e| Error::Refused(format!("import task: {e}")))?
+}
+
 async fn import_part(
     State(shared): State<Shared>,
-    Query(named): Query<Named>,
+    Query(request): Query<PartImport>,
     body: axum::body::Bytes,
 ) -> Reply {
-    let bytes = body.clone();
-    let name = named.name.clone();
-    let fonts = shared.lock().await.fonts.fonts.clone();
-    let import = tokio::task::spawn_blocking(move || crate::imports::part(&name, &bytes, &fonts))
-        .await
-        .map_err(|e| Error::Refused(format!("import task: {e}")))??;
-    let warnings = import.warnings.clone();
-    let part = shared.lock().await.import_drawing(&named.name, &body, import)?;
+    let import = parse_part(&shared, &request, body.clone()).await?;
+    crate::imports::require_geometry(&import)?;
+    let warnings = import.notices();
+    let part = shared.lock().await.import_drawing(&request.name, &body, import)?;
     Ok(Json(json!({ "ok": true, "id": part.id, "warnings": warnings })))
+}
+
+/// What importing a file would make, without keeping it.
+async fn review_part(
+    State(shared): State<Shared>,
+    Query(request): Query<PartImport>,
+    body: axum::body::Bytes,
+) -> Reply {
+    let import = parse_part(&shared, &request, body).await?;
+    let bed = shared
+        .lock()
+        .await
+        .extent()
+        .map(|[x, y]| [x[1] - x[0], y[1] - y[0]])
+        .filter(|[w, h]| *w > 0. && *h > 0.);
+    let name = request.name.clone();
+    let review = tokio::task::spawn_blocking(move || crate::imports::review(&name, &import, bed))
+        .await
+        .map_err(|e| Error::Refused(format!("import task: {e}")))?;
+    Ok(Json(serde_json::to_value(review).map_err(|e| Error::Refused(e.to_string()))?))
 }
 
 async fn fonts(State(shared): State<Shared>) -> Reply {
@@ -332,7 +371,11 @@ async fn import_text(State(shared): State<Shared>, Json(request): Json<NewText>)
     let part = shared.lock().await.import_drawing(
         &format!("{}.svg", request.name),
         source.as_bytes(),
-        crate::imports::Import { drawing: imported.drawing, warnings: imported.warnings },
+        crate::imports::Import {
+            drawing: imported.drawing,
+            warnings: imported.warnings,
+            ..crate::imports::Import::default()
+        },
     )?;
     Ok(Json(json!({ "ok": true, "id": part.id, "warnings": warnings })))
 }

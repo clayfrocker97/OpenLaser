@@ -3,7 +3,7 @@
 import type { PostflightReview, ExecutionView, RecoveryChange, TableRequest, Preview, EditHistory, PendingDraft, MergeReview, PreflightConfirmation, PreflightIntent, PreflightPreferences, PreflightReview, JobPreflight, HistoryPage, HoldTimes, Document, DraftView, Lease, Features, LeadOverride, ItemChange, JogRequest, LaserMode, NewRecipe, OutputRequest, Anchor, PickView, RecipeChange, RouteChange, Transform } from './index';
 import { server } from '../stores/server.svelte';
 import type { SheetPage, SheetView, SaveRemnant, NestSheetPreview, CorrectionView, CorrectionChange, NestRequest, NestView, StockChoice } from './index';
-import type { PlacementChange, SimplifyView } from './index';
+import type { PlacementChange, SimplifyView, ImportOptions, ImportReview } from './index';
 import type { MachineSettings, XmlField } from '../lib/machine-settings';
 import { deviceName, pageId } from '../lib/identity';
 
@@ -50,6 +50,9 @@ async function openDraft(path: string, body?: unknown): Promise<DraftReply> {
   server.applyDraft(reply.draft, reply.draft_revision);
   return reply;
 }
+
+const importQuery = (name: string, options?: ImportOptions): string =>
+  `name=${encodeURIComponent(name)}${options && (options.layers || options.scale) ? `&options=${encodeURIComponent(JSON.stringify(options))}` : ''}`;
 
 /** The machine actions the server accepts. */
 export type MachineAction = 'pulse' | 'gas-test' | 'table' | 'connect' | 'cancel' | 'disconnect' | 'home' | 'calibrate' | 'jog' | 'go-origin' | 'frame' | 'release' | 'heartbeat' | 'outputs' | 'mode' | 'relieve' | 'run' | 'resume' | 'hold' | 'stop';
@@ -121,7 +124,9 @@ export const api = {
   preflightAction: (token: string, step: number) => post('/api/preflight/action', { token, step }),
   importSoft: (name: string, bytes: ArrayBuffer, expected?: string) => request<{ ok: true }>('POST', `/api/machine/soft?name=${encodeURIComponent(name)}${expected === undefined ? '' : `&expected=${encodeURIComponent(expected)}`}`, undefined, bytes),
 
-  importPart: (name: string, bytes: ArrayBuffer) => request<{ ok: true; id: string; warnings?: string[] }>('POST', `/api/parts?name=${encodeURIComponent(name)}`, undefined, bytes),
+  importPart: (name: string, bytes: ArrayBuffer, options?: ImportOptions) => request<{ ok: true; id: string; warnings?: string[] }>('POST', `/api/parts?${importQuery(name, options)}`, undefined, bytes),
+  /** What importing a drawing would make, with its layers, scale, repairs and problems, without keeping it. */
+  reviewPart: (name: string, bytes: ArrayBuffer, options?: ImportOptions) => request<ImportReview>('POST', `/api/parts/review?${importQuery(name, options)}`, undefined, bytes),
   previewText: (text: TextOptions) => post<TextPreview>('/api/text/preview', text),
   fonts: () => request<{ fonts: FontFace[] }>('GET', '/api/fonts'),
   importFont: (name: string, bytes: ArrayBuffer) => request<{ ok: true; fonts: FontFace[]; existing: boolean }>('POST', `/api/fonts?name=${encodeURIComponent(name)}`, undefined, bytes),
