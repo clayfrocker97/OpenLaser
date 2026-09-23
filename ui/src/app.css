@@ -148,7 +148,7 @@ h1 { font-size: var(--t-xl); margin-right: 6px; }
 .search { flex: 1; min-width: 200px; display: flex; align-items: center; gap: 10px; min-height: var(--touch); padding: 0 14px; border-radius: 12px; background: var(--panel-2); border: 1px solid var(--line); }
 .search input { flex: 1; border: 0; background: none; outline: none; min-height: 44px; font-size: var(--t-base); }
 .seg { display: inline-flex; background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 3px; gap: 2px; }
-.seg button { min-height: 44px; padding: 0 16px; border: 0; border-radius: 9px; background: transparent; font-weight: 600; color: var(--ink-2); cursor: pointer; white-space: nowrap; }
+.seg button { min-height: 44px; min-width: 44px; padding: 0 16px; border: 0; border-radius: 9px; background: transparent; font-weight: 600; color: var(--ink-2); cursor: pointer; white-space: nowrap; }
 .seg button.on { background: var(--panel); color: var(--ink); box-shadow: var(--shadow); }
 .seg.dark button.on { background: var(--accent); color: var(--accent-ink); }
 .seg.block { display: flex; }
@@ -504,7 +504,7 @@ html:not([data-layout="mobile"]) .toast.error { top: 80px; bottom: auto; }
 .tab.done .tab-num { background: var(--accent-soft); color: var(--accent); font-size: var(--t-base); }
 .tab.active .tab-num { background: var(--accent); color: var(--accent-ink); }
 .tab-num .ic { width: 16px; height: 16px; opacity: 1; }
-.card .fav { position: absolute; top: 8px; right: 8px; width: 40px; height: 40px; border-radius: 10px; border: 0; background: rgba(255,255,255,.7); font-size: var(--t-lg); color: var(--ink-3); display: grid; place-items: center; }
+.card .fav { position: absolute; top: 6px; right: 6px; width: 44px; height: 44px; border-radius: 10px; border: 0; background: rgba(255,255,255,.7); font-size: var(--t-lg); color: var(--ink-3); display: grid; place-items: center; }
 .card .fav .ic { width: 22px; height: 22px; opacity: .6; }
 .card .fav.on .ic { color: var(--warn); opacity: 1; }
 .pager button { width: 44px; height: 44px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); font-size: var(--t-xl); display: grid; place-items: center; }

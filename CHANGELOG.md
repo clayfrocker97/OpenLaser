@@ -2,6 +2,86 @@
 
 Versions use Semantic Versioning, with prerelease identifiers for alpha builds.
 
+## Unreleased — 0.1.0-alpha.4
+
+Work in progress on the `alpha.4` branch. Not published.
+
+### Build
+
+- `scripts/build_release.py` (`just release-build`) builds the UI, both Mac
+  slices and Windows with the builder's home folder, Cargo home and checkout
+  rewritten by `--remap-path-prefix`, and fails if a home-folder path is left
+  in a binary. `scripts/package_release.py` refuses such binaries.
+
+### Plain language
+
+- Alarms have plain names and a "how to fix" line; the vendor label and bits
+  are under Details. Every row that homing the head clears shares one card
+  and one Home head button.
+- Run shows one status line instead of three copies of the same refusal; tap
+  it for which controls are blocked, the alarms and the original technical
+  text. Toasts reword developer text such as `ManuParam.FC…` and keep the
+  original under Details.
+
+### Small screens and touch
+
+- Four type sizes (13, 15, 18 and 24 px), nothing smaller, and every control
+  at least 44 px. The phone and desktop layouts switch live as the window
+  resizes. Fit frames the parts, and cut lines are brighter.
+
+### Run and jog
+
+- A 3×3 jog pad with diagonals. A tap moves one step (0.1, 1 or 10 mm); a
+  press held past 0.4 s jogs continuously and stops on release. Go to X/Y
+  takes typed job or machine coordinates and moves on a held Go.
+- Laser and gas tests, manual outputs and the mode switch moved from Settings
+  to Run → Machine tests.
+
+### Setup and sheets
+
+- The stock chooser rotates a sheet, offers common sheet sizes laid along the
+  bed and keeps saved sizes. Add text moved from the parts library to Setup
+  and joins the open job.
+- The drawing bar is one row: editing tools appear only with a selection, and
+  Order drags the tools into your own sequence.
+
+### Materials and recipes
+
+- Import files, folders or a drop, with a review that assigns each file to a
+  material, flags duplicates (same material, thickness and gas) with
+  Replace, Keep both or Skip, and reads nozzle, focus and lens from the notes
+  and file names. One material summary everywhere; Power is the peak power
+  and Duty the duty cycle.
+
+### Settings
+
+- One sidebar (General, Machine, Materials & processes, Calibration, Network
+  & phones, Advanced controller parameters) with search and real switches.
+  Settings save as they change; Pending changes appears only for what writes
+  the machine or unsaved jobs.
+
+### Parts library
+
+- One filter row with search and a Filter menu for laser type and favourites,
+  one place to import, larger previews and correct counts ("1 path").
+
+### Import
+
+- DXF splines, ellipses and blocks (mirrored, nested and arrayed inserts)
+  become arcs and lines; small gaps are joined and duplicates removed, with a
+  report; hidden layers are left out and layers can be chosen. SVG sizes use
+  real units and ask when the scale is ambiguous; circles and arcs stay true
+  arcs. A review shows the size check and open or self-crossing shapes. 27
+  authored CAD fixtures with curve-accuracy tests.
+
+### Gas and laser costs
+
+- Laser-on and gas-on time per gas from the compiled program and each run's
+  actual figures; Settings → Gas costs (refill or bulk price, compressor air,
+  flow from the nozzle or a fixed L/min, currency); a Gas & laser card with
+  past runs and totals; a 60-second gas calibration. Flow estimates are not
+  yet checked against a machine.
+
 ## 0.1.0-alpha.3 — review candidate
 
 Local review candidate built on 2026-09-22. Not published.
