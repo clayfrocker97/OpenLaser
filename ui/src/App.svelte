@@ -15,6 +15,7 @@
   import { WORKFLOW, SETTINGS } from './lib/navigation';
   import { confirmDisconnect, connectionLabel } from './lib/connection';
   import { partsOf, sourceLabel } from './lib/job-parts';
+  import { pending } from './lib/pending.svelte';
 
   const doc = $derived(server.doc);
   const connected = $derived(doc?.machine.connection.state === 'connected');
@@ -69,7 +70,7 @@
     </nav>
 
     <div class="topbar-actions">
-      <button class="btn btn-ghost page-btn" onclick={() => (ui.modal = 'pending')}>Pending changes</button>
+      {#if pending.count > 0}<button class="btn btn-ghost page-btn pending-btn" onclick={() => (ui.modal = 'pending')}>Pending changes<span class="badge">{pending.count}</span></button>{/if}
       <button class="btn btn-ghost icon-btn page-btn" class:active={ui.tab === 'materials'} onclick={() => togglePage('materials')} title="Material library"><i class="ic ic-layers"></i><span>Materials</span></button>
       <button class="btn btn-ghost icon-btn page-btn" class:active={ui.tab === SETTINGS.id} onclick={() => togglePage(SETTINGS.id)} title={SETTINGS.label}><i class="ic ic-gear"></i><span>{SETTINGS.label}</span></button>
       <button class="btn btn-ghost icon-btn alarm" onclick={() => (ui.modal = 'alarms')} title="Alarms"><i class="ic ic-bell"></i><span>Alarms</span>{#if alarms > 0}<span class="badge">{alarms}</span>{/if}</button>
@@ -99,4 +100,4 @@
   <WorkspaceOverlays />
 </div>
 
-<style>.app:has(.persistence-error) { grid-template-rows:68px auto minmax(0,1fr); }.persistence-error { padding: 8px 20px; background: var(--warn-soft); color: var(--warn); }</style>
+<style>.pending-btn { position: relative; } .pending-btn .badge { margin-left: 8px; background: var(--accent); }.app:has(.persistence-error) { grid-template-rows:68px auto minmax(0,1fr); }.persistence-error { padding: 8px 20px; background: var(--warn-soft); color: var(--warn); }</style>

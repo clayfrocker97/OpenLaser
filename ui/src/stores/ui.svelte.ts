@@ -113,6 +113,8 @@ class Ui {
   travelMode = $state<'next' | 'all'>(remembered('ol-travel', 'next'));
   machinePage = $state(returningSettingsPage());
   checklistEditor = $state<'defaults' | 'pause' | 'postflight' | null>(null);
+  /** The settings search; while set, Settings lists every matching setting. */
+  settingsQuery = $state('');
   theme = $state<'light' | 'dark'>(remembered('ol-theme', matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
   toast = $state<{ text: string; error: boolean; at: number } | null>(null);
   /** The confirmation on screen, if one is asked. */
@@ -121,7 +123,7 @@ class Ui {
   pendingJobName = $state<string | null>(null);
 
   editChecklist(scope: 'defaults' | 'pause' | 'postflight'): void {
-    this.machinePage = 1;
+    this.machinePage = 0;
     this.checklistEditor = scope;
     this.tab = 'machine';
   }

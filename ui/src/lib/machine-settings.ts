@@ -141,3 +141,11 @@ export function sectionName(f: XmlField): string {
   if (/Laser.*Delay|Gas|UpHeight|ShortDist|NoFollow/.test(f.name)) return 'Height, timing & gas';
   return 'Other process settings';
 }
+
+/**
+ * A parameter that is plainly on or off: its name says so (Enable…, Is…,
+ * Use…, …Reverse) and it holds 0 or 1. Other 0/1 values are often types or
+ * port numbers, so they keep the number editor.
+ */
+export const isSwitch = (field: XmlField, value: string): boolean =>
+  (value === '0' || value === '1') && /Enable|^(m_i|m_b)?(Is|Use)[A-Z]|Reverse$/.test(field.name);

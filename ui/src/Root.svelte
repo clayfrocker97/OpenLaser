@@ -3,6 +3,8 @@
   import { access, layout } from './lib/access.svelte';
   import { subscribe } from './api/client';
   import { server } from './stores/server.svelte';
+  import { ui } from './stores/ui.svelte';
+  import { pending } from './lib/pending.svelte';
   import ControlGate from './components/ControlGate.svelte';
   import Confirm from './components/Confirm.svelte';
 
@@ -13,6 +15,8 @@
   // The shell follows the window; the pages' state lives in stores and survives the switch.
   const shell = $derived(loadShell(layout.current));
   $effect(() => { document.documentElement.dataset.layout = layout.current; });
+  // Unsaved jobs change with the draft and the library; recount after each, on both shells.
+  $effect(() => { void server.doc?.draft_revision; void server.doc?.library; void ui.modal; if (server.link) pending.refresh(); });
   onMount(() => {
     const stopAccess = access.mount();
     const stopLayout = layout.mount();

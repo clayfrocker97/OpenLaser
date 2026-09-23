@@ -7,15 +7,16 @@ export const WORKFLOW = [
 
 export const SETTINGS = { id: 'machine', label: 'Settings' } as const;
 
-/** Stable page IDs also keep desktop and phone settings navigation in sync. */
-export const SETTINGS_PAGES: ReadonlyArray<{ id: number; label: string; groups: readonly string[]; wide?: boolean }> = [
-  { id: 0, label: 'Machine settings', groups: ['xml'], wide: true },
-  { id: 7, label: 'Matrix correction', groups: ['matrix'], wide: true },
-  { id: 1, label: 'Checklists', groups: ['checklists'] },
-  { id: 2, label: 'Display', groups: ['display'] },
-  { id: 3, label: 'Controller & laser', groups: ['controller', 'laser', 'process'] },
-  { id: 4, label: 'Axes & homing', groups: ['axes'] },
-  { id: 5, label: 'Safety I/O', groups: ['safety'] },
-  { id: 6, label: 'Outputs', groups: ['outputs'] },
-  { id: 8, label: 'Gas costs', groups: ['gas'] },
+/**
+ * The settings sidebar, in order, with Advanced last. Stable page IDs keep
+ * desktop and phone navigation in sync; `keywords` help the settings search
+ * find a page by words that are not on it.
+ */
+export const SETTINGS_PAGES: ReadonlyArray<{ id: number; label: string; groups: readonly string[]; wide?: boolean; keywords?: string }> = [
+  { id: 0, label: 'General', groups: ['display', 'checklists', 'interface'], keywords: 'units inches metric theme dark night hold time preflight postflight pause checklist layout' },
+  { id: 1, label: 'Machine', groups: ['controller', 'laser', 'axes', 'safety'], keywords: 'controller firmware laser fiber co2 head travel limits jog speed inputs door water' },
+  { id: 2, label: 'Materials & processes', groups: ['materials', 'process', 'gas'], keywords: 'recipes material library process ini gas cost price nitrogen oxygen air flow' },
+  { id: 3, label: 'Calibration', groups: ['head-calibration', 'matrix'], wide: true, keywords: 'matrix correction squareness head calibration' },
+  { id: 4, label: 'Network & phones', groups: ['network', 'phones'], keywords: 'ip address adapter route udp lan wifi phone tablet remote' },
+  { id: 5, label: 'Advanced controller parameters', groups: ['xml'], wide: true, keywords: 'xml backup parameters registers' },
 ];

@@ -5,7 +5,7 @@
   import { api } from '../api/client';
   import { server } from '../stores/server.svelte';
   import { ui } from '../stores/ui.svelte';
-  import { settingsEdits, withPostflight } from '../lib/settings-edits.svelte';
+  import { mergePreferences, settingsEdits, withPostflight } from '../lib/settings-edits.svelte';
   import { explain, laserLabel } from '../lib/format';
   import type { Check, JobPreflight, LaserMode, PreflightPreferences } from '../api';
 
@@ -48,7 +48,13 @@
     saving = true;
     error = '';
     try {
-      if (scope !== 'job' && base) { await settingsEdits.preflight(base, $state.snapshot(preferences)); ui.modal = 'pending'; }
+      if (scope !== 'job' && base) {
+        // Defaults save at once; only a clash with another screen's save waits in Pending changes.
+        const saved = await api.preflightPreferences();
+        const merged = mergePreferences($state.snapshot(base), $state.snapshot(preferences), saved);
+        if (merged.conflicts.length) { await settingsEdits.preflight(base, $state.snapshot(preferences)); ui.modal = 'pending'; }
+        else { await api.savePreflightPreferences(merged.value); ui.say('Checklist defaults saved.'); }
+      }
       else await api.setPreflight(choice === 'custom' ? { kind: 'custom', steps: $state.snapshot(custom) } : { kind: choice }, revision);
       if (scope === 'job') ui.say('Checklist set · save the job');
       onclose();

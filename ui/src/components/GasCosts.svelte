@@ -1,7 +1,7 @@
 <script lang="ts">
   // Settings → Gas costs: where each gas comes from, its price, how its
-  // flow is known and its calibration. Edits stay on this screen until
-  // Save; the server keeps them in the data directory.
+  // flow is known and its calibration. Each change saves at once; the server
+  // keeps them in the data directory.
   import { api } from '../api/client';
   import type { GasCosts, GasKind, Source } from '../api';
   import { server } from '../stores/server.svelte';
@@ -13,16 +13,20 @@
 
   const saved = $derived(server.doc!.gas.costs);
   const problem = $derived(server.doc!.gas.error);
-  let edited = $state<GasCosts | null>(null);
-  let base = $state<GasCosts | null>(null);
   let busy = $state(false);
   let calibrating = $state<GasKind | null>(null);
-  const costs = $derived(edited ?? saved);
-  const changed = $derived(!!edited && JSON.stringify(edited) !== JSON.stringify(saved));
+  const costs = $derived(saved);
 
-  function change(apply: (copy: GasCosts) => void): void {
-    if (!edited) { base = $state.snapshot(saved); edited = $state.snapshot(saved); }
-    apply(edited!);
+  // Each change saves at once against the values it was made from.
+  async function change(apply: (copy: GasCosts) => void): Promise<void> {
+    const base = $state.snapshot(saved);
+    const next = $state.snapshot(saved);
+    apply(next);
+    if (JSON.stringify(next) === JSON.stringify(base)) return;
+    busy = true;
+    try { await api.saveGasCosts(next, base); }
+    catch (e) { ui.say(explain(e), true); }
+    finally { busy = false; }
   }
   function number(label: string, value: number, unit: string, commit: (v: number) => void, min = 0): void {
     osk.number(label, value, unit, v => { if (Number.isFinite(v) && v >= min) commit(v); else ui.say(`Enter ${min} or more.`, true); });
@@ -33,19 +37,6 @@
       if (current.kind === kind) return;
       c[gas].source = kind === 'refill' ? { kind, price: 0, volume: 10 } : kind === 'bulk' ? { kind, price_per_m3: pricePerM3(current) ?? 0 } : { kind, cost_per_hour: 0 };
     });
-  }
-  async function save(): Promise<void> {
-    if (!edited || !base) return;
-    busy = true;
-    try {
-      await api.saveGasCosts($state.snapshot(edited), $state.snapshot(base));
-      edited = null; base = null;
-      ui.say('Gas costs saved.');
-    } catch (e) { ui.say(explain(e), true); }
-    finally { busy = false; }
-  }
-  async function discard(): Promise<void> {
-    if (await ui.confirm({ title: 'Discard gas cost edits?', body: 'Your unsaved prices and flow settings go back to the saved ones.', confirm: 'Discard edits', danger: true })) { edited = null; base = null; }
   }
   const priceText = (gas: GasKind): string => {
     const source = costs[gas].source;
@@ -93,16 +84,11 @@
         {@const rate = supply.flow.rate}
         <div class="setting"><div class="lbl">Flow rate<small>Used for every nozzle and pressure</small></div><button class="val" data-numpad onclick={() => number(`${GAS_NAMES[gas]} flow`, rate, 'L/min', v => { if (v > 0) change(c => { c[gas].flow = { kind: 'manual', rate: v }; }); })}>{rate} L/min</button></div>
       {/if}
-      <div class="setting"><div class="lbl">Calibration<small class:calibrated={!!supply.calibration}>{calibrationStatus(costs, gas)}</small></div><button class="btn btn-ghost" disabled={changed} title={changed ? 'Save or discard first' : ''} onclick={() => (calibrating = gas)}>Calibrate</button></div>
+      <div class="setting"><div class="lbl">Calibration<small class:calibrated={!!supply.calibration}>{calibrationStatus(costs, gas)}</small></div><button class="btn btn-ghost" disabled={busy} onclick={() => (calibrating = gas)}>Calibrate</button></div>
     </section>
   {/each}
   </div>
 
-  <div class="actions">
-    <button class="btn btn-ghost" disabled={!changed || busy} onclick={discard}>Discard</button>
-    <button class="btn btn-primary" disabled={!changed || busy} onclick={save}>Save gas costs</button>
-  </div>
-  {#if changed}<p class="gate-reason">Save or discard these edits before calibrating.</p>{/if}
 </div>
 
 {#if calibrating}<GasCalibration gas={calibrating} onclose={() => (calibrating = null)} />{/if}
@@ -119,5 +105,4 @@
   .supply .seg button { min-height: 44px; padding: 0 12px; }
   .supply .setting .lbl { min-width: 56px; }
   small.calibrated { color: var(--ink-2); }
-  .actions { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; padding-top: 8px; border-top: 1px solid var(--line); }
 </style>

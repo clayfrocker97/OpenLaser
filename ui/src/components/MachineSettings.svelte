@@ -6,13 +6,16 @@
   import { settingsEdits } from '../lib/settings-edits.svelte';
   import { osk } from '../lib/osk.svelte';
   import { explain } from '../lib/format';
-  import { fieldId, fieldUnit, xmlValue, groupKey, groupName, isLayer, readable, sectionName, type Comparison, type MachineSettings, type XmlField } from '../lib/machine-settings';
+  import { fieldId, fieldUnit, xmlValue, groupKey, groupName, isLayer, isSwitch, readable, sectionName, type Comparison, type MachineSettings, type XmlField } from '../lib/machine-settings';
   import { inputValue, sourceInput, unitLabel, units } from '../lib/units.svelte';
 
+  /** The Settings search, carried into this list. */
+  let { search = '' }: { search?: string } = $props();
   let data = $state<MachineSettings | null>(null);
   let busy = $state(false);
   let error = $state('');
   let query = $state('');
+  $effect(() => { query = search; });
   let group = $state('/ParameterRoot/PMachineAxisConfig_0');
   let filter = $state<'all' | 'mismatch' | 'edited'>('all');
   const draft = $derived(settingsEdits.entries.xml);
@@ -147,7 +150,7 @@
             {@const edited = !!draft?.edits[fieldId(f)]}
             <div class="xml-row" class:row-mismatch={mismatch} class:row-edited={edited}>
               <div class="xml-label"><strong>{readable(f.name, f.path)}</strong><code>{f.name}</code>{#if edited}<small>Saved: {xmlValue(f, f.value, data?.fields)}</small>{/if}</div>
-              <button class="xml-value" disabled={busy} aria-label={`Edit ${readable(f.name, f.path)} (${f.name})`} onclick={() => edit(f)}><span>{xmlValue(f, value(f), effective)}</span><span class="edit-mark" aria-hidden="true">↗</span></button>
+              {#if isSwitch(f, value(f))}<button class="switch xml-switch" role="switch" class:on={value(f) === '1'} aria-checked={value(f) === '1'} disabled={busy || !data} aria-label={readable(f.name, f.path)} onclick={() => { if (data) void settingsEdits.xml(f, value(f) === '1' ? '0' : '1', data.sha256); }}></button>{:else}<button class="xml-value" disabled={busy} aria-label={`Edit ${readable(f.name, f.path)} (${f.name})`} onclick={() => edit(f)}><span>{xmlValue(f, value(f), effective)}</span><span class="edit-mark" aria-hidden="true">↗</span></button>{/if}
               <div class="xml-readback" class:warn={mismatch}>
                 {#if edited}<strong>Edited · pending save</strong>{/if}
                 {#if !checks.length}<span class="muted">XML value</span><small>No controller readback</small>
@@ -175,6 +178,7 @@
   .draft-bar small { display: block; margin-top: 4px; color: var(--ink-3); }
   .xml-search { background: var(--panel-2); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; font-size: var(--t-base); flex: 1; min-width: 230px; min-height: 44px; }
   .xml-tools .seg button { min-height: 44px; }
+  .xml-switch { justify-self: start; }
   .xml-body { display: grid; grid-template-columns: 176px minmax(0, 1fr); gap: 22px; align-items: start; }
   .xml-nav { display: grid; gap: 3px; max-height: 67vh; overflow: auto; padding-right: 5px; position: sticky; top: 0; }
   .xml-nav > button { background: transparent; cursor: pointer; width: 100%; min-height: 44px; text-align: left; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px; color: var(--ink-3); border: 1px solid transparent; border-radius: 6px; font-size: var(--t-sm); line-height: 1.4; }

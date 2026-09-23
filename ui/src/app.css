@@ -52,7 +52,7 @@ h3 { font-size: var(--t-sm); font-weight: 700; margin: 0; color: var(--ink-3); t
 .setting { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 12px; min-height: var(--touch); }
 .setting .lbl { font-weight: 600; }
 .setting .lbl small { display: block; font-weight: 400; color: var(--ink-3); font-size: var(--t-sm); }
-.setting .val { font-family: var(--font); font-weight: 600; color: var(--ink-2); padding: 8px 12px; border-radius: 10px; background: var(--panel-2); border: 1px solid var(--line); min-width: 90px; text-align: right; }
+.setting .val { font-family: var(--font); font-weight: 600; color: var(--ink-2); min-height: 44px; display: inline-flex; align-items: center; justify-content: flex-end; padding: 8px 12px; border-radius: 10px; background: var(--panel-2); border: 1px solid var(--line); min-width: 90px; text-align: right; }
 .modal.wide { width: min(880px, 94vw); }
 .chips.options .chip { min-height: 44px; }
 .switch.small { width: 52px; height: 30px; border-radius: 15px; }
@@ -197,6 +197,7 @@ h1 { font-size: var(--t-xl); margin-right: 6px; }
 .stepper .val small { font-weight: 600; color: var(--ink-3); margin-left: 4px; }
 .toggle-row { display: flex; align-items: center; justify-content: space-between; min-height: var(--touch); padding: 0 4px; }
 .switch { width: 54px; height: 32px; border-radius: 16px; background: var(--line-2); position: relative; border: 0; cursor: pointer; flex: none; }
+.switch::before { content: ''; position: absolute; inset: -6px -4px; }
 .switch.on { background: var(--accent); }
 .switch.on::after { left: 25px; }
 .notice { padding: 12px 14px; border-radius: 12px; font-size: var(--t-sm); line-height: 1.45; }

@@ -113,6 +113,12 @@ class SettingsEdits {
     if (!Object.keys(this.entries.route).length) delete this.entries.route;
     await this.persist();
   }
+  /** Applies and keeps a theme at once, dropping any staged one. */
+  async saveTheme(value: 'light' | 'dark'): Promise<void> {
+    await this.ready;
+    ui.applyTheme(value);
+    if (this.entries.theme) { delete this.entries.theme; await this.persist(); }
+  }
   async theme(value: 'light' | 'dark'): Promise<void> {
     await this.ready;
     const base = this.entries.theme?.base ?? ui.theme;
