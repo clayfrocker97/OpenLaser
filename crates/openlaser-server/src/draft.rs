@@ -1309,7 +1309,17 @@ pub(crate) fn summary(
         })
         .map(|pass| pass.start)
         .collect();
-    Compiled { dry_run, seconds: program.seconds, plan, pierces, blocks, moves: moves(program) }
+    let pass_usage = crate::gas::usage::of(job, program);
+    Compiled {
+        dry_run,
+        seconds: program.seconds,
+        plan,
+        pierces,
+        blocks,
+        moves: moves(program),
+        usage: pass_usage.total.clone(),
+        pass_usage: Arc::new(pass_usage),
+    }
 }
 
 /// The program of a job bound to the head at `current` in drawing

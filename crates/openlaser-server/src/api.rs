@@ -22,6 +22,7 @@ use axum::routing::{get, post};
 use axum::{Json, Router};
 
 pub(crate) mod browser;
+mod gas;
 mod machine_actions;
 use openlaser_core::features::Features;
 use openlaser_core::geometry::Transform;
@@ -115,6 +116,7 @@ pub fn router(shared: Shared, ui_dir: std::path::PathBuf) -> Router {
         .route("/api/draft/compile", post(compile))
         .route("/api/draft/save", post(save_job))
         .merge(machine_actions::routes())
+        .merge(gas::routes())
         .layer(DefaultBodyLimit::max(UPLOAD_LIMIT))
         .with_state(shared)
         .fallback(ui::serve)

@@ -49,6 +49,32 @@ unit!(
     "ms"
 );
 
+unit!(
+    /// A duration in seconds, for accumulated machine time.
+    Seconds(f64),
+    "s"
+);
+unit!(
+    /// A gauge pressure: above the surrounding atmosphere.
+    Bar(f64),
+    "bar"
+);
+unit!(
+    /// A gas volume at standard conditions (20 °C, 1 atm).
+    Liters(f64),
+    "L"
+);
+unit!(
+    /// A gas flow at standard conditions.
+    LitersPerMinute(f64),
+    "L/min"
+);
+unit!(
+    /// A gas volume at standard conditions, as suppliers bill it.
+    CubicMeters(f64),
+    "m³"
+);
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -63,5 +89,7 @@ mod tests {
         assert_eq!(serde_json::to_string(&MmPerSecond(12.)).unwrap(), "12.0");
         assert_eq!(serde_json::from_str::<Degrees>("45").unwrap(), Degrees(45.));
         assert!(Percent(10.) < Percent(20.));
+        assert_eq!(LitersPerMinute(42.).to_string(), "42 L/min");
+        assert_eq!(serde_json::from_str::<Bar>("12.5").unwrap(), Bar(12.5));
     }
 }

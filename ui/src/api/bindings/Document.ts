@@ -4,6 +4,7 @@ import type { CalibrationView } from "./CalibrationView";
 import type { DraftView } from "./DraftView";
 import type { ExecutionView } from "./ExecutionView";
 import type { FilesView } from "./FilesView";
+import type { GasView } from "./GasView";
 import type { HistoryStatus } from "./HistoryStatus";
 import type { HoldTimes } from "./HoldTimes";
 import type { LaserMode } from "./LaserMode";
@@ -53,6 +54,10 @@ soft: SoftView,
  * How long held controls must be held, the same on every screen.
  */
 hold: HoldTimes,
+/**
+ * Gas prices and the current job's estimate.
+ */
+gas: GasView,
 /**
  * Changes with every publication.
  */

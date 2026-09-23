@@ -18,6 +18,7 @@ struct MachineRequest {
     table: Option<machine::TableRequest>,
     pulse: Option<PulseRequest>,
     gas_test: Option<GasTestRequest>,
+    gas_calibration: Option<GasCalibrationRequest>,
     preflight: Option<crate::preflight::PreflightConfirmation>,
     jog: Option<JogRequest>,
     lease: Option<openlaser_controller::lease::Lease>,
@@ -38,6 +39,12 @@ struct GasTestRequest {
     selector: u8,
     pressure: f64,
     duration_ms: u64,
+}
+
+#[derive(Deserialize)]
+struct GasCalibrationRequest {
+    selector: u8,
+    pressure: f64,
 }
 
 type Body = Option<Json<MachineRequest>>;
@@ -62,6 +69,7 @@ pub(super) fn routes() -> Router<Shared> {
         .route("/api/machine/table", post(table))
         .route("/api/machine/pulse", post(pulse))
         .route("/api/machine/gas-test", post(gas_test))
+        .route("/api/machine/gas-calibration", post(gas_calibration))
         .route("/api/machine/go-origin", post(go_origin))
         .route("/api/machine/release", post(release))
         .route("/api/machine/heartbeat", post(heartbeat))
@@ -140,6 +148,15 @@ async fn gas_test(State(shared): State<Shared>, body: Body) -> Reply {
         .gas_test
         .ok_or_else(|| Error::Request("a gas test needs selector, pressure and duration".into()))?;
     machine::gas_test(&shared, test.selector, test.pressure, test.duration_ms).await?;
+    Ok(ok())
+}
+
+async fn gas_calibration(State(shared): State<Shared>, body: Body) -> Reply {
+    let request = input(&shared, body)?;
+    let test = request
+        .gas_calibration
+        .ok_or_else(|| Error::Request("a gas flow test needs selector and pressure".into()))?;
+    machine::gas_calibration(&shared, test.selector, test.pressure).await?;
     Ok(ok())
 }
 
