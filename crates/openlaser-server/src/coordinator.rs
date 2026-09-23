@@ -926,17 +926,81 @@ impl Coordinator {
     }
 
     /// Imports a vendor recipe file, keeping the file by its hash. A file
-    /// already in the library answers with its recipe and `true`.
+    /// already in the library, under any name, answers with its recipe and
+    /// `true`.
     pub fn import_recipe(&mut self, file_name: &str, bytes: &[u8]) -> Result<(RecipeView, bool)> {
-        let sha256 = self.library.keep_original(bytes)?;
-        if let Some(existing) = self.library.recipe_by_source(&sha256) {
+        if let Some(existing) = self.library.recipe_by_source(&openlaser_library::sha256(bytes)) {
             return Ok((RecipeView::new(existing), true));
         }
-        let mut recipe = recipes::from_file(file_name, bytes)?;
+        self.import_recipe_as(
+            &RecipeImport { name: file_name.to_owned(), ..RecipeImport::default() },
+            bytes,
+        )
+    }
+
+    /// What a vendor recipe file would add, without saving anything.
+    pub fn preview_recipe(&self, file_name: &str, bytes: &[u8]) -> Result<recipes::RecipePreview> {
+        let recipe = recipes::from_file(file_name, bytes)?;
+        let sha256 = openlaser_library::sha256(bytes);
+        let existing = self.library.recipe_by_source(&sha256).map(|r| r.id.clone());
+        Ok(recipes::RecipePreview::new(&recipe, sha256, existing))
+    }
+
+    /// Imports a vendor recipe file as the operator reviewed it: under the
+    /// material and thickness they chose, with the head setup they
+    /// confirmed, as a new recipe or over the one it replaces. Without
+    /// `keep_both` or `replace`, a file already imported under the same
+    /// material, thickness and gas answers with that recipe and `true`.
+    pub fn import_recipe_as(
+        &mut self,
+        options: &RecipeImport,
+        bytes: &[u8],
+    ) -> Result<(RecipeView, bool)> {
+        let mut recipe = recipes::from_file(&options.name, bytes)?;
+        if let Some(material) = &options.material {
+            recipe.name.clone_from(material);
+        }
+        if let Some(thickness) = options.thickness_mm {
+            if !(thickness.is_finite() && thickness >= 0.) {
+                return Err(Error::Request("the thickness must be 0 or more".into()));
+            }
+            recipe.thickness_mm = thickness;
+        }
+        if options.setup {
+            let setup = recipes::setup::HeadSetup {
+                nozzle_diameter_mm: options.nozzle_diameter_mm.clone(),
+                nozzle: options.nozzle,
+                focus_mm: options.focus_mm.clone(),
+                lens_mm: options.lens_mm.clone(),
+            };
+            setup.check().map_err(Error::Request)?;
+            setup.apply(&mut recipe.attributes, true);
+        }
+        let sha256 = self.library.keep_original(bytes)?;
+        if options.replace.is_none()
+            && !options.keep_both
+            && let Some(existing) = self
+                .library
+                .recipes()
+                .find(|r| r.source_sha256.as_ref() == Some(&sha256) && r.key() == recipe.key())
+        {
+            return Ok((RecipeView::new(existing), true));
+        }
         recipe.source_sha256 = Some(sha256);
-        let recipe = self.library.add_recipe(recipe)?;
+        let saved = if let Some(id) = &options.replace {
+            if self.library.recipe(id)?.laser != recipe.laser {
+                return Err(Error::Request("the replaced recipe is for the other laser".into()));
+            }
+            self.library.update_recipe(id, |old| {
+                let openlaser_library::Recipe { id, photo, favourite, film, created, .. } =
+                    old.clone();
+                *old = openlaser_library::Recipe { id, photo, favourite, film, created, ..recipe };
+            })?
+        } else {
+            self.library.add_recipe(recipe)?
+        };
         self.library_changed();
-        Ok((RecipeView::new(&recipe), false))
+        Ok((RecipeView::new(&saved), false))
     }
 
     /// Keeps a sample cut photo for a recipe. The vendor's library names
@@ -1769,6 +1833,39 @@ pub struct NewRecipe {
     pub values: Values,
     /// The gas selection, 0 to 5, when it should differ from the source's.
     pub gas: Option<u8>,
+}
+
+/// How to save an imported vendor recipe file, after the operator
+/// reviewed its preview. Sent as the query of the upload.
+#[cfg_attr(feature = "typescript", derive(ts_rs::TS), ts(export, optional_fields))]
+#[derive(Clone, Debug, Default, Deserialize)]
+pub struct RecipeImport {
+    /// The file's name, which the material, thickness and gas are read from.
+    pub name: String,
+    /// The material to file it under instead of the one in the name.
+    pub material: Option<String>,
+    /// The sheet thickness instead of the one in the name.
+    pub thickness_mm: Option<f64>,
+    /// The recipe it replaces: its values, note and file change, while its
+    /// id, photo, star and film process stay.
+    pub replace: Option<Id>,
+    /// Adds it even when the same file is already in the library under
+    /// the same material, thickness and gas.
+    #[serde(default)]
+    pub keep_both: bool,
+    /// Whether the four setup values below are confirmed: each present one
+    /// is kept and each absent one cleared. Otherwise what the file's note
+    /// and names say is kept.
+    #[serde(default)]
+    pub setup: bool,
+    /// Confirmed nozzle bore in millimetres.
+    pub nozzle_diameter_mm: Option<String>,
+    /// Confirmed nozzle construction.
+    pub nozzle: Option<recipes::setup::NozzleKind>,
+    /// Confirmed manual focus offset in millimetres.
+    pub focus_mm: Option<String>,
+    /// Confirmed lens focal length in millimetres.
+    pub lens_mm: Option<String>,
 }
 
 /// A change to a recipe.

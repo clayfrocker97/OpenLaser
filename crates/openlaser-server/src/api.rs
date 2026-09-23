@@ -10,7 +10,7 @@
 //! are sent only when they change.
 
 use crate::connect::{self, RouteChange};
-use crate::coordinator::{ItemChange, NewRecipe, RecipeChange, Shared};
+use crate::coordinator::{ItemChange, NewRecipe, RecipeChange, RecipeImport, Shared};
 use crate::machine;
 use crate::ui::{self, UiDir};
 use crate::{Error, document::Document};
@@ -65,6 +65,7 @@ pub fn router(shared: Shared, ui_dir: std::path::PathBuf) -> Router {
         .route("/api/folders/{id}", post(update_folder).delete(remove_folder))
         .route("/api/recipes", post(add_recipe))
         .route("/api/recipes/import", post(import_recipe))
+        .route("/api/recipes/import/preview", post(preview_recipe))
         .route("/api/recipes/{id}", post(update_recipe).delete(remove_recipe))
         .route("/api/recipes/{id}/photo", post(set_photo))
         .route("/api/recipes/{id}/duplicate", post(duplicate_recipe))
@@ -441,11 +442,20 @@ async fn remove_recipe(State(shared): State<Shared>, Path(id): Path<String>) -> 
 
 async fn import_recipe(
     State(shared): State<Shared>,
+    Query(options): Query<RecipeImport>,
+    body: axum::body::Bytes,
+) -> Reply {
+    let (recipe, existing) = shared.lock().await.import_recipe_as(&options, &body)?;
+    Ok(Json(json!({ "ok": true, "id": recipe.id, "existing": existing })))
+}
+
+async fn preview_recipe(
+    State(shared): State<Shared>,
     Query(named): Query<Named>,
     body: axum::body::Bytes,
 ) -> Reply {
-    let (recipe, existing) = shared.lock().await.import_recipe(&named.name, &body)?;
-    Ok(Json(json!({ "ok": true, "id": recipe.id, "existing": existing })))
+    let preview = shared.lock().await.preview_recipe(&named.name, &body)?;
+    Ok(Json(json!({ "ok": true, "preview": preview })))
 }
 
 async fn set_photo(

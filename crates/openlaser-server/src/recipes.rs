@@ -20,6 +20,58 @@ pub mod setup;
 
 use setup::HeadSetup;
 
+/// What a vendor recipe file would add, for the operator to review before
+/// anything is saved.
+#[cfg_attr(feature = "typescript", derive(ts_rs::TS), ts(export))]
+#[derive(Clone, Debug, PartialEq, serde::Serialize)]
+pub struct RecipePreview {
+    /// The file's name.
+    pub file_name: String,
+    /// The material read from the name, or the whole name.
+    pub name: String,
+    /// Which laser the bank is for.
+    pub laser: LaserMode,
+    /// The sheet thickness read from the name, 0 when it is not there.
+    pub thickness_mm: f64,
+    /// The assist gas, named as the library names it.
+    pub gas: String,
+    /// The vendor layer bank.
+    pub layer: u8,
+    /// The process words from the name.
+    pub tags: Vec<String>,
+    /// The vendor's note.
+    pub note: String,
+    /// The nozzle, focus and lens read from the note and names.
+    pub setup: HeadSetup,
+    /// The headline values.
+    pub summary: crate::document::RecipeSummary,
+    /// The file's hash.
+    pub sha256: String,
+    /// A recipe already imported from these exact bytes.
+    pub existing: Option<Id>,
+}
+
+impl RecipePreview {
+    /// The preview of `recipe`, read from a file with hash `sha256`.
+    #[must_use]
+    pub fn new(recipe: &Recipe, sha256: String, existing: Option<Id>) -> Self {
+        Self {
+            file_name: recipe.file_name.clone().unwrap_or_default(),
+            name: recipe.name.clone(),
+            laser: recipe.laser,
+            thickness_mm: recipe.thickness_mm,
+            gas: recipe.gas.clone(),
+            layer: recipe.layer,
+            tags: recipe.tags.clone(),
+            note: recipe.note.clone(),
+            setup: HeadSetup::of(&recipe.attributes),
+            summary: crate::document::RecipeSummary::of_recipe(recipe),
+            sha256,
+            existing,
+        }
+    }
+}
+
 /// A recipe from a vendor recipe file.
 pub fn from_file(file_name: &str, bytes: &[u8]) -> Result<Recipe> {
     let file = layer_file::parse(bytes).map_err(|e| Error::Request(format!("{file_name}: {e}")))?;

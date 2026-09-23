@@ -127,6 +127,8 @@ export type { ProgressView } from './bindings/ProgressView';
 export type { Quality } from './bindings/Quality';
 export type { Readiness } from './bindings/Readiness';
 export type { RecipeChange } from './bindings/RecipeChange';
+export type { RecipeImport } from './bindings/RecipeImport';
+export type { RecipePreview } from './bindings/RecipePreview';
 export type { RecipeSummary } from './bindings/RecipeSummary';
 export type { RecipeView } from './bindings/RecipeView';
 export type { RecoveryChange } from './bindings/RecoveryChange';
