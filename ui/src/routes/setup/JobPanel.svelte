@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { plain } from '../../lib/plain';
   import { displayNumber, quantity, unitLabel } from '../../lib/units.svelte';
   import MaterialSheet from './MaterialSheet.svelte';
   import MaterialSummary from '../../components/MaterialSummary.svelte';
@@ -148,7 +149,7 @@
 {#if draft.compiled?.plan.some((pass) => pass.omitted_cooling > 0)}
   <p class="muted">{draft.compiled.plan.reduce((n, pass) => n + pass.omitted_cooling, 0)} cooling points skipped within {quantity(0.2, 'mm')} of endpoints.</p>
 {/if}
-{#if draft.error}<div class="warn-text" style="font-size:var(--t-sm)">{draft.error}</div>{/if}
+{#if draft.error}<div class="warn-text" style="font-size:var(--t-sm)">{plain(draft.error).text}</div>{/if}
 <GasLaserCard />
 </div>
 

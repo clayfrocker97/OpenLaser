@@ -49,6 +49,7 @@ const PATTERNS: Array<[RegExp, (match: RegExpMatchArray) => string]> = [
     return names.length === 1 ? `Alarm: ${names[0]}.` : `${names.length} alarms: ${names[0]} and ${names.length - 1} more.`;
   }],
   [/^(.+) is active$/, (m) => `Please wait: ${m[1]!.toLowerCase()} is in progress.`],
+  [/machine files have no \S+/, () => 'The machine backup is missing a setting. Import the full backup in Settings → Machine.'],
   [/missing setting \S+/, () => 'The machine files are missing a setting. Re-import the machine backup in Settings.'],
   [/^setting \S+: /, () => 'A machine setting is not valid. Check the machine backup in Settings.'],
   [/no reply to \S+ of register/, () => 'The controller did not answer. Check its power and network cable.'],

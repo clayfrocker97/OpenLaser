@@ -200,7 +200,7 @@
         <span class="run-msg run-correction">Correction pending position</span>
       {/if}
     </div>
-    {#if material}<div class="run-summary"><MaterialSummary source={material} variant="line" /></div>{/if}
+    {#if material}<details class="run-summary"><summary>Recipe values</summary><MaterialSummary source={material} variant="line" /></details>{/if}
     <div class="run-meta">
       <strong>{execution?.frame ? 'Frame' : `${Math.round(pct)}%`}</strong>
       <span>{execution?.frame ? 'Laser off' : `${done} / ${contours} passes`}</span>
@@ -215,7 +215,7 @@
   {#if !recovering && !running && !paused}<SheetStrip />{/if}
   {#if draft && !recovering && !running && !paused}
     <div class="run-choice">
-      <span class="muted">{draft.error ?? (choosingRun ? 'Preparing…' : draft.dry_run ? 'Laser off' : '')}</span>
+      <span class="muted">{choosingRun ? 'Preparing…' : draft.dry_run ? 'Laser off' : ''}</span>
       <div class="seg">
         <button
           class:on={!draft.dry_run}

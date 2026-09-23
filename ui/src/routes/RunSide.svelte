@@ -38,9 +38,13 @@
   const homed = $derived(fresh && doc.machine.session.homed && feedback?.referenced.every(Boolean));
   const headHomed = $derived(fresh && feedback?.head.referenced);
   const sourceLabel = $derived(doc.mode === 'fiber' ? 'Fiber' : doc.mode === 'co2' ? 'CO₂' : 'Not selected');
-  const headLabel = $derived(!headEnabled ? 'Not used' : headHomed ? 'Homed' : 'Home needed');
-  const calibrationLabel = $derived(!headEnabled ? 'Not used'
-    : doc.calibration.current ? 'Calibrated' : doc.calibration.quality ? 'Material changed' : 'Needed');
+  /** The one thing to do next before cutting, in the order it is done; null when ready. */
+  const nextStep = $derived(doc.machine.connection.state !== 'connected' ? 'Next: connect'
+    : !fresh ? 'Waiting for the machine'
+    : !homed ? 'Next: home XY'
+    : headEnabled && !headHomed ? 'Next: home Z'
+    : headEnabled && !doc.calibration.current ? (doc.calibration.quality ? 'Next: calibrate Z (material changed)' : 'Next: calibrate Z')
+    : null);
 
   const work = $derived.by(() => {
     if (!feedback) return null;
@@ -122,18 +126,13 @@
     aria-label="Jog {label}"
     onpointerdown={(event) => press(event, 0, xPositive, yPositive)}
     disabled={!diagonalOk(xPositive, yPositive)}
-  ><i class="ic ic-arrow-up"></i><small>{label}</small></button>
+  ><i class="ic ic-arrow-up"></i></button>
 {/snippet}
 
 <aside class="panel side run-side">
  <div class="run-side-scroll">
   <div class="setup-state" role="status" aria-label="Machine setup">
-    <span><small>Source</small><strong>{sourceLabel}</strong></span>
-    <span class:ready={homed}><small>XY reference</small><strong>{homed ? 'Homed' : 'Home needed'}</strong></span>
-    <span class:ready={headHomed}><small>Z reference</small><strong>{headLabel}</strong></span>
-    <span class:ready={doc.calibration.current} title={doc.calibration.quality ?? 'Height calibration'}>
-      <small>Calibration</small><strong>{calibrationLabel}</strong>
-    </span>
+    <span class="chip" class:ok={!nextStep}>{nextStep ?? `Ready · ${sourceLabel}`}</span>
   </div>
   {#if machine.program?.state === 'held' && doc.recovery?.pause_position}
     <div class="pause-position" role="status">
@@ -168,11 +167,11 @@
     >Go origin</HoldButton>
     <HoldButton
       class="btn btn-move"
-      label="Calibrate head"
+      label="Calibrate Z"
       onhold={() => call(() => api.machine('calibrate'))}
       disabled={!readiness.calibrate.ok}
       title={plain(readiness.calibrate.reason).text}
-    >Calibrate</HoldButton>
+    >Calibrate Z</HoldButton>
   </div>
   <div class="frame-row">
     <HoldButton
@@ -187,13 +186,14 @@
   </div>
 
   <div class="jog-steps">
-    <span class="step-label"><strong>Step · {unitLabel('mm')}</strong><small>Hold a key to jog</small></span>
+    <span class="step-label"><strong>Step · {unitLabel('mm')}</strong></span>
     <div class="seg" role="group" aria-label="Jog step">
       {#each STEPS as step (step)}
         <button class:on={ui.jogStep === step} aria-pressed={ui.jogStep === step} onclick={() => ui.setJogStep(step)}>{stepLabel(step)}</button>
       {/each}
     </div>
   </div>
+  <p class="jog-hint">Tap an arrow to move {quantity(ui.jogStep, 'mm')}; hold it to jog. Both at {ui.jogFast ? 'Fast' : 'Slow'} speed{jogSpeed != null ? ` (${jogSpeedText})` : ''}; tap the middle key to switch.</p>
   <div class="jogblock">
     <div class="jog" class:disabled={!canJog} title={jogTitle}>
       {@render corner(false, true)}{@render key(1, true, 'ic-arrow-up', 'Y+', readiness.xy_jog[1]![1]!.ok)}{@render corner(true, true)}
@@ -249,11 +249,10 @@
 
 <style>
   .run-side { padding:12px; }
-  .setup-state { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:5px; }
-  .setup-state > span { display:flex; flex-direction:column; gap:3px; min-width:0; padding:6px; border:1px solid var(--line); border-radius:9px; }
-  .setup-state small { color:var(--ink-3); font-size:var(--t-sm); }
-  .setup-state strong { font-size:var(--t-sm); }
-  .setup-state .ready strong { color:var(--accent); }
+  .setup-state { display:flex; flex-wrap:wrap; gap:6px; }
+  .setup-state .chip { display:inline-flex; align-items:center; gap:6px; padding:4px 10px 4px 8px; border:1px solid var(--line); border-radius:999px; font-size:var(--t-sm); font-weight:600; color:var(--ink-2); }
+  .setup-state .chip::before { content:''; width:8px; height:8px; border-radius:50%; background:var(--warn); }
+  .setup-state .chip.ok::before { background:var(--move); }
   .pause-position { display:flex; flex-direction:column; gap:5px; padding:10px; border:1px solid var(--hold); border-radius:9px; font-size:var(--t-sm); }
   .pause-position span { color:var(--ink-3); line-height:1.4; }
   .run-side-scroll { flex:1; min-height:0; overflow-y:auto; display:flex; flex-direction:column; gap:8px; padding-right:2px; }
@@ -271,12 +270,11 @@
   .machine-tests { width: 100%; min-height: 48px; }
   .jog-steps { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px; align-items: center; }
   .step-label { display: grid; gap: 2px; font-size: var(--t-sm); color: var(--ink-2); }
-  .step-label small { color: var(--ink-3); }
+  .jog-hint { margin: 0; font-size: var(--t-sm); color: var(--ink-3); }
   .jog-steps .seg { display: flex; min-width: 0; }
   .jog-steps .seg button { flex: 1 1 auto; min-width: 44px; padding: 0 8px; }
   .frame-row { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 8px; }
   .frame-row .go-xy { min-height: 52px; }
   .jog .diagonal .ic { transform: rotate(var(--turn)); }
-  .jog .diagonal small { white-space: nowrap; }
   .table-readout { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 </style>

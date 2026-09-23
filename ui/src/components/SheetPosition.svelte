@@ -19,7 +19,23 @@
   const fixed = $derived(placement?.mode === 'fixed');
   const completed = $derived(!!doc.execution && !doc.execution.frame && ['completed', 'stopped'].includes(doc.machine.program?.state ?? ''));
   const disabled = $derived(busy || !access.canControl || !!doc.machine.operation || !draft || completed || doc.machine.program?.state === 'held');
-  const position = $derived(draft?.origin ?? (doc.machine.feedback?.position_mm.slice(0, 2) as [number, number] | undefined));
+  const position = $derived(doc.machine.feedback?.position_mm.slice(0, 2) as [number, number] | undefined);
+
+  // The method is chosen with a tap; only the held Set origin takes the position.
+  let method = $state<'head' | 'fixed'>('head');
+  $effect(() => { method = fixed ? 'fixed' : 'head'; });
+  // Once the origin is set the box shrinks to one line until Change.
+  let changing = $state(false);
+  const collapsed = $derived(!!placement?.captured && !changing);
+
+  function chooseEachRun(): void {
+    method = 'head';
+    if (fixed) void change({ kind: 'head' });
+  }
+  async function setOrigin(): Promise<void> {
+    await change(method === 'fixed' ? { kind: 'fixed_head' } : { kind: 'set_origin' });
+    changing = false;
+  }
 
   async function change(value: PlacementChange): Promise<void> {
     if (busy) return;
@@ -36,43 +52,39 @@
 </script>
 
 {#if draft && placement}
-  <section class="sheet-position" class:compact aria-label="Sheet position">
-    <div class="position-title"><strong>Sheet position</strong><span>{draft.anchor === 'front_left' ? 'Bottom left' : draft.anchor.replaceAll('_', ' ')}</span>{#if !placement.saved && (draft.job || fixed) && !completed}<button class="text-button save-position" disabled={disabled || !draft.recipe} onclick={save}>Save job</button>{/if}</div>
-    <div class="position-method" role="group" aria-label="Positioning method">
-      <button aria-pressed={!fixed} disabled={disabled} title="Set the origin at the head for each new run" onclick={() => change({ kind: 'head' })}>Each run</button>
-      <HoldButton class="position-absolute" kind="zero" aria-pressed={fixed} disabled={disabled || !doc.readiness.set_origin.ok} title="Save the head's absolute position for a fixture" onhold={() => change({ kind: 'fixed_head' })}>Absolute</HoldButton>
-    </div>
-    <div class="origin-state" class:captured={placement.captured}>{placement.captured ? 'Origin set' : 'Origin not set'}{#if !placement.captured && !fixed}<small>Set at head for this job</small>{/if}</div>
-    {#if position}<div class="position-state"><strong>{placement.captured ? '' : 'Head · '}X {distance(position[0])} · Y {distance(position[1])} {unitLabel('mm')}</strong></div>{/if}
-    {#if !completed}<HoldButton class="set-origin" kind="zero" disabled={disabled || !doc.readiness.set_origin.ok} title={doc.readiness.set_origin.reason ?? 'Set origin at the head'} onhold={() => change({ kind: 'set_origin' })}>Set origin</HoldButton>
-    {#if !disabled && !doc.readiness.set_origin.ok && doc.readiness.set_origin.reason}<p class="gate-reason origin-reason">{plain(doc.readiness.set_origin.reason).text}</p>{/if}{/if}
+  <section class="sheet-position" class:compact aria-label="Sheet origin">
+    {#if collapsed}
+      <div class="origin-line">
+        <span><strong>Origin set</strong> · {fixed ? 'Absolute' : 'Each run'}{#if draft.origin} · X {distance(draft.origin[0])} · Y {distance(draft.origin[1])} {unitLabel('mm')}{/if}</span>
+        {#if !placement.saved && (draft.job || fixed) && !completed}<button class="text-button" disabled={disabled || !draft.recipe} onclick={save}>Save job</button>{/if}
+        {#if !completed}<button class="text-button" disabled={disabled} onclick={() => (changing = true)}>Change</button>{/if}
+      </div>
+    {:else}
+      <div class="position-title"><strong>Sheet origin</strong>{#if changing}<button class="text-button" onclick={() => (changing = false)}>Done</button>{/if}</div>
+      <div class="position-method" role="group" aria-label="Positioning method">
+        <button aria-pressed={method === 'head'} disabled={disabled} title="Set the origin at the head for each new run" onclick={chooseEachRun}>Each run</button>
+        <button aria-pressed={method === 'fixed'} disabled={disabled} title="Keep one machine position for a fixture" onclick={() => (method = 'fixed')}>Absolute</button>
+      </div>
+      {#if !completed}
+        <HoldButton class="set-origin" kind="zero" disabled={disabled || !doc.readiness.set_origin.ok} title="Set the origin where the head is" onhold={setOrigin}>
+          Set origin here{#if position} · X {distance(position[0])} · Y {distance(position[1])}{/if}
+        </HoldButton>
+        {#if !disabled && !doc.readiness.set_origin.ok && doc.readiness.set_origin.reason}<p class="gate-reason origin-reason">{plain(doc.readiness.set_origin.reason).text}</p>{/if}
+      {/if}
+    {/if}
   </section>
 {/if}
 
 <style>
-  .sheet-position { flex-shrink:0; padding:8px 10px; border:1px solid var(--line); border-radius:12px; background:var(--panel-2); }
-  .position-title { display:flex; justify-content:space-between; gap:8px; align-items:center; min-height:28px; margin-bottom:5px; font-size:var(--t-sm); }
-  .position-title span { color:var(--ink-3); font-size:var(--t-sm); text-transform:capitalize; }
+  .sheet-position { flex-shrink:0; display:grid; gap:6px; padding:8px 10px; border:1px solid var(--line); border-radius:12px; background:var(--panel-2); }
+  .position-title, .origin-line { display:flex; justify-content:space-between; gap:8px; align-items:center; font-size:var(--t-sm); }
+  .origin-line span { min-width:0; color:var(--ink-2); font-variant-numeric:tabular-nums; }
+  .origin-line strong { color:var(--accent); }
   .position-method { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
   .sheet-position :global(button) { min-height:44px; border:1px solid var(--line); border-radius:9px; background:var(--panel); color:var(--ink); font:inherit; font-size:var(--t-sm); cursor:pointer; }
   .sheet-position :global(button[aria-pressed="true"]) { border-color:var(--accent); background:var(--accent-soft); color:var(--accent); }
   .sheet-position :global(button:disabled) { opacity:.4; cursor:default; }
-  .position-state { display:flex; align-items:center; padding-top:5px; min-height:32px; }
-  .origin-state { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:8px; color:var(--ink-3); font-size:var(--t-sm); }
-  .origin-state.captured { color:var(--accent); }
-  .origin-state small { font-size:var(--t-sm); }
-  .sheet-position :global(.set-origin) { width:100%; min-height:48px; margin-top:6px; padding:0 12px; border-color:var(--accent); color:var(--accent); }
-  .origin-reason { grid-column:1 / -1; font-size:var(--t-sm); }
-  .position-state strong { font-size:var(--t-sm); font-weight:550; font-variant-numeric:tabular-nums; }
-  .sheet-position .text-button { padding:0 6px; color:var(--accent); border:0; background:transparent; font-size:var(--t-sm); }
-  .save-position { margin-block:-8px; }
-  .compact { display:grid; grid-template-columns:minmax(0,2fr) minmax(0,1fr); gap:6px; }
-  .compact .position-title { grid-column:1 / -1; margin:0; min-height:22px; }
-  .compact .origin-state { grid-row:2; grid-column:1 / -1; margin:0; font-size:var(--t-sm); }
-  .compact .origin-state small { display:none; }
-  .compact .position-state { grid-row:2; grid-column:1 / -1; justify-content:flex-end; padding:0; min-height:26px; }
-  .compact .position-state strong { font-size:var(--t-sm); }
-  .compact .position-method { grid-row:3; }
-  .compact .position-method :global(button) { min-height:46px; font-size:var(--t-sm); }
-  .compact :global(.set-origin) { grid-row:3; margin:0; min-height:46px; padding:0 6px; font-size:var(--t-sm); }
+  .sheet-position :global(.set-origin) { width:100%; min-height:48px; padding:0 12px; border-color:var(--accent); color:var(--accent); font-variant-numeric:tabular-nums; }
+  .origin-reason { margin:0; font-size:var(--t-sm); }
+  .sheet-position .text-button { flex:none; min-width:44px; padding:0 8px; color:var(--accent); border:0; background:transparent; font-size:var(--t-sm); }
 </style>
