@@ -18,7 +18,10 @@
   import { inputValue, quantity, sourceInput, unitLabel, units } from '../../lib/units.svelte';
   import { materialsOf } from '../../lib/materials';
   import { num, refused, shown } from '../../lib/recipe';
-  import { MAX_FILES, choicesFor, duplicatesOf, importRequest, needsChoice, recipeFiles, reviewItem, type Choice, type ImportFailure, type ImportItem, type Picked } from '../../lib/recipe-import';
+  import {
+    MAX_FILES, choicesFor, duplicatesOf, importRequest, needsChoice, recipeFiles, reviewItem,
+    type Choice, type ImportFailure, type ImportItem, type Picked,
+  } from '../../lib/recipe-import';
   import type { HeadSetup, RecipeImport } from '../../api';
 
   let { files, onclose }: { files: Picked[]; onclose: () => void } = $props();
@@ -53,13 +56,27 @@
   }
   read();
 
-  const rows = $derived(items.map((item) => ({ item, dup: duplicatesOf(item, items, recipes), choices: choicesFor(item, items, recipes), needs: needsChoice(item, items, recipes) })));
+  const rows = $derived(items.map((item) => ({
+    item,
+    dup: duplicatesOf(item, items, recipes),
+    choices: choicesFor(item, items, recipes),
+    needs: needsChoice(item, items, recipes),
+  })));
   const duplicates = $derived(rows.filter((r) => r.needs));
   const unresolved = $derived(duplicates.filter((r) => r.item.choice === null).length);
   const plan = $derived(items.map((item) => ({ item, request: importRequest(item, items, recipes) })));
   const saving = $derived(plan.filter((p) => p.request));
   const replacing = $derived(saving.filter((p) => p.request?.replace).length);
   const newMaterials = $derived([...new Set(items.filter((i) => i.isNew && importRequest(i, items, recipes)).map((i) => i.material))]);
+  /** The notes after the file count in the heading, each led by a dot. */
+  const headNotes = $derived([
+    duplicates.length ? `${duplicates.length} already in the library` : '',
+    failures.length ? `${failures.length} unreadable` : '',
+    newMaterials.length ? `new material${newMaterials.length === 1 ? '' : 's'}: ${newMaterials.join(', ')}` : '',
+  ].filter(Boolean).map((part) => ` · ${part}`).join(''));
+  const importLabel = $derived(
+    saving.length ? `Import ${saving.length}${replacing ? ` · replace ${replacing}` : ''}` : 'Nothing to import',
+  );
   const LABEL: Record<Choice, string> = { replace: 'Replace', keep: 'Keep both', skip: 'Skip' };
   const CHOICES: Choice[] = ['replace', 'keep', 'skip'];
 
@@ -68,7 +85,13 @@
     const value = select.value;
     if (value === '\u0000new') {
       select.value = item.material;
-      osk.text('New material', item.material, (name) => { if (name.trim()) { item.material = name.trim(); item.isNew = !materialsFor(item.preview.laser).includes(item.material); item.choice = null; } });
+      osk.text('New material', item.material, (name) => {
+        if (name.trim()) {
+          item.material = name.trim();
+          item.isNew = !materialsFor(item.preview.laser).includes(item.material);
+          item.choice = null;
+        }
+      });
       return;
     }
     item.material = value;
@@ -99,13 +122,29 @@
     for (const r of duplicates) r.item.choice = r.choices.includes(choice) ? choice : 'keep';
   }
   /** The review's summary: the item's own setup over the file's values. */
-  const source = (item: ImportItem) => ({ laser: item.preview.laser, gas: item.preview.gas, summary: { ...item.preview.summary, setup: item.setup } });
+  const source = (item: ImportItem) => ({
+    laser: item.preview.laser,
+    gas: item.preview.gas,
+    summary: { ...item.preview.summary, setup: item.setup },
+  });
   const shownValue = (key: string, value: string | null) => (value === null ? 'Not set' : shown(key, value));
+  /** Why a row is a duplicate: the same file, a library recipe, or an earlier file of this import. */
+  function dupText(item: ImportItem, dup: ReturnType<typeof duplicatesOf>): string {
+    if (dup.identical) return 'This exact file is already in the library';
+    const what = `${item.material} ${quantity(item.thickness_mm, 'mm')} ${item.preview.gas}`;
+    return dup.recipes.length ? `${what} is already in the library` : `An earlier file in this import is also ${what}`;
+  }
 
   async function save(): Promise<void> {
     if (unresolved || !saving.length) return;
     if (replacing) {
-      const ok = await ui.confirm({ title: `Replace ${plural(replacing, 'recipe')}?`, body: `${replacing === 1 ? 'Its' : 'Their'} values, note and source file are replaced by the imported file; the name, star, photo and film process stay. Library history can undo it.`, confirm: `Replace ${replacing}`, danger: true });
+      const ok = await ui.confirm({
+        title: `Replace ${plural(replacing, 'recipe')}?`,
+        body: `${replacing === 1 ? 'Its' : 'Their'} values, note and source file are replaced by the imported file;`
+          + ' the name, star, photo and film process stay. Library history can undo it.',
+        confirm: `Replace ${replacing}`,
+        danger: true,
+      });
       if (!ok) return;
     }
     // The plan is fixed before the first save changes the library.
@@ -116,7 +155,9 @@
     for (const { item, request } of steps) {
       try {
         const { id, existing } = await api.importRecipe(request, await item.file.arrayBuffer());
-        if (existing) tally.known += 1; else if (request.replace) tally.replaced += 1; else tally.added += 1;
+        if (existing) tally.known += 1;
+        else if (request.replace) tally.replaced += 1;
+        else tally.added += 1;
         if (item.photo && !existing) await api.setPhoto(id, await item.photo.arrayBuffer());
       } catch (error) {
         tally.failed.push({ name: item.file.name, reason: explain(error) });
@@ -124,8 +165,14 @@
       progress.done += 1;
     }
     const skipped = items.length - steps.length;
-    ui.say(`${tally.added} added, ${tally.replaced} replaced${tally.known ? `, ${tally.known} already there` : ''}${skipped ? `, ${skipped} skipped` : ''}${tally.failed.length ? `, ${tally.failed.length} failed` : ''}.`, tally.failed.length > 0);
-    if (tally.failed.length) { failures = tally.failed; items = []; phase = 'review'; } else onclose();
+    const known = tally.known ? `, ${tally.known} already there` : '';
+    const failed = tally.failed.length ? `, ${tally.failed.length} failed` : '';
+    ui.say(`${tally.added} added, ${tally.replaced} replaced${known}${skipped ? `, ${skipped} skipped` : ''}${failed}.`, tally.failed.length > 0);
+    if (tally.failed.length) {
+      failures = tally.failed;
+      items = [];
+      phase = 'review';
+    } else onclose();
   }
 </script>
 
@@ -136,7 +183,7 @@
     <p class="muted" role="status">Saving {progress.done} of {progress.total}…</p>
   {:else}
     <div class="import-head">
-      <p><strong>{plural(items.length, 'recipe file')}</strong>{[duplicates.length ? `${duplicates.length} already in the library` : '', failures.length ? `${failures.length} unreadable` : '', newMaterials.length ? `new material${newMaterials.length === 1 ? '' : 's'}: ${newMaterials.join(', ')}` : ''].filter(Boolean).map((part) => ` · ${part}`).join('')}</p>
+      <p><strong>{plural(items.length, 'recipe file')}</strong>{headNotes}</p>
       <p class="muted">Check each material and the nozzle, focus and lens read from the notes and file names. Nothing is saved until Import.</p>
       {#if skippedOver}<p class="warn-text">Only the first {MAX_FILES} recipe files are listed; import the other {skippedOver} separately.</p>{/if}
     </div>
@@ -150,7 +197,12 @@
     <ul class="import-list">
       {#each rows as { item, dup, choices, needs } (item.key)}
         <li class="import-item" class:dup={needs} class:skip={item.choice === 'skip' && needs}>
-          <div class="file-line"><span class="file">{item.preview.file_name}</span><span class="tag {item.preview.laser}">{laserLabel(item.preview.laser)}</span><span class="tag">{item.preview.gas}</span>{#if item.photo}<span class="tag">Photo</span>{/if}</div>
+          <div class="file-line">
+            <span class="file">{item.preview.file_name}</span>
+            <span class="tag {item.preview.laser}">{laserLabel(item.preview.laser)}</span>
+            <span class="tag">{item.preview.gas}</span>
+            {#if item.photo}<span class="tag">Photo</span>{/if}
+          </div>
           <div class="identity">
             <label class="pick"><span>Material{#if item.isNew}<b class="new">New</b>{/if}</span>
               <select value={item.material} onchange={(e) => chooseMaterial(item, e.currentTarget)}>
@@ -159,24 +211,41 @@
                 <option value={'\u0000new'}>New material…</option>
               </select>
             </label>
-            <button class="value" data-numpad onclick={() => thickness(item)}><span>Thickness</span><b>{item.thickness_mm > 0 ? quantity(item.thickness_mm, 'mm') : 'Not set'}</b></button>
+            <button class="value" data-numpad onclick={() => thickness(item)}>
+              <span>Thickness</span>
+              <b>{item.thickness_mm > 0 ? quantity(item.thickness_mm, 'mm') : 'Not set'}</b>
+            </button>
           </div>
           <div class="setup" aria-label="Head setup read from the file">
-            <button class="value" data-numpad onclick={() => setup(item, 'nozzle_diameter_mm', 'OpenLaserNozzleDiameter', 'Nozzle diameter')}><span>Nozzle</span><b>{shownValue('OpenLaserNozzleDiameter', item.setup.nozzle_diameter_mm)}</b></button>
+            <button class="value" data-numpad onclick={() => setup(item, 'nozzle_diameter_mm', 'OpenLaserNozzleDiameter', 'Nozzle diameter')}>
+              <span>Nozzle</span>
+              <b>{shownValue('OpenLaserNozzleDiameter', item.setup.nozzle_diameter_mm)}</b>
+            </button>
             <div class="seg nozzle" role="group" aria-label="Nozzle type">
               <button class:on={item.setup.nozzle === 'single'} onclick={() => nozzle(item, 'single')}>Single</button>
               <button class:on={item.setup.nozzle === 'double'} onclick={() => nozzle(item, 'double')}>Double</button>
               <button class:on={item.setup.nozzle === null} onclick={() => nozzle(item, null)}>Not set</button>
             </div>
-            <button class="value" data-numpad onclick={() => setup(item, 'focus_mm', 'OpenLaserManualFocus', 'Focus')}><span>Focus</span><b>{shownValue('OpenLaserManualFocus', item.setup.focus_mm)}</b></button>
-            <button class="value" data-numpad onclick={() => setup(item, 'lens_mm', 'OpenLaserLens', 'Lens')}><span>Lens</span><b>{shownValue('OpenLaserLens', item.setup.lens_mm)}</b></button>
+            <button class="value" data-numpad onclick={() => setup(item, 'focus_mm', 'OpenLaserManualFocus', 'Focus')}>
+              <span>Focus</span>
+              <b>{shownValue('OpenLaserManualFocus', item.setup.focus_mm)}</b>
+            </button>
+            <button class="value" data-numpad onclick={() => setup(item, 'lens_mm', 'OpenLaserLens', 'Lens')}>
+              <span>Lens</span>
+              <b>{shownValue('OpenLaserLens', item.setup.lens_mm)}</b>
+            </button>
           </div>
           <MaterialSummary source={source(item)} variant="line" />
           {#if needs}
             <div class="dup-line">
-              <p><i class="ic ic-copy"></i>{#if dup.identical}This exact file is already in the library{:else if dup.recipes.length}{item.material} {quantity(item.thickness_mm, 'mm')} {item.preview.gas} is already in the library{:else}An earlier file in this import is also {item.material} {quantity(item.thickness_mm, 'mm')} {item.preview.gas}{/if}{#if dup.recipes[0]}<span class="theirs">Library: <MaterialSummary source={dup.recipes[0]} variant="line" /></span>{/if}</p>
+              <p>
+                <i class="ic ic-copy"></i>{dupText(item, dup)}{#if dup.recipes[0]}<span class="theirs">Library: <MaterialSummary
+                  source={dup.recipes[0]} variant="line" /></span>{/if}
+              </p>
               <div class="seg choice" role="group" aria-label="What to do with the duplicate">
-                {#each choices as choice (choice)}<button class:on={item.choice === choice} onclick={() => (item.choice = choice)}>{LABEL[choice]}</button>{/each}
+                {#each choices as choice (choice)}
+                  <button class:on={item.choice === choice} onclick={() => (item.choice = choice)}>{LABEL[choice]}</button>
+                {/each}
               </div>
             </div>
           {/if}
@@ -184,13 +253,16 @@
       {/each}
     </ul>
     {#if failures.length}
-      <details class="failures" open={!items.length}><summary>{plural(failures.length, 'file')} could not be read</summary><div class="import-log">{failures.map((f) => `${f.name}: ${f.reason}`).join('\n')}</div></details>
+      <details class="failures" open={!items.length}>
+        <summary>{plural(failures.length, 'file')} could not be read</summary>
+        <div class="import-log">{failures.map((f) => `${f.name}: ${f.reason}`).join('\n')}</div>
+      </details>
     {/if}
     <div class="import-foot">
       {#if unresolved}<p class="gate-reason">Choose Replace, Keep both or Skip for {plural(unresolved, 'duplicate')}.</p>{/if}
       <div class="row">
         <button class="btn btn-ghost" onclick={onclose}>Cancel</button>
-        <button class="btn btn-primary" disabled={!!unresolved || !saving.length} onclick={save}>{saving.length ? `Import ${saving.length}${replacing ? ` · replace ${replacing}` : ''}` : 'Nothing to import'}</button>
+        <button class="btn btn-primary" disabled={!!unresolved || !saving.length} onclick={save}>{importLabel}</button>
       </div>
     </div>
   {/if}

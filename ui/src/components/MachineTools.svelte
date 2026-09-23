@@ -33,17 +33,37 @@
   onMount(() => held.mount());
   $effect(() => { if (!server.link || !access.canControl) held.cancel(); });
   let gasPressure = $state(5);
+  const portLabel = (port: number | null | undefined): string => (port ? `Output ${port}` : 'Unassigned');
   function hold(event: PointerEvent, output: OutputRequest): void {
     held.press(event, (lease) => api.machine('outputs', { output, lease }));
   }
   const GAS = ['Low air', 'Low O₂', 'Low N₂', 'High air', 'High O₂', 'High N₂'];
+  const MODES = ['fiber', 'co2'] as const;
+  function close(): void {
+    held.cancel();
+    onclose();
+  }
+  function switchMode(mode: 'fiber' | 'co2'): Promise<void> {
+    return run(() => api.machine('mode', { mode }));
+  }
+  function editGasPressure(): void {
+    osk.number('Gas pressure', gasPressure, 'bar', (v) => { if (v >= 0 && v <= 100) gasPressure = v; });
+  }
 </script>
 
-<Modal title="Machine tests" wide onclose={() => { held.cancel(); onclose(); }}>
+<Modal title="Machine tests" wide onclose={close}>
   <div class="machine-tools">
     <div class="setting-group"><h3>Laser mode</h3>
       <div class="setting"><div class="lbl">Operating mode<small>Hold to switch · the XY reference is kept</small></div>
-        <div class="seg">{#each ['fiber', 'co2'] as mode}{#if doc.mode === mode}<button class="on" disabled>{laserLabel(mode as 'fiber' | 'co2')}</button>{:else}<HoldButton class="" disabled={!readiness.mode.ok} title={plain(readiness.mode.reason).text} onhold={() => run(() => api.machine('mode', { mode: mode as 'fiber' | 'co2' }))}>{laserLabel(mode as 'fiber' | 'co2')}</HoldButton>{/if}{/each}</div>
+        <div class="seg">
+          {#each MODES as mode}
+            {#if doc.mode === mode}
+              <button class="on" disabled>{laserLabel(mode)}</button>
+            {:else}
+              <HoldButton class="" disabled={!readiness.mode.ok} title={plain(readiness.mode.reason).text} onhold={() => switchMode(mode)}>{laserLabel(mode)}</HoldButton>
+            {/if}
+          {/each}
+        </div>
       </div>
       {#if !readiness.mode.ok && readiness.mode.reason}<p class="gate-reason">{plain(readiness.mode.reason).text}</p>{/if}
     </div>
@@ -52,14 +72,32 @@
 
     <div class="setting-group"><h3>Manual outputs</h3>
       <div class="setting"><div class="lbl">Hold a button<small>Release to turn off.</small></div></div>
-      <div class="setting"><div class="lbl">Pointer<small>{laserLabel(doc.mode)} · {bindings?.outputs.pointer_port ? `Output ${bindings.outputs.pointer_port}` : 'Unassigned'}</small></div><button class="btn btn-ghost deadman" disabled={!bindings?.outputs.pointer || !readiness.outputs.ok} onpointerdown={(event) => hold(event, { kind: 'pointer' })}>Hold</button></div>
-      <div class="setting"><div class="lbl">Shutter<small>{laserLabel(doc.mode)} · {bindings?.outputs.shutter_port ? `Output ${bindings.outputs.shutter_port}` : 'Unassigned'}</small></div><button class="btn btn-warn deadman" disabled={!bindings?.outputs.shutter || !readiness.outputs.ok} onpointerdown={(event) => hold(event, { kind: 'shutter' })}>Hold</button></div>
+      <div class="setting">
+        <div class="lbl">Pointer<small>{laserLabel(doc.mode)} · {portLabel(bindings?.outputs.pointer_port)}</small></div>
+        <button class="btn btn-ghost deadman" disabled={!bindings?.outputs.pointer || !readiness.outputs.ok} onpointerdown={(event) => hold(event, { kind: 'pointer' })}>
+          Hold
+        </button>
+      </div>
+      <div class="setting">
+        <div class="lbl">Shutter<small>{laserLabel(doc.mode)} · {portLabel(bindings?.outputs.shutter_port)}</small></div>
+        <button class="btn btn-warn deadman" disabled={!bindings?.outputs.shutter || !readiness.outputs.ok} onpointerdown={(event) => hold(event, { kind: 'shutter' })}>
+          Hold
+        </button>
+      </div>
       {#each GAS as name, selector}
         {#if bindings?.outputs.gas[selector]}
-          <div class="setting"><div class="lbl">{name}<small>valve{selector < 3 ? ' and proportional pressure' : ''}</small></div><button class="btn btn-warn deadman" disabled={!readiness.outputs.ok} onpointerdown={(event) => hold(event, { kind: 'gas', selector, pressure: gasPressure })}>Hold</button></div>
+          <div class="setting">
+            <div class="lbl">{name}<small>valve{selector < 3 ? ' and proportional pressure' : ''}</small></div>
+            <button class="btn btn-warn deadman" disabled={!readiness.outputs.ok} onpointerdown={(event) => hold(event, { kind: 'gas', selector, pressure: gasPressure })}>
+              Hold
+            </button>
+          </div>
         {/if}
       {/each}
-      <div class="setting"><div class="lbl">Gas pressure<small>for the proportional valve</small></div><button class="val" data-numpad onclick={() => osk.number('Gas pressure', gasPressure, 'bar', (v) => { if (v >= 0 && v <= 100) gasPressure = v; })}>{quantity(gasPressure, 'bar')}</button></div>
+      <div class="setting">
+        <div class="lbl">Gas pressure<small>for the proportional valve</small></div>
+        <button class="val" data-numpad onclick={editGasPressure}>{quantity(gasPressure, 'bar')}</button>
+      </div>
       {#if !readiness.outputs.ok && readiness.outputs.reason}<p class="gate-reason">{plain(readiness.outputs.reason).text}</p>{/if}
     </div>
   </div>

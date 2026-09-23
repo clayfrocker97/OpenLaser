@@ -26,6 +26,21 @@
   const on = $derived(TOOLS.filter((t) => t.optional && isOn(draft.features, t.id)).length);
   const optional = TOOLS.filter((t) => t.optional).length;
 
+  const partsLabel = $derived(draft.parts.length === 1 ? nameOf(draft.parts[0]!.id) : `${draft.parts.length} parts`);
+  const preflightLabel = $derived(
+    draft.preflight.kind === 'inherit' ? 'Mode defaults'
+    : draft.preflight.kind === 'off' ? 'Checklist off'
+    : `${draft.preflight.steps.length} custom checks`,
+  );
+  const saveLabel = $derived(
+    draft.sheets?.pages.some(p => !p.job) ? `Save ${plural(draft.sheets.pages.length, 'sheet')}` : 'Save job',
+  );
+  /** The note beside a part in the list: whether it is on this sheet, and how many copies or paths. */
+  function partNote(here: number, copies: number, contours: number): string {
+    if (!here) return 'Not on this sheet';
+    return copies > 1 ? `${copies} copies · Select` : `${plural(contours, 'path')} · Select`;
+  }
+
   let sheet = $state(false);
   let checklist = $state(false);
 
@@ -39,13 +54,25 @@
     osk.text(batch ? 'Folder for numbered sheets' : 'Job name', job?.name ?? (draft.name || 'job'), (name) => {
       if (!name.trim()) return;
       run(async () => {
-        if (batch) { await api.saveJob(name.trim()); ui.say(`Saved ${total} numbered sheets in ${name.trim()}.`); return; }
+        if (batch) {
+          await api.saveJob(name.trim());
+          ui.say(`Saved ${total} numbered sheets in ${name.trim()}.`);
+          return;
+        }
         const review = await api.mergeReview(name.trim());
-        if (review.conflicts.length) { ui.pendingJobName = name.trim(); ui.modal = 'pending'; return; }
+        if (review.conflicts.length) {
+          ui.pendingJobName = name.trim();
+          ui.modal = 'pending';
+          return;
+        }
         await api.saveJob(review.name);
         ui.say(`Saved job ${review.name}.`);
       });
     });
+  }
+
+  function sheetKey(e: KeyboardEvent): void {
+    if (e.key === 'Enter') sheet = true;
   }
 
   function review(dryRun: boolean): void {
@@ -55,27 +82,47 @@
 
 <div class="job-scroll">
 <div class="card2">
-  <div class="card2-head"><div><h3>Parts</h3><span class="muted">{draft.parts.length === 1 ? nameOf(draft.parts[0]!.id) : `${draft.parts.length} parts`}</span></div><div class="parts-actions"><button class="btn btn-ghost" onclick={() => (texting = true)}>Add text</button><button class="btn btn-ghost" onclick={() => (adding = true)}>Add parts</button></div></div>
+  <div class="card2-head">
+    <div><h3>Parts</h3><span class="muted">{partsLabel}</span></div>
+    <div class="parts-actions">
+      <button class="btn btn-ghost" onclick={() => (texting = true)}>Add text</button>
+      <button class="btn btn-ghost" onclick={() => (adding = true)}>Add parts</button>
+    </div>
+  </div>
   {#if draft.parts.length > 1}
     <ul class="job-parts">
       {#each draft.parts as part (part.id)}
         {@const here = draft.placed.filter((p) => p.source >= part.first && p.source < part.first + part.contours).length}
         {@const copies = Math.max(1, Math.round(here / Math.max(1, part.contours)))}
-        <li><button class="job-part" disabled={!onselectpart || !here} onclick={() => onselectpart?.(part.first, part.contours)}><span>{nameOf(part.id)}</span><small>{!here ? 'Not on this sheet' : copies > 1 ? `${copies} copies · Select` : `${plural(part.contours, 'path')} · Select`}</small></button></li>
+        <li>
+          <button class="job-part" disabled={!onselectpart || !here} onclick={() => onselectpart?.(part.first, part.contours)}>
+            <span>{nameOf(part.id)}</span>
+            <small>{partNote(here, copies, part.contours)}</small>
+          </button>
+        </li>
       {/each}
     </ul>
     <p class="muted">Delete a part's shapes on the drawing to take it out of the job.</p>
   {/if}
 </div>
 
-<div class="card2" role="button" tabindex="0" onclick={() => (sheet = true)} onkeydown={(e) => { if (e.key === 'Enter') sheet = true; }}>
+<div class="card2" role="button" tabindex="0" onclick={() => (sheet = true)} onkeydown={sheetKey}>
   <div class="card2-head"><h3>Material</h3><span class="link">Change</span></div>
   {#if recipe}
     {@const art = pictureOf(recipe.name, recipe.photo)}
-    <div class="mat-line">{#if art}<img class="swatch lg" src={art} alt="">{:else}<span class="swatch lg" style="background:var(--panel-2)"></span>{/if}<div><div class="big">{recipe.name}</div><div class="muted">{quantity(recipe.thickness_mm, 'mm')} · {recipe.gas} · {laserLabel(recipe.laser)}</div></div></div>
+    <div class="mat-line">
+      {#if art}<img class="swatch lg" src={art} alt="">{:else}<span class="swatch lg" style="background:var(--panel-2)"></span>{/if}
+      <div>
+        <div class="big">{recipe.name}</div>
+        <div class="muted">{quantity(recipe.thickness_mm, 'mm')} · {recipe.gas} · {laserLabel(recipe.laser)}</div>
+      </div>
+    </div>
     <MaterialSummary source={recipe} />
   {:else}
-    <div class="mat-line"><span class="swatch lg" style="background:var(--warn-soft)"></span><div><div class="big warn-text">Choose a material</div><div class="muted">Required before running</div></div></div>
+    <div class="mat-line">
+      <span class="swatch lg" style="background:var(--warn-soft)"></span>
+      <div><div class="big warn-text">Choose a material</div><div class="muted">Required before running</div></div>
+    </div>
   {/if}
 </div>
 
@@ -87,7 +134,10 @@
 </div>
 
 <div class="card2">
-  <div class="card2-head"><div><h3>Preflight</h3><span class="muted">{draft.preflight.kind === 'inherit' ? 'Mode defaults' : draft.preflight.kind === 'off' ? 'Checklist off' : `${draft.preflight.steps.length} custom checks`}</span></div><button class="btn btn-ghost" onclick={() => (checklist = true)}>Edit</button></div>
+  <div class="card2-head">
+    <div><h3>Preflight</h3><span class="muted">{preflightLabel}</span></div>
+    <button class="btn btn-ghost" onclick={() => (checklist = true)}>Edit</button>
+  </div>
 </div>
 
 <div class="stats">
@@ -104,7 +154,7 @@
 
 <div class="stack">
   <div class="row">
-    <button class="btn btn-ghost lg" onclick={save} disabled={!recipe}>{draft.sheets?.pages.some(p => !p.job) ? `Save ${plural(draft.sheets.pages.length, 'sheet')}` : 'Save job'}</button>
+    <button class="btn btn-ghost lg" onclick={save} disabled={!recipe}>{saveLabel}</button>
     <button class="btn btn-ghost lg" onclick={() => review(true)} disabled={!doc.readiness.compile.ok} title={doc.readiness.compile.reason ?? ''}>Dry run</button>
   </div>
   <button class="btn btn-primary xl block" onclick={() => review(false)} disabled={!doc.readiness.compile.ok} title={doc.readiness.compile.reason ?? ''}>Go to Run →</button>
