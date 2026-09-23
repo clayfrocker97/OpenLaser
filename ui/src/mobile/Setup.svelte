@@ -12,6 +12,7 @@
   import PreflightEditor from '../components/PreflightEditor.svelte';
   import { onlyPart } from '../lib/job-parts';
   import AddParts from '../components/AddParts.svelte';
+  import CreateText from '../components/CreateText.svelte';
 
   let { edit }: { edit: (tool:FeatureId | 'copy' | 'nest' | 'layout') => void } = $props();
   const doc = $derived(server.doc!);
@@ -26,6 +27,7 @@
   let tools = $state(false);
   let preflight = $state(false);
   let adding = $state(false);
+  let texting = $state(false);
   const blocked = $derived(!access.canControl || busy || !!doc.machine.operation || !server.link);
   const recipes = $derived(doc.library.recipes.filter(r => recipeLabel(r).toLocaleLowerCase().includes(search.toLocaleLowerCase())).sort((a,b) => Number(b.laser === doc.mode) - Number(a.laser === doc.mode) || Number(b.favourite) - Number(a.favourite) || a.name.localeCompare(b.name)));
 
@@ -62,10 +64,11 @@
       <button class="phone-material" disabled={blocked} onclick={() => material = true}><i class="ic ic-layers"></i><span><small>Material</small><strong>{draft.recipe ? recipeLabel(draft.recipe) : 'Choose a material'}</strong></span><i class="ic ic-arrow-right"></i></button>
       <div class="phone-action-list phone-setup-options">
         <button disabled={blocked} onclick={() => adding = true}><span>Parts<small>{draft.parts.length === 1 ? '1 part · Add more to cut them together' : `${draft.parts.length} parts side by side · Add more`}</small></span><i class="ic ic-plus"></i></button>
+        <button disabled={blocked} onclick={() => texting = true}><span>Add text<small>Letters welded into cutting outlines</small></span><i class="ic ic-plus"></i></button>
         <button disabled={blocked} onclick={() => tools = true}><span>Machining<small>{active ? `${active} tools on` : 'Default settings'}</small></span><i class="ic ic-arrow-right"></i></button>
         <button disabled={blocked} onclick={() => preflight = true}><span>Preflight<small>{draft.preflight.kind === 'inherit' ? 'Mode defaults' : draft.preflight.kind === 'off' ? 'Checklist off' : `${draft.preflight.steps.length} checks`}</small></span><i class="ic ic-arrow-right"></i></button>
       </div>
-    {:else}<div class="phone-empty"><i class="ic ic-folder"></i><h2>No part open</h2><p>Choose a part or saved job to set up.</p><button class="phone-primary" onclick={() => ui.tab = 'parts'}>Go to Parts</button></div>{/if}
+    {:else}<div class="phone-empty"><i class="ic ic-folder"></i><h2>No part open</h2><p>Choose a part or saved job to set up, or start from text.</p><button class="phone-primary" onclick={() => ui.tab = 'parts'}>Go to Parts</button><button class="phone-text-action" onclick={() => texting = true}>Add text</button></div>{/if}
   </div>
   {#if draft}<div class="phone-run-footer">
     <div class="phone-secondary-actions"><button class="btn btn-ghost" disabled={blocked || !draft.recipe} onclick={save}>{draft.sheets?.pages.some(p => !p.job) ? `Save ${draft.sheets.pages.length} sheets` : 'Save job'}</button><button class="btn btn-ghost" disabled={blocked || !doc.readiness.compile.ok} onclick={() => review(true)}>Dry run</button></div>
@@ -78,3 +81,4 @@
 {#if tools}<Modal title="Machining" onclose={() => tools = false}><div class="phone-action-list">{#each TOOLS as tool}<button onclick={() => { tools = false; edit(tool.id as FeatureId); }}><span>{tool.name}<small>{draft ? stateOf(draft.features,tool.id) : ''}</small></span><i class="ic ic-arrow-right"></i></button>{/each}<button onclick={() => { tools = false; edit('nest'); }}>Nest parts<i class="ic ic-arrow-right"></i></button><button onclick={() => { tools = false; edit('copy'); }}>Copy machining from job<i class="ic ic-arrow-right"></i></button></div></Modal>{/if}
 {#if preflight}<PreflightEditor scope="job" onclose={() => preflight = false} />{/if}
 {#if adding}<AddParts onclose={() => adding = false} />{/if}
+{#if texting}<CreateText onclose={() => texting = false} />{/if}

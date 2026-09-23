@@ -7,6 +7,7 @@
   import CopyPanel from './setup/CopyPanel.svelte';
   import ClipboardPanel from './setup/ClipboardPanel.svelte';
   import NestPanel from './setup/NestPanel.svelte';
+  import CreateText from '../components/CreateText.svelte';
   import { featureEdits } from '../stores/feature-edits';
   import { server } from '../stores/server.svelte';
   import { ui, type FeatureId } from '../stores/ui.svelte';
@@ -31,6 +32,7 @@
   const EXTRA = [{ id: 'nest', short: 'Nest parts', name: 'Nest parts…' }, { id: 'copy', short: 'Copy job', name: 'Copy machining from job…' }];
   const tools = $derived(ui.favTools.filter((id) => TOOLS.some((t) => t.id === id) || EXTRA.some((t) => t.id === id)));
   let menu = $state(false);
+  let texting = $state(false);
   let selectedContours = $state<number[]>([]);
   let orderProgress = $state(0);
   let canvas = $state<{ paste: (count?: number) => Promise<void>; selectAll: () => void; selectPart: (first: number, count: number) => void }>();
@@ -168,8 +170,8 @@
 <aside class="panel side" class:spread={ui.setupPanel === null} bind:this={settingsPanel}>
   {#if !draft}
     <h2>No part open</h2>
-    <p class="muted">Pick a part or a saved job on the Parts page.</p>
-    <div class="side-foot"><button class="btn btn-primary lg block" onclick={() => (ui.tab = 'parts')}>Go to Parts</button></div>
+    <p class="muted">Pick a part or a saved job on the Parts page, or start from text.</p>
+    <div class="side-foot"><button class="btn btn-ghost lg block" onclick={() => (texting = true)}>Add text</button><button class="btn btn-primary lg block" onclick={() => (ui.tab = 'parts')}>Go to Parts</button></div>
   {:else if ui.setupPanel === 'copy'}
     <CopyPanel />
   {:else if ui.setupPanel === 'clipboard'}
@@ -182,6 +184,7 @@
     <JobPanel onselectpart={(first, count) => canvas?.selectPart(first, count)} />
   {/if}
 </aside>
+{#if texting}<CreateText onclose={() => (texting = false)} />{/if}
 
 
 {#if menu}

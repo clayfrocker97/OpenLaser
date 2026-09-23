@@ -157,7 +157,7 @@
         </div>
       {/if}
     {:else}
-      <div class="empty"><h2>{q ? 'Nothing matches' : 'Empty folder'}</h2>{q ? 'Try a shorter word, a material, a size, or a folder name.' : 'Import DXF or SVG, add text, or move parts here.'}</div>
+      <div class="empty"><h2>{q ? 'Nothing matches' : 'Empty folder'}</h2>{q ? 'Try a shorter word, a material, a size, or a folder name.' : 'Import DXF or SVG, or move parts here.'}</div>
     {/each}
   </div>
 

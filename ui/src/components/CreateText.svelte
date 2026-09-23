@@ -4,6 +4,7 @@
   import FontPicker from './FontPicker.svelte';
   import { api, type TextOptions, type TextPreview } from '../api/client';
   import { ui } from '../stores/ui.svelte';
+  import { server } from '../stores/server.svelte';
   import { osk } from '../lib/osk.svelte';
   import { explain } from '../lib/format';
   import { boxOf, pathOf, viewBoxFor } from '../lib/svg';
@@ -52,10 +53,18 @@
       const name = value.trim().split(/\r?\n/)[0]!.replace(/[\\/]/g, ' ').slice(0, 80);
       const { id } = await api.createText(name || 'Text', options);
       ui.selected = id;
-      await api.openPart(id);
-      ui.tab = 'setup';
-      onclose();
-      ui.say('Text added. Choose a material to prepare it for cutting.');
+      // With a job open the text joins it beside the sheet; otherwise it opens as the job.
+      if (server.doc?.draft) {
+        await api.addParts([id]);
+        ui.tab = 'setup';
+        onclose();
+        ui.say('Text added beside the sheet · Undo takes it off');
+      } else {
+        await api.openPart(id);
+        ui.tab = 'setup';
+        onclose();
+        ui.say('Text added. Choose a material to prepare it for cutting.');
+      }
     } catch (reason) { error = explain(reason); }
     finally { creating = false; }
   }

@@ -10,6 +10,7 @@
   import { ago, explain, laserLabel, seconds, size, value } from '../../lib/format';
   import { TOOLS, isOn } from '../../lib/features';
   import AddParts from '../../components/AddParts.svelte';
+  import CreateText from '../../components/CreateText.svelte';
 
   const doc = $derived(server.doc!);
   const draft = $derived(doc.draft!);
@@ -18,6 +19,7 @@
   let { onselectpart }: { onselectpart?: (first: number, count: number) => void } = $props();
   const nameOf = (id: string) => doc.library.parts.find((p) => p.id === id)?.name ?? 'Missing part';
   let adding = $state(false);
+  let texting = $state(false);
   const job = $derived(doc.library.jobs.find((j) => j.id === draft.job) ?? null);
   const on = $derived(TOOLS.filter((t) => t.optional && isOn(draft.features, t.id)).length);
   const optional = TOOLS.filter((t) => t.optional).length;
@@ -51,7 +53,7 @@
 
 <div class="job-scroll">
 <div class="card2">
-  <div class="card2-head"><div><h3>Parts</h3><span class="muted">{draft.parts.length === 1 ? nameOf(draft.parts[0]!.id) : `${draft.parts.length} parts`}</span></div><button class="btn btn-ghost" onclick={() => (adding = true)}>Add parts</button></div>
+  <div class="card2-head"><div><h3>Parts</h3><span class="muted">{draft.parts.length === 1 ? nameOf(draft.parts[0]!.id) : `${draft.parts.length} parts`}</span></div><div class="parts-actions"><button class="btn btn-ghost" onclick={() => (texting = true)}>Add text</button><button class="btn btn-ghost" onclick={() => (adding = true)}>Add parts</button></div></div>
   {#if draft.parts.length > 1}
     <ul class="job-parts">
       {#each draft.parts as part (part.id)}
@@ -112,10 +114,12 @@
 
 {#if sheet}<MaterialSheet onclose={() => (sheet = false)} />{/if}
 {#if adding}<AddParts onclose={() => (adding = false)} />{/if}
+{#if texting}<CreateText onclose={() => (texting = false)} />{/if}
 {#if checklist}<PreflightEditor scope="job" onclose={() => (checklist = false)} />{/if}
 
 <style>
   /* The cards scroll on a short screen; saving and Go to Run stay in reach. */
+  .parts-actions { display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
   .job-scroll { flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; display:flex; flex-direction:column; gap:12px; margin:-2px; padding:2px; }
   .stack { flex-shrink:0; }
   .correction-status { padding:10px 12px; font-size:var(--t-sm); color:var(--ink-3); border-left:2px solid var(--accent); }

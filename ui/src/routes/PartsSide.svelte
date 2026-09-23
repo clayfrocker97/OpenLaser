@@ -81,7 +81,7 @@
 <aside class="panel side">
   {#if !item}
     <h2>Start with a part</h2>
-    <p class="muted">Import DXF or SVG, add text, or choose a library part.</p>
+    <p class="muted">Import DXF or SVG, or choose a library part. Add text on Setup.</p>
     <div class="side-foot"><ImportParts /></div>
   {:else}
     <div class="side-scroll">
