@@ -144,10 +144,15 @@ pub struct Coordinator {
     pub link: connect::Link,
     library_view: Arc<LibraryView>,
     draft_view: Option<Arc<DraftView>>,
+    /// Counts openings of a part or saved job, so the UI can tell a new
+    /// draft from an edit of the same one. Seeded like the draft revision.
     pub(crate) draft_generation: u64,
     binding_view: Option<Arc<BindingsView>>,
+    /// Change counters of the big document sections; see [`Revisions`] for
+    /// what each counts, who bumps it and who reads it.
     revisions: Revisions,
     message: Option<Message>,
+    /// Counts publications of the document; also names each message.
     revision: u64,
     publisher: watch::Sender<Document>,
 }
