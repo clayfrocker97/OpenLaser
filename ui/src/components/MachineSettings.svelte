@@ -6,7 +6,10 @@
   import { settingsEdits } from '../lib/settings-edits.svelte';
   import { osk } from '../lib/osk.svelte';
   import { explain, plural } from '../lib/format';
-  import { fieldId, fieldUnit, xmlValue, groupKey, groupName, isLayer, isSwitch, readable, sectionName, type Comparison, type MachineSettings, type XmlField } from '../lib/machine-settings';
+  import {
+    fieldId, fieldUnit, xmlValue, groupKey, groupName, isLayer, isSwitch, readable, sectionName,
+    type Comparison, type MachineSettings, type XmlField,
+  } from '../lib/machine-settings';
   import { inputValue, sourceInput, unitLabel, units } from '../lib/units.svelte';
 
   /** The Settings search, carried into this list. */
@@ -15,7 +18,9 @@
   let busy = $state(false);
   let error = $state('');
   let query = $state('');
-  $effect(() => { query = search; });
+  $effect(() => {
+    query = search;
+  });
   let group = $state('/ParameterRoot/PMachineAxisConfig_0');
   let filter = $state<'all' | 'mismatch' | 'edited'>('all');
   const draft = $derived(settingsEdits.entries.xml);
@@ -34,11 +39,18 @@
   const mismatches = $derived((data?.comparisons ?? []).filter(c => c.actual !== null && c.actual !== c.expected));
   const mismatchCount = $derived(new Set(mismatches.map(c => c.address)).size);
   const fields = $derived((data?.fields ?? []).filter(f => !isLayer(f.path)));
-  const groups = $derived([...new Set(fields.map(f => groupKey(f.path)))].map(key => ({ key, name: groupName(key), count: fields.filter(f => groupKey(f.path) === key).length })));
+  const groups = $derived(
+    [...new Set(fields.map(f => groupKey(f.path)))].map(key => ({
+      key,
+      name: groupName(key),
+      count: fields.filter(f => groupKey(f.path) === key).length,
+    })),
+  );
   const matches = (f: XmlField): boolean => {
     const id = fieldId(f);
     const search = query.trim().toLocaleLowerCase();
-    if (search && !`${readable(f.name, f.path)} ${f.path} ${f.name} ${f.value} ${groupName(f.path)}`.toLocaleLowerCase().includes(search)) return false;
+    const text = `${readable(f.name, f.path)} ${f.path} ${f.name} ${f.value} ${groupName(f.path)}`;
+    if (search && !text.toLocaleLowerCase().includes(search)) return false;
     if (filter === 'edited' && !draft?.edits[id]) return false;
     if (filter === 'mismatch' && !comparisons.get(id)?.some(c => c.actual !== null && c.actual !== c.expected)) return false;
     return true;
@@ -57,6 +69,24 @@
   const value = (f: XmlField): string => draft?.edits[fieldId(f)]?.value ?? f.value;
   const effective = $derived((data?.fields ?? []).map(f => ({ ...f, value: value(f) })));
   const number = (v: number): string => v.toLocaleString('en-US');
+  const status = $derived.by(() => {
+    if (controllerWorking) return 'Updating controller…';
+    if (!data?.connected) return 'Controller not read';
+    if (mismatches.length) return plural(mismatchCount, 'mismatch', 'mismatches');
+    return data.problem ? 'Initialization needs attention' : 'Controller matches';
+  });
+  const draftNote = $derived(
+    stale ? 'Backup changed; review your edits.' : connected ? 'Save applies changes to the controller.' : 'Applied on next connection.',
+  );
+  const heading = $derived(
+    query.trim() ? 'Search results'
+      : filter === 'mismatch' ? 'Mismatched XML settings'
+      : filter === 'edited' ? 'Pending XML edits'
+      : groupName(group),
+  );
+  const emptyText = $derived(
+    busy ? 'Loading machine settings…' : data ? 'No settings match this filter.' : 'Import your backup XML to edit its settings here.',
+  );
 
   async function refresh(): Promise<void> {
     data = await api.machineSettings();
@@ -64,32 +94,59 @@
   }
   async function run(action: () => Promise<unknown>): Promise<void> {
     if (busy) return;
-    busy = true; error = '';
-    try { await action(); }
-    catch (e) { error = explain(e); }
-    finally { try { await refresh(); } catch (e) { error ||= explain(e); } busy = false; }
+    busy = true;
+    error = '';
+    try {
+      await action();
+    } catch (e) {
+      error = explain(e);
+    } finally {
+      try {
+        await refresh();
+      } catch (e) {
+        error ||= explain(e);
+      }
+      busy = false;
+    }
   }
   let loadedState = $state('');
   $effect(() => {
     const doc = server.doc;
-    const state = `${doc?.files.backup?.sha256}:${doc?.machine.connection.state}:${doc?.machine.session.parameters_verified}:${doc?.machine.operation?.kind}:${doc?.link.phase}:${doc?.message?.id}`;
+    const state = [
+      doc?.files.backup?.sha256,
+      doc?.machine.connection.state,
+      doc?.machine.session.parameters_verified,
+      doc?.machine.operation?.kind,
+      doc?.link.phase,
+      doc?.message?.id,
+    ].map(String).join(':');
     // Refresh when initialization, reconnect, another tab's write or a live
     // parameter change finishes. Keep a refresh pending while a local action runs.
-    if (!busy && state !== loadedState) { loadedState = state; void run(async () => {}); }
+    if (!busy && state !== loadedState) {
+      loadedState = state;
+      void run(async () => {});
+    }
   });
   function edit(f: XmlField): void {
     if (!data) return;
     const hash = data.sha256;
     const current = value(f);
     const numeric = current.trim() !== '' && Number.isFinite(Number(current));
-    const source = fieldUnit(f, effective), system = units.system;
-    osk.show({ kind: numeric ? 'num' : 'text', label: readable(f.name, f.path), unit: unitLabel(source, system), value: numeric && source ? inputValue(Number(current), source, system) : current, fresh: numeric,
+    const source = fieldUnit(f, effective);
+    const system = units.system;
+    osk.show({
+      kind: numeric ? 'num' : 'text',
+      label: readable(f.name, f.path),
+      unit: unitLabel(source, system),
+      value: numeric && source ? inputValue(Number(current), source, system) : current,
+      fresh: numeric,
       onCommit: text => {
         const n = sourceInput(text, Number(current), source, system);
         if (numeric && !Number.isFinite(n)) return;
         const next = numeric ? n === Number(current) ? current : String(n) : text;
         void settingsEdits.xml(f, next, hash);
-      } });
+      },
+    });
   }
   async function save(): Promise<void> {
     if (!draft || stale) return;
@@ -106,41 +163,91 @@
     return ui.confirm({
       title: 'Write the controller?',
       body: changed
-        ? `${changed} changed value${changed === 1 ? ' is' : 's are'} saved, then every machine setting is written to the controller and read back to verify it.`
+        ? `${plural(changed, 'changed value')} ${changed === 1 ? 'is' : 'are'} saved, then every machine setting is written to the controller and read back to verify it.`
         : 'Every machine setting from the backup is written to the controller and read back to verify it.',
       confirm: 'Write controller',
     });
+  }
+  async function confirmAndWrite(): Promise<void> {
+    if (await confirmWrite()) run(write);
+  }
+  async function discardEdits(): Promise<void> {
+    const ok = await ui.confirm({
+      title: 'Discard these edits?',
+      body: `${changed} edited machine ${changed === 1 ? 'value is' : 'values are'} thrown away.`,
+      confirm: 'Discard edits',
+      danger: true,
+    });
+    if (ok) run(() => settingsEdits.discard('xml'));
+  }
+  async function saveEdits(): Promise<void> {
+    if (!connected || await confirmWrite()) run(save);
+  }
+  function showGroup(key: string): void {
+    group = key;
+    query = '';
+    filter = 'all';
+  }
+  function toggle(f: XmlField): void {
+    if (data) void settingsEdits.xml(f, value(f) === '1' ? '0' : '1', data.sha256);
+  }
+  function readback(edited: boolean, mismatch: boolean): string {
+    if (edited) return mismatch ? 'Saved value differs' : 'Saved value matched';
+    return mismatch ? 'Mismatch' : 'Matched';
   }
 </script>
 
 <div class="xml-settings">
   <div class="xml-summary">
-    <div><h2>Machine settings</h2><div class="xml-meta"><p>{data?.name ?? 'Machine backup'} · {fields.length.toLocaleString()} values</p>
-      <span class="status-pill" role="status" class:mismatch={!controllerWorking && mismatches.length > 0} class:matched={!controllerWorking && data?.connected && !mismatches.length && !data?.problem}>{controllerWorking ? 'Updating controller…' : data?.connected ? mismatches.length ? `${mismatchCount} ${mismatchCount === 1 ? 'mismatch' : 'mismatches'}` : data.problem ? 'Initialization needs attention' : 'Controller matches' : 'Controller not read'}</span>
-    </div></div>
+    <div>
+      <h2>Machine settings</h2>
+      <div class="xml-meta">
+        <p>{data?.name ?? 'Machine backup'} · {fields.length.toLocaleString()} values</p>
+        <span
+          class="status-pill"
+          role="status"
+          class:mismatch={!controllerWorking && mismatches.length > 0}
+          class:matched={!controllerWorking && data?.connected && !mismatches.length && !data?.problem}
+        >{status}</span>
+      </div>
+    </div>
     <div class="xml-actions">
       <MachineFiles disabled={busy || machineBusy} />
       <button class="btn btn-ghost" disabled={busy || machineBusy || !connected} onclick={() => run(api.readMachineSettings)}>Read controller</button>
-      <button class="btn btn-primary" disabled={busy || machineBusy || !data || !connected || stale} onclick={async () => { if (await confirmWrite()) run(write); }}>{busy ? 'Working…' : changed ? 'Save & write controller' : 'Write controller'}</button>
+      <button class="btn btn-primary" disabled={busy || machineBusy || !data || !connected || stale} onclick={confirmAndWrite}>
+        {busy ? 'Working…' : changed ? 'Save & write controller' : 'Write controller'}
+      </button>
     </div>
   </div>
   {#if error}<p class="error" role="alert">{error}</p>{/if}
   {#if data?.problem}<details class="xml-problem"><summary>Controller comparison details</summary><p>{data.problem}</p></details>{/if}
   {#if changed}
-    <div class="draft-bar"><div><strong>{plural(changed, 'edited value')}</strong><small>{stale ? 'Backup changed; review your edits.' : connected ? 'Save applies changes to the controller.' : 'Applied on next connection.'}</small></div>
-      <div class="xml-actions"><button class="btn btn-ghost" disabled={busy} onclick={async () => { if (await ui.confirm({ title: 'Discard these edits?', body: `${changed} edited machine ${changed === 1 ? 'value is' : 'values are'} thrown away.`, confirm: 'Discard edits', danger: true })) run(() => settingsEdits.discard('xml')); }}>Discard edits</button><button class="btn btn-primary" disabled={busy || machineBusy || stale} onclick={async () => { if (!connected || await confirmWrite()) run(save); }}>{connected ? 'Save & apply' : 'Save XML'}</button></div>
+    <div class="draft-bar"><div><strong>{plural(changed, 'edited value')}</strong><small>{draftNote}</small></div>
+      <div class="xml-actions">
+        <button class="btn btn-ghost" disabled={busy} onclick={discardEdits}>Discard edits</button>
+        <button class="btn btn-primary" disabled={busy || machineBusy || stale} onclick={saveEdits}>{connected ? 'Save & apply' : 'Save XML'}</button>
+      </div>
     </div>
   {/if}
   <div class="xml-tools">
     <input class="xml-search" aria-label="Search machine settings" type="search" bind:value={query} placeholder="Search settings…" />
-    <div class="seg">{#each [['all', 'All values'], ['mismatch', 'Mismatches'], ['edited', 'Edited']] as [key, label]}<button class:on={filter === key} onclick={() => filter = key as typeof filter}>{label}</button>{/each}</div>
+    <div class="seg">
+      {#each [['all', 'All values'], ['mismatch', 'Mismatches'], ['edited', 'Edited']] as [key, label]}
+        <button class:on={filter === key} onclick={() => filter = key as typeof filter}>{label}</button>
+      {/each}
+    </div>
   </div>
   <div class="xml-body">
     <nav class="xml-nav" aria-label="XML setting groups">
-      {#each groups as item}<button class:active={item.key === group && !query && filter === 'all'} onclick={() => { group = item.key; query = ''; filter = 'all'; }}><span>{item.name}</span><small>{item.count}</small></button>{/each}
+      {#each groups as item}
+        <button class:active={item.key === group && !query && filter === 'all'} onclick={() => showGroup(item.key)}>
+          <span>{item.name}</span>
+          <small>{item.count}</small>
+        </button>
+      {/each}
     </nav>
     <div class="xml-values">
-      <div class="values-heading"><strong>{query.trim() ? 'Search results' : filter === 'mismatch' ? 'Mismatched XML settings' : filter === 'edited' ? 'Pending XML edits' : groupName(group)}</strong><span>{shown.length} {shown.length === 1 ? 'value' : 'values'}</span></div>
+      <div class="values-heading"><strong>{heading}</strong><span>{plural(shown.length, 'value')}</span></div>
       {#each grouped as section}
         <section class="xml-group">
           <h3>{section.title}</h3>
@@ -149,19 +256,50 @@
             {@const mismatch = checks.some(c => c.actual !== null && c.actual !== c.expected)}
             {@const edited = !!draft?.edits[fieldId(f)]}
             <div class="xml-row" class:row-mismatch={mismatch} class:row-edited={edited}>
-              <div class="xml-label"><strong>{readable(f.name, f.path)}</strong><code>{f.name}</code>{#if edited}<small>Saved: {xmlValue(f, f.value, data?.fields)}</small>{/if}</div>
-              {#if isSwitch(f, value(f))}<button class="switch xml-switch" role="switch" class:on={value(f) === '1'} aria-checked={value(f) === '1'} disabled={busy || !data} aria-label={readable(f.name, f.path)} onclick={() => { if (data) void settingsEdits.xml(f, value(f) === '1' ? '0' : '1', data.sha256); }}></button>{:else}<button class="xml-value" disabled={busy} aria-label={`Edit ${readable(f.name, f.path)} (${f.name})`} onclick={() => edit(f)}><span>{xmlValue(f, value(f), effective)}</span><span class="edit-mark" aria-hidden="true">↗</span></button>{/if}
+              <div class="xml-label">
+                <strong>{readable(f.name, f.path)}</strong>
+                <code>{f.name}</code>
+                {#if edited}<small>Saved: {xmlValue(f, f.value, data?.fields)}</small>{/if}
+              </div>
+              {#if isSwitch(f, value(f))}
+                <button
+                  class="switch xml-switch"
+                  role="switch"
+                  class:on={value(f) === '1'}
+                  aria-checked={value(f) === '1'}
+                  disabled={busy || !data}
+                  aria-label={readable(f.name, f.path)}
+                  onclick={() => toggle(f)}
+                ></button>
+              {:else}
+                <button class="xml-value" disabled={busy} aria-label={`Edit ${readable(f.name, f.path)} (${f.name})`} onclick={() => edit(f)}>
+                  <span>{xmlValue(f, value(f), effective)}</span>
+                  <span class="edit-mark" aria-hidden="true">↗</span>
+                </button>
+              {/if}
               <div class="xml-readback" class:warn={mismatch}>
                 {#if edited}<strong>Edited · pending save</strong>{/if}
                 {#if !checks.length}<span class="muted">XML value</span><small>No controller readback</small>
                 {:else if !data?.connected}<span class="muted">Controller not read</span>
-                {:else}<strong>{edited ? mismatch ? 'Saved value differs' : 'Saved value matched' : mismatch ? 'Mismatch' : 'Matched'}</strong>{/if}
-                {#if checks.length}<details><summary>Controller words</summary>{#each checks as c}<div class="word"><code>Register {c.address}</code><span>Expected {number(c.expected)}</span><span>Read {c.actual === null ? '—' : number(c.actual)}</span>{#if c.mask !== 4294967295}<small>Mask 0x{c.mask.toString(16)}</small>{/if}</div>{/each}</details>{/if}
+                {:else}<strong>{readback(edited, mismatch)}</strong>{/if}
+                {#if checks.length}
+                  <details>
+                    <summary>Controller words</summary>
+                    {#each checks as c}
+                      <div class="word">
+                        <code>Register {c.address}</code>
+                        <span>Expected {number(c.expected)}</span>
+                        <span>Read {c.actual === null ? '—' : number(c.actual)}</span>
+                        {#if c.mask !== 4294967295}<small>Mask 0x{c.mask.toString(16)}</small>{/if}
+                      </div>
+                    {/each}
+                  </details>
+                {/if}
               </div>
             </div>
           {/each}
         </section>
-      {:else}<div class="xml-empty">{busy ? 'Loading machine settings…' : data ? 'No settings match this filter.' : 'Import your backup XML to edit its settings here.'}</div>{/each}
+      {:else}<div class="xml-empty">{emptyText}</div>{/each}
     </div>
   </div>
 </div>

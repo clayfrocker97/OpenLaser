@@ -31,15 +31,36 @@
   }
   async function run(action: () => Promise<void>): Promise<void> {
     if (busy) return;
-    busy = true; error = ''; saved = '';
-    try { await action(); } catch (e) { error = explain(e); } finally { busy = false; }
+    busy = true;
+    error = '';
+    saved = '';
+    try {
+      await action();
+    } catch (e) {
+      error = explain(e);
+    } finally {
+      busy = false;
+    }
   }
   $effect(() => {
     const laser = mode;
     let live = true;
-    data = null; error = ''; selected = 0;
-    api.correction(laser).then(value => { if (live) { data = value; choose(0); } }).catch(e => { if (live) error = explain(e); });
-    return () => { live = false; };
+    data = null;
+    error = '';
+    selected = 0;
+    api.correction(laser)
+      .then(value => {
+        if (live) {
+          data = value;
+          choose(0);
+        }
+      })
+      .catch(e => {
+        if (live) error = explain(e);
+      });
+    return () => {
+      live = false;
+    };
   });
 
   async function saveCell(): Promise<void> {
@@ -47,11 +68,15 @@
     const measurements = [...data.measurements] as CorrectionView['measurements'];
     measurements[selected] = { x, y };
     await api.saveCorrection({ action: 'measure', mode, revision: data.revision, measurements, apply: false });
-    await load(); saved = `Square ${selected + 1} saved`;
+    await load();
+    saved = `Square ${selected + 1} saved`;
   }
   function measure(axis: 'x' | 'y'): void {
     osk.number(`Square ${selected + 1} · ${axis.toUpperCase()} measurement`, (axis === 'x' ? x : y) ?? 100, 'mm', value => {
-      if (!Number.isFinite(value) || value < 90 || value > 110) { error = `Enter a measurement between ${distance(90)} and ${quantity(110, 'mm')}.`; return; }
+      if (!Number.isFinite(value) || value < 90 || value > 110) {
+        error = `Enter a measurement between ${distance(90)} and ${quantity(110, 'mm')}.`;
+        return;
+      }
       if (axis === 'x') x = value; else y = value;
       void run(saveCell);
     });
@@ -59,12 +84,45 @@
   async function apply(): Promise<void> {
     if (!data) return;
     await api.saveCorrection({ action: 'measure', mode, revision: data.revision, measurements: data.measurements, apply: true });
-    await load(); saved = 'Correction saved. New DXF jobs will use this profile.';
+    await load();
+    saved = 'Correction saved. New DXF jobs will use this profile.';
   }
   async function enable(): Promise<void> {
     if (!data) return;
     await api.saveCorrection({ action: 'enable', mode, revision: data.revision, enabled: !data.enabled });
     await load();
+  }
+  function loadCoupon(): Promise<void> {
+    return run(async () => {
+      await api.correctionCoupon(mode);
+      ui.setupPanel = null;
+      ui.tab = 'setup';
+    });
+  }
+  function pickSquare(index: number): void {
+    choose(index);
+    page = 1;
+  }
+  function nextSquare(): void {
+    if (!data) return;
+    const next = data.measurements.findIndex((m, i) => !m && i !== selected);
+    if (next < 0) page = 2;
+    else choose(next);
+  }
+  async function confirmApply(): Promise<void> {
+    const ok = await ui.confirm({
+      title: 'Apply this correction?',
+      body: `New ${laserLabel(mode)} DXF jobs are cut to these nine measurements. Saved jobs keep the correction they were made with.`,
+      confirm: 'Apply to new DXFs',
+    });
+    if (ok) run(apply);
+  }
+  function squareLabel(index: number): string {
+    return `Square ${index + 1}${data?.measurements[index] ? ', measured' : ', unmeasured'}`;
+  }
+  function squareSize(index: number): string {
+    const m = data?.measurements[index];
+    return m ? `${distance(m.x, 2)} × ${quantity(m.y, 'mm', 2)}` : `${distance(100)} × ${quantity(100, 'mm')}`;
   }
   function range(axis: keyof Measurement): string {
     const values = data?.measurements.flatMap(value => value ? [value[axis]] : []) ?? [];
@@ -73,23 +131,82 @@
 </script>
 
 <div class="calibration">
-  <header><p>Nine {distance(100)} × {quantity(100, 'mm')} squares</p><div class="seg" aria-label="Calibration laser">{#each ['fiber', 'co2'] as laser}<button class:on={mode === laser} disabled={busy} onclick={() => mode = laser as LaserMode}>{laserLabel(laser as LaserMode)}</button>{/each}</div></header>
-  <nav aria-label="Calibration steps">{#each steps as step, index}<button class:current={page === index} disabled={busy} onclick={() => page = index}><span>{index + 1}</span>{step}</button>{/each}</nav>
+  <header>
+    <p>Nine {distance(100)} × {quantity(100, 'mm')} squares</p>
+    <div class="seg" aria-label="Calibration laser">
+      {#each ['fiber', 'co2'] as laser}
+        <button class:on={mode === laser} disabled={busy} onclick={() => mode = laser as LaserMode}>{laserLabel(laser as LaserMode)}</button>
+      {/each}
+    </div>
+  </header>
+  <nav aria-label="Calibration steps">
+    {#each steps as step, index}
+      <button class:current={page === index} disabled={busy} onclick={() => page = index}><span>{index + 1}</span>{step}</button>
+    {/each}
+  </nav>
   {#if error}<p class="error" role="alert">{error}</p>{/if}
   {#if data}
     <div class="cal-body">
-      <div class="bed-wrap"><div class="bed-heading"><span>{laserLabel(mode)} · {distance(data.bed.max.x - data.bed.min.x)} × {quantity(data.bed.max.y - data.bed.min.y, 'mm')}</span><span>Back of bed · Y+</span></div><div class="bed" role="group" aria-label="Nine calibration squares">
-        {#each order as index}<button class:chosen={page === 1 && selected === index} class:measured={!!data.measurements[index]} disabled={busy} aria-label={`Square ${index + 1}${data.measurements[index] ? ', measured' : ', unmeasured'}`} aria-pressed={page === 1 && selected === index} onclick={() => { choose(index); page = 1; }}><strong>{index + 1}</strong><span>{data.measurements[index] ? `${distance(data.measurements[index]!.x, 2)} × ${quantity(data.measurements[index]!.y, 'mm', 2)}` : `${distance(100)} × ${quantity(100, 'mm')}`}</span><small>X {distance(data.positions[index]![0])} · Y {quantity(data.positions[index]![1], 'mm')}</small></button>{/each}
-      </div><div class="bed-heading"><span>Front of bed</span><span>X →</span></div><p class="progress">{count} of 9 measured · saved</p></div>
+      <div class="bed-wrap">
+        <div class="bed-heading">
+          <span>{laserLabel(mode)} · {distance(data.bed.max.x - data.bed.min.x)} × {quantity(data.bed.max.y - data.bed.min.y, 'mm')}</span>
+          <span>Back of bed · Y+</span>
+        </div>
+        <div class="bed" role="group" aria-label="Nine calibration squares">
+          {#each order as index}
+            <button
+              class:chosen={page === 1 && selected === index}
+              class:measured={!!data.measurements[index]}
+              disabled={busy}
+              aria-label={squareLabel(index)}
+              aria-pressed={page === 1 && selected === index}
+              onclick={() => pickSquare(index)}
+            >
+              <strong>{index + 1}</strong>
+              <span>{squareSize(index)}</span>
+              <small>X {distance(data.positions[index]![0])} · Y {quantity(data.positions[index]![1], 'mm')}</small>
+            </button>
+          {/each}
+        </div>
+        <div class="bed-heading"><span>Front of bed</span><span>X →</span></div>
+        <p class="progress">{count} of 9 measured · saved</p>
+      </div>
       <div class="step-content">
         {#if page === 0}
-          <span class="eyebrow">1 · Cut squares</span><h3>Nine positions. One square each.</h3><p>Use your usual cutting settings.</p><button class="btn btn-primary lg" disabled={busy} onclick={() => run(async () => { await api.correctionCoupon(mode); ui.setupPanel = null; ui.tab = 'setup'; })}>Load calibration job</button><button class="text-action" disabled={busy} onclick={() => page = 1}>Already cut? Enter measurements →</button>
+          <span class="eyebrow">1 · Cut squares</span>
+          <h3>Nine positions. One square each.</h3>
+          <p>Use your usual cutting settings.</p>
+          <button class="btn btn-primary lg" disabled={busy} onclick={loadCoupon}>Load calibration job</button><button
+            class="text-action" disabled={busy} onclick={() => page = 1}>Already cut? Enter measurements →</button>
         {:else if page === 1}
-          <span class="eyebrow">2 · Measure</span><h3>Square {selected + 1}</h3><p>Measure the finished square.</p>
-          <div class="measurement"><button disabled={busy} onclick={() => measure('x')}><span>X · width</span><strong>{x === null ? 'Enter width' : quantity(x, 'mm', 3)}</strong></button><button disabled={busy} onclick={() => measure('y')}><span>Y · height</span><strong>{y === null ? 'Enter height' : quantity(y, 'mm', 3)}</strong></button></div>
-          <button class="btn btn-primary lg" disabled={busy || !data.measurements[selected]} onclick={() => { const next = data!.measurements.findIndex((m, i) => !m && i !== selected); if (next < 0) page = 2; else choose(next); }}>{count === 9 ? 'Review correction' : 'Next unmeasured square'}</button>
+          <span class="eyebrow">2 · Measure</span>
+          <h3>Square {selected + 1}</h3>
+          <p>Measure the finished square.</p>
+          <div class="measurement">
+            <button disabled={busy} onclick={() => measure('x')}>
+              <span>X · width</span>
+              <strong>{x === null ? 'Enter width' : quantity(x, 'mm', 3)}</strong>
+            </button>
+            <button disabled={busy} onclick={() => measure('y')}>
+              <span>Y · height</span>
+              <strong>{y === null ? 'Enter height' : quantity(y, 'mm', 3)}</strong>
+            </button>
+          </div>
+          <button class="btn btn-primary lg" disabled={busy || !data.measurements[selected]} onclick={nextSquare}>
+            {count === 9 ? 'Review correction' : 'Next unmeasured square'}
+          </button>
         {:else}
-          <span class="eyebrow">3 · Apply</span><h3>{data.enabled ? 'Correction is enabled' : 'Ready for future DXFs'}</h3><p>Applies to new {laserLabel(mode)} DXF jobs.</p><dl><div><dt>X measurements</dt><dd>{range('x')}</dd></div><div><dt>Y measurements</dt><dd>{range('y')}</dd></div><div><dt>Squares measured</dt><dd>{count} / 9</dd></div></dl><button class="btn btn-primary lg" disabled={busy || count !== 9} onclick={async () => { if (await ui.confirm({ title: 'Apply this correction?', body: `New ${laserLabel(mode)} DXF jobs are cut to these nine measurements. Saved jobs keep the correction they were made with.`, confirm: 'Apply to new DXFs' })) run(apply); }}>Save &amp; apply to new DXFs</button>{#if data.active}<button class="text-action" disabled={busy} onclick={() => run(enable)}>{data.enabled ? 'Pause correction for new jobs' : 'Enable saved profile'}</button>{/if}
+          <span class="eyebrow">3 · Apply</span>
+          <h3>{data.enabled ? 'Correction is enabled' : 'Ready for future DXFs'}</h3>
+          <p>Applies to new {laserLabel(mode)} DXF jobs.</p>
+          <dl>
+            <div><dt>X measurements</dt><dd>{range('x')}</dd></div>
+            <div><dt>Y measurements</dt><dd>{range('y')}</dd></div>
+            <div><dt>Squares measured</dt><dd>{count} / 9</dd></div>
+          </dl>
+          <button class="btn btn-primary lg" disabled={busy || count !== 9} onclick={confirmApply}>Save &amp; apply to new DXFs</button>{#if data.active}<button
+            class="text-action" disabled={busy} onclick={() => run(enable)}
+          >{data.enabled ? 'Pause correction for new jobs' : 'Enable saved profile'}</button>{/if}
         {/if}
         {#if saved}<p class="saved" role="status">{saved}</p>{/if}
       </div>

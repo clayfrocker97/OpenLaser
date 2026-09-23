@@ -25,13 +25,36 @@
   let error = $state('');
   let savedTheme = $state(settingsEdits.readTheme());
   const route = $derived(routeValues(doc));
-  const routeConflicts = $derived(Object.entries(staged.route ?? {}).filter(([key, edit]) => edit.base !== route[key as keyof typeof route] && edit.value !== route[key as keyof typeof route]));
-  const prefMerge = $derived(staged.preflight && preferences ? mergePreferences($state.snapshot(staged.preflight.base), $state.snapshot(staged.preflight.value), $state.snapshot(preferences)) : null);
-  const labels: Record<SettingKey, string> = { route: 'Controller route', preflight: 'Checklist defaults', theme: 'Display theme', hold: 'Hold times', backup: 'Machine backup', soft: 'Process settings', xml: 'Machine XML settings' };
+  const routeConflicts = $derived(
+    Object.entries(staged.route ?? {}).filter(
+      ([key, edit]) => edit.base !== route[key as keyof typeof route] && edit.value !== route[key as keyof typeof route],
+    ),
+  );
+  const prefMerge = $derived(
+    staged.preflight && preferences
+      ? mergePreferences(
+          $state.snapshot(staged.preflight.base),
+          $state.snapshot(staged.preflight.value),
+          $state.snapshot(preferences),
+        )
+      : null,
+  );
+  const labels: Record<SettingKey, string> = {
+    route: 'Controller route',
+    preflight: 'Checklist defaults',
+    theme: 'Display theme',
+    hold: 'Hold times',
+    backup: 'Machine backup',
+    soft: 'Process settings',
+    xml: 'Machine XML settings',
+  };
   // Another screen saved hold times after these were staged: choose first.
   const holdConflict = $derived(!!staged.hold && !same(doc.hold, staged.hold.base));
   let xmlFields = $state<XmlField[]>([]);
   const display = (v: unknown): string => reviewText(v);
+  const unresolved = $derived(
+    !!reviewing && reviewing.review.conflicts.some(c => reviewing?.choices[c.path] === undefined),
+  );
 
   async function refresh(): Promise<void> {
     [drafts, preferences] = await Promise.all([api.pendingDrafts(), api.preflightPreferences()]);
@@ -41,12 +64,20 @@
   }
   async function run(action: () => Promise<unknown>): Promise<void> {
     if (busy) return;
-    busy = true; error = '';
-    try { await action(); await refresh(); }
-    catch (e) { error = explain(e); }
-    finally { busy = false; }
+    busy = true;
+    error = '';
+    try {
+      await action();
+      await refresh();
+    } catch (e) {
+      error = explain(e);
+    } finally {
+      busy = false;
+    }
   }
-  onMount(() => { void run(refresh); });
+  onMount(() => {
+    void run(refresh);
+  });
 
   async function open(draft: PendingDraft): Promise<void> {
     if (draft.problem) throw new Error(draft.problem);
@@ -58,9 +89,16 @@
   async function saveDraft(draft: PendingDraft): Promise<void> {
     await open(draft);
     const name = ui.pendingJobName ?? draft.name;
-    if (server.doc?.draft?.sheets?.pages.some(p => !p.job)) { await api.saveJob(name); ui.pendingJobName = null; return; }
+    if (server.doc?.draft?.sheets?.pages.some(p => !p.job)) {
+      await api.saveJob(name);
+      ui.pendingJobName = null;
+      return;
+    }
     const review = await api.mergeReview(name);
-    if (review.conflicts.length) { reviewing = { key: draft.key, name, review, choices: {} }; return; }
+    if (review.conflicts.length) {
+      reviewing = { key: draft.key, name, review, choices: {} };
+      return;
+    }
     await api.saveJob(review.name);
     ui.pendingJobName = null;
   }
@@ -69,23 +107,35 @@
     const { review, choices, name } = $state.snapshot(reviewing);
     const merged = await api.resolveMerge(review.token, choices, name);
     await api.saveJob(merged.name);
-    reviewing = null; ui.pendingJobName = null;
+    reviewing = null;
+    ui.pendingJobName = null;
   }
   async function saveRecipe(recipe: RecipeView): Promise<void> {
     if (recipeEdits.conflicts(recipe).length) throw new Error('Choose the material values to keep.');
     const save = recipeEdits.begin(recipe.id);
     if (!save) return;
-    try { await api.updateRecipe(recipe.id, save.change); recipeEdits.finish(save, true); }
-    catch (e) { recipeEdits.finish(save, false); throw e; }
+    try {
+      await api.updateRecipe(recipe.id, save.change);
+      recipeEdits.finish(save, true);
+    } catch (e) {
+      recipeEdits.finish(save, false);
+      throw e;
+    }
   }
   /** Saving machine settings or a backup writes a connected controller: say so first. */
   function confirmSave(key: SettingKey): Promise<boolean> {
     if (key !== 'xml' && key !== 'backup') return Promise.resolve(true);
     const connected = doc.machine.connection.state === 'connected';
     const count = key === 'xml' ? Object.keys(staged.xml?.edits ?? {}).length : 0;
+    const what = key === 'xml'
+      ? `${plural(count, 'changed value')} replace the machine settings`
+      : `${staged.backup?.name ?? 'The staged backup'} replaces the machine settings`;
+    const when = connected
+      ? ', and the connected controller is written and read back to verify them.'
+      : '. The controller is written when it next connects.';
     return ui.confirm({
       title: key === 'xml' ? 'Save machine settings?' : 'Use this machine backup?',
-      body: `${key === 'xml' ? `${plural(count, 'changed value')} replace the machine settings` : `${staged.backup?.name ?? 'The staged backup'} replaces the machine settings`}${connected ? ', and the connected controller is written and read back to verify them.' : '. The controller is written when it next connects.'}`,
+      body: `${what}${when}`,
       confirm: connected ? 'Save and write controller' : 'Save settings',
     });
   }
@@ -94,7 +144,11 @@
     savedTheme = settingsEdits.readTheme();
     if (key === 'route' && staged.route) {
       if (routeConflicts.length) throw new Error('Choose the route values to keep.');
-      await api.setRoute({ ...Object.fromEntries(Object.entries(staged.route).map(([k, e]) => [k, e.value])), expected: Object.fromEntries(Object.entries(staged.route).map(([k, e]) => [k, e.base])) });
+      const edits = Object.entries(staged.route);
+      await api.setRoute({
+        ...Object.fromEntries(edits.map(([k, e]) => [k, e.value])),
+        expected: Object.fromEntries(edits.map(([k, e]) => [k, e.base])),
+      });
     } else if (key === 'preflight' && staged.preflight) {
       const saved = await api.preflightPreferences();
       const merged = mergePreferences($state.snapshot(staged.preflight.base), $state.snapshot(staged.preflight.value), saved);
@@ -112,44 +166,183 @@
     }
     await settingsEdits.discard(key, true);
   }
+
+  function chooseJob(path: string, keep: boolean): void {
+    if (reviewing) reviewing.choices[path] = keep;
+  }
+  function draftNote(draft: PendingDraft): string {
+    const kind = draft.job ? 'Job' : 'Unsaved job setup';
+    return `${kind}${draft.problem ? ` · ${draft.problem}` : !draft.can_save ? ' · choose a material before saving' : ''}`;
+  }
+  function openDraft(draft: PendingDraft): Promise<void> {
+    return run(async () => {
+      await open(draft);
+      ui.tab = 'setup';
+      onclose();
+    });
+  }
+  async function discardDraft(draft: PendingDraft): Promise<void> {
+    const ok = await ui.confirm({
+      title: 'Discard this job setup?',
+      body: `The working copy of “${draft.name}” is deleted. Saved jobs and parts stay as they are.`,
+      confirm: 'Discard setup',
+      danger: true,
+    });
+    if (ok) {
+      run(async () => {
+        await api.discardDraft(draft.key);
+        reviewing = null;
+      });
+    }
+  }
+  function openRecipe(id: string): void {
+    ui.selectedRecipe = id;
+    ui.tab = 'materials';
+    onclose();
+  }
+  async function discardRecipe(id: string, recipe: RecipeView | undefined): Promise<void> {
+    const ok = await ui.confirm({
+      title: 'Discard these material values?',
+      body: `${recipeEdits.count(id)} staged values for ${recipe?.name ?? 'this material'} are thrown away.`,
+      confirm: 'Discard values',
+      danger: true,
+    });
+    if (ok) recipeEdits.discard(id);
+  }
+  function recipeReview(id: string): string {
+    const values = Object.fromEntries(Object.entries(recipeEdits.attributes(id)).map(([key, value]) => [key, shown(key, value)]));
+    const film = recipeEdits.film(id) === undefined ? '' : `\nFilm: ${recipeEdits.film(id) ?? 'none'}`;
+    return `${JSON.stringify(values, null, 2)}${film}`;
+  }
+  async function discardSetting(key: SettingKey): Promise<void> {
+    const ok = await ui.confirm({
+      title: `Discard ${labels[key].toLowerCase()} edits?`,
+      body: 'The staged changes on this screen are thrown away.',
+      confirm: 'Discard edits',
+      danger: true,
+    });
+    if (ok) run(() => settingsEdits.discard(key));
+  }
+  async function confirmSaveSetting(key: SettingKey): Promise<void> {
+    if (await confirmSave(key)) run(() => saveSetting(key));
+  }
+  /** A staged file whose base no longer matches the saved file must be resolved first. */
+  function fileStale(key: SettingKey): boolean {
+    if (key !== 'backup' && key !== 'soft') return false;
+    return staged[key]?.base !== (key === 'backup' ? doc.files.backup?.sha256 ?? '' : doc.soft.sha256 ?? '');
+  }
+  function saveBlocked(key: SettingKey): boolean {
+    return (key === 'route' && !!routeConflicts.length)
+      || (key === 'hold' && holdConflict)
+      || (key === 'preflight' && !!prefMerge?.conflicts.length)
+      || fileStale(key);
+  }
+  function keepRoute(field: string, ours: boolean): Promise<void> {
+    const k = field as keyof typeof route;
+    return run(() => settingsEdits.resolveRoute(k, route[k], ours));
+  }
+  function keepPreflight(key: Parameters<typeof settingsEdits.resolvePreflight>[0], ours: boolean): void {
+    if (preferences) run(() => settingsEdits.resolvePreflight(key, $state.snapshot(preferences!), ours));
+  }
 </script>
 <Modal title="Pending changes" wide {onclose}>
   <p class="muted">Review and save each item.</p>
   {#if error}<p class="warn-text" role="alert">{error}</p>{/if}
-  {#if doc.persistence_error || recipeEdits.storageError || settingsEdits.error}<p class="warn-text" role="alert">{doc.persistence_error ?? recipeEdits.storageError ?? settingsEdits.error}</p>{/if}
+  {#if doc.persistence_error || recipeEdits.storageError || settingsEdits.error}
+    <p class="warn-text" role="alert">{doc.persistence_error ?? recipeEdits.storageError ?? settingsEdits.error}</p>
+  {/if}
   {#if !loaded}<p class="muted">Loading retained edits…</p>{/if}
   {#if reviewing}
     <section class="pending-item"><h3>Resolve {reviewing.name}</h3>
       {#each reviewing.review.conflicts as conflict}
-        <div class="conflict"><strong>{conflict.path === '/part' ? 'Parts and their layout' : conflict.path}</strong><small>Base: {conflictText(conflict.base, conflict.path)}</small>
-          <button class="choice" class:chosen={reviewing.choices[conflict.path] === true} onclick={() => { if (reviewing) reviewing.choices[conflict.path] = true; }}>Keep draft: {conflictText(conflict.draft, conflict.path)}</button>
-          <button class="choice" class:chosen={reviewing.choices[conflict.path] === false} onclick={() => { if (reviewing) reviewing.choices[conflict.path] = false; }}>Keep saved: {conflictText(conflict.saved, conflict.path)}</button>
+        <div class="conflict">
+          <strong>{conflict.path === '/part' ? 'Parts and their layout' : conflict.path}</strong>
+          <small>Base: {conflictText(conflict.base, conflict.path)}</small>
+          <button class="choice" class:chosen={reviewing.choices[conflict.path] === true} onclick={() => chooseJob(conflict.path, true)}
+            >Keep draft: {conflictText(conflict.draft, conflict.path)}</button>
+          <button class="choice" class:chosen={reviewing.choices[conflict.path] === false} onclick={() => chooseJob(conflict.path, false)}
+            >Keep saved: {conflictText(conflict.saved, conflict.path)}</button>
         </div>
       {/each}
-      <div class="actions"><button class="btn btn-ghost" onclick={() => (reviewing = null)}>Back</button><button class="btn btn-primary" disabled={busy || reviewing.review.conflicts.some(c => reviewing?.choices[c.path] === undefined)} onclick={() => run(resolveJob)}>Resolve and save</button></div>
+      <div class="actions">
+        <button class="btn btn-ghost" onclick={() => (reviewing = null)}>Back</button>
+        <button class="btn btn-primary" disabled={busy || unresolved} onclick={() => run(resolveJob)}>Resolve and save</button>
+      </div>
     </section>
   {/if}
   {#each drafts as draft (draft.key)}
-    <section class="pending-item"><div class="row"><div><h3>{draft.name}</h3><small>{draft.job ? 'Job' : 'Unsaved job setup'}{draft.problem ? ` · ${draft.problem}` : !draft.can_save ? ' · choose a material before saving' : ''}</small></div>
-      <div class="actions"><button class="btn btn-ghost" disabled={busy || !!draft.problem} onclick={() => run(async () => { await open(draft); ui.tab = 'setup'; onclose(); })}>Open</button><button class="btn btn-ghost" disabled={busy} onclick={async () => { if (await ui.confirm({ title: 'Discard this job setup?', body: `The working copy of “${draft.name}” is deleted. Saved jobs and parts stay as they are.`, confirm: 'Discard setup', danger: true })) run(async () => { await api.discardDraft(draft.key); reviewing = null; }); }}>Discard</button><button class="btn btn-primary" disabled={busy || !draft.can_save} onclick={() => run(() => saveDraft(draft))}>Save job</button></div></div>
+    <section class="pending-item">
+      <div class="row">
+        <div><h3>{draft.name}</h3><small>{draftNote(draft)}</small></div>
+        <div class="actions">
+          <button class="btn btn-ghost" disabled={busy || !!draft.problem} onclick={() => openDraft(draft)}>Open</button>
+          <button class="btn btn-ghost" disabled={busy} onclick={() => discardDraft(draft)}>Discard</button>
+          <button class="btn btn-primary" disabled={busy || !draft.can_save} onclick={() => run(() => saveDraft(draft))}>Save job</button>
+        </div>
+      </div>
     </section>
   {/each}
   {#each recipeEdits.pending as id (id)}
     {@const recipe = doc.library.recipes.find(r => r.id === id)}
     {@const conflicts = recipe ? recipeEdits.conflicts(recipe) : []}
-    <section class="pending-item"><div class="row"><div><h3>{recipe?.name ?? 'Deleted material'}</h3><small>{recipeEdits.count(id)} staged material values</small></div><div class="actions"><button class="btn btn-ghost" disabled={busy} onclick={() => { ui.selectedRecipe = id; ui.tab = 'materials'; onclose(); }}>Open</button><button class="btn btn-ghost" disabled={busy} onclick={async () => { if (await ui.confirm({ title: 'Discard these material values?', body: `${recipeEdits.count(id)} staged values for ${recipe?.name ?? 'this material'} are thrown away.`, confirm: 'Discard values', danger: true })) recipeEdits.discard(id); }}>Discard</button><button class="btn btn-primary" disabled={busy || !recipe || !!conflicts.length} onclick={() => recipe && run(() => saveRecipe(recipe))}>Save</button></div></div>
-      {#each conflicts as conflict}<div class="conflict"><strong>{conflict.key}</strong><small>Base: {shown(conflict.key, conflict.base)}</small><button class="choice" onclick={() => recipe && recipeEdits.resolve(recipe, conflict.key, true)}>Keep draft: {shown(conflict.key, conflict.draft)}</button><button class="choice" onclick={() => recipe && recipeEdits.resolve(recipe, conflict.key, false)}>Keep saved: {shown(conflict.key, conflict.saved)}</button></div>{/each}
-      <details><summary>Review values</summary><pre>{JSON.stringify(Object.fromEntries(Object.entries(recipeEdits.attributes(id)).map(([key, value]) => [key, shown(key, value)])), null, 2)}{recipeEdits.film(id) === undefined ? '' : `\nFilm: ${recipeEdits.film(id) ?? 'none'}`}</pre></details>
+    <section class="pending-item">
+      <div class="row">
+        <div><h3>{recipe?.name ?? 'Deleted material'}</h3><small>{recipeEdits.count(id)} staged material values</small></div>
+        <div class="actions">
+          <button class="btn btn-ghost" disabled={busy} onclick={() => openRecipe(id)}>Open</button>
+          <button class="btn btn-ghost" disabled={busy} onclick={() => discardRecipe(id, recipe)}>Discard</button>
+          <button class="btn btn-primary" disabled={busy || !recipe || !!conflicts.length} onclick={() => recipe && run(() => saveRecipe(recipe))}>Save</button>
+        </div>
+      </div>
+      {#each conflicts as conflict}
+        <div class="conflict">
+          <strong>{conflict.key}</strong>
+          <small>Base: {shown(conflict.key, conflict.base)}</small>
+          <button class="choice" onclick={() => recipe && recipeEdits.resolve(recipe, conflict.key, true)}
+            >Keep draft: {shown(conflict.key, conflict.draft)}</button>
+          <button class="choice" onclick={() => recipe && recipeEdits.resolve(recipe, conflict.key, false)}
+            >Keep saved: {shown(conflict.key, conflict.saved)}</button>
+        </div>
+      {/each}
+      <details><summary>Review values</summary><pre>{recipeReview(id)}</pre></details>
     </section>
   {/each}
   {#each settingsEdits.pending as key (key)}
-    <section class="pending-item"><div class="row"><h3>{labels[key]}</h3><div class="actions"><button class="btn btn-ghost" disabled={busy} onclick={async () => { if (await ui.confirm({ title: `Discard ${labels[key].toLowerCase()} edits?`, body: 'The staged changes on this screen are thrown away.', confirm: 'Discard edits', danger: true })) run(() => settingsEdits.discard(key)); }}>Discard</button><button class="btn btn-primary" disabled={busy || (key === 'route' && !!routeConflicts.length) || (key === 'hold' && holdConflict) || (key === 'preflight' && !!prefMerge?.conflicts.length) || ((key === 'backup' || key === 'soft') && staged[key]?.base !== (key === 'backup' ? doc.files.backup?.sha256 ?? '' : doc.soft.sha256 ?? ''))} onclick={async () => { if (await confirmSave(key)) run(() => saveSetting(key)); }}>Save</button></div></div>
-      {#if key === 'theme'}<p>{staged.theme?.base} → {staged.theme?.value}</p>{#if staged.theme && savedTheme !== staged.theme.base && savedTheme !== staged.theme.value}<div class="conflict"><small>Saved theme: {savedTheme}</small><button class="choice" onclick={() => run(() => settingsEdits.rebaseTheme())}>Keep draft theme</button><button class="choice" onclick={() => run(() => settingsEdits.discard('theme'))}>Keep saved theme</button></div>{/if}
+    <section class="pending-item">
+      <div class="row">
+        <h3>{labels[key]}</h3>
+        <div class="actions">
+          <button class="btn btn-ghost" disabled={busy} onclick={() => discardSetting(key)}>Discard</button>
+          <button class="btn btn-primary" disabled={busy || saveBlocked(key)} onclick={() => confirmSaveSetting(key)}>Save</button>
+        </div>
+      </div>
+      {#if key === 'theme'}<p>{staged.theme?.base} → {staged.theme?.value}</p>
+        {#if staged.theme && savedTheme !== staged.theme.base && savedTheme !== staged.theme.value}
+          <div class="conflict">
+            <small>Saved theme: {savedTheme}</small>
+            <button class="choice" onclick={() => run(() => settingsEdits.rebaseTheme())}>Keep draft theme</button>
+            <button class="choice" onclick={() => run(() => settingsEdits.discard('theme'))}>Keep saved theme</button>
+          </div>
+        {/if}
       {:else if key === 'route'}
         {#each Object.entries(staged.route ?? {}) as [field, edit]}<p>{field}: {edit.base || 'automatic'} → {edit.value}</p>{/each}
-        {#each routeConflicts as [field, edit]}<div class="conflict"><strong>{field}</strong><small>Base: {edit.base}</small><button class="choice" onclick={() => run(() => settingsEdits.resolveRoute(field as keyof typeof route, route[field as keyof typeof route], true))}>Keep draft: {edit.value}</button><button class="choice" onclick={() => run(() => settingsEdits.resolveRoute(field as keyof typeof route, route[field as keyof typeof route], false))}>Keep saved: {route[field as keyof typeof route]}</button></div>{/each}
+        {#each routeConflicts as [field, edit]}
+          <div class="conflict">
+            <strong>{field}</strong>
+            <small>Base: {edit.base}</small>
+            <button class="choice" onclick={() => keepRoute(field, true)}>Keep draft: {edit.value}</button>
+            <button class="choice" onclick={() => keepRoute(field, false)}>Keep saved: {route[field as keyof typeof route]}</button>
+          </div>
+        {/each}
       {:else if key === 'preflight' && staged.preflight}
-        {#each prefMerge?.conflicts ?? [] as conflict}<div class="conflict"><strong>{conflict.key}</strong><small>Base: {display(conflict.base)}</small><button class="choice" onclick={() => preferences && run(() => settingsEdits.resolvePreflight(conflict.key, $state.snapshot(preferences!), true))}>Keep draft: {display(conflict.draft)}</button><button class="choice" onclick={() => preferences && run(() => settingsEdits.resolvePreflight(conflict.key, $state.snapshot(preferences!), false))}>Keep saved: {display(conflict.saved)}</button></div>{/each}
+        {#each prefMerge?.conflicts ?? [] as conflict}
+          <div class="conflict">
+            <strong>{conflict.key}</strong>
+            <small>Base: {display(conflict.base)}</small>
+            <button class="choice" onclick={() => keepPreflight(conflict.key, true)}>Keep draft: {display(conflict.draft)}</button>
+            <button class="choice" onclick={() => keepPreflight(conflict.key, false)}>Keep saved: {display(conflict.saved)}</button>
+          </div>
+        {/each}
         {#if prefMerge}<details><summary>Review checklists</summary>
           {#each [['Preflight', prefMerge.value], ['Pause', prefMerge.value.pause], ['Postflight', prefMerge.value.postflight]] as [phase, defaults]}
             {#each ['fiber', 'co2'] as mode}
@@ -161,16 +354,38 @@
           {/each}
         </details>{/if}
       {:else if key === 'hold' && staged.hold}
-        <p>Move or fire: {holdSeconds(staged.hold.base.move_ms)} → {holdSeconds(staged.hold.value.move_ms)} · Set origin: {holdSeconds(staged.hold.base.zero_ms)} → {holdSeconds(staged.hold.value.zero_ms)} · every screen</p>
-        {#if holdConflict}<div class="conflict"><small>Saved on another screen: move or fire {holdSeconds(doc.hold.move_ms)} · set origin {holdSeconds(doc.hold.zero_ms)}</small><button class="choice" onclick={() => run(() => settingsEdits.rebaseHold($state.snapshot(doc.hold)))}>Keep these hold times</button><button class="choice" onclick={() => run(() => settingsEdits.discard('hold'))}>Keep saved hold times</button></div>{/if}
+        <p>
+          Move or fire: {holdSeconds(staged.hold.base.move_ms)} → {holdSeconds(staged.hold.value.move_ms)} ·
+          Set origin: {holdSeconds(staged.hold.base.zero_ms)} → {holdSeconds(staged.hold.value.zero_ms)} · every screen
+        </p>
+        {#if holdConflict}
+          <div class="conflict">
+            <small>Saved on another screen: move or fire {holdSeconds(doc.hold.move_ms)} · set origin {holdSeconds(doc.hold.zero_ms)}</small>
+            <button class="choice" onclick={() => run(() => settingsEdits.rebaseHold($state.snapshot(doc.hold)))}>Keep these hold times</button>
+            <button class="choice" onclick={() => run(() => settingsEdits.discard('hold'))}>Keep saved hold times</button>
+          </div>
+        {/if}
       {:else if key === 'xml' && staged.xml}
         <p>{Object.keys(staged.xml.edits).length} XML edits · applied on save when connected.</p>
-        {#if staged.xml.base !== (doc.files.backup?.sha256 ?? '')}<p class="warn-text">The backup changed. Open Settings to compare or discard these edits.</p>{/if}
-        <details><summary>Review values</summary>{#each Object.values(staged.xml.edits) as field}<p><code>{field.path}/@{field.name}</code><br>{xmlValue(field, field.original, xmlFields)} → {xmlValue(field, field.value, xmlFields)}</p>{/each}</details>
+        {#if staged.xml.base !== (doc.files.backup?.sha256 ?? '')}
+          <p class="warn-text">The backup changed. Open Settings to compare or discard these edits.</p>
+        {/if}
+        <details>
+          <summary>Review values</summary>
+          {#each Object.values(staged.xml.edits) as field}
+            <p><code>{field.path}/@{field.name}</code><br>{xmlValue(field, field.original, xmlFields)} → {xmlValue(field, field.value, xmlFields)}</p>
+          {/each}
+        </details>
       {:else if (key === 'backup' || key === 'soft') && staged[key]}
         {@const file = staged[key]}{@const saved = key === 'backup' ? doc.files.backup?.sha256 ?? '' : doc.soft.sha256 ?? ''}
         <p>{file.name} · {(file.bytes.byteLength / 1024).toFixed(1)} kB</p>
-        {#if file.base !== saved}<div class="conflict"><small>Base: {file.base || 'none'}<br>Saved: {saved || 'none'}</small><button class="choice" onclick={() => run(() => settingsEdits.rebaseFile(key, saved))}>Keep selected file</button><button class="choice" onclick={() => run(() => settingsEdits.discard(key))}>Keep saved file</button></div>{/if}
+        {#if file.base !== saved}
+          <div class="conflict">
+            <small>Base: {file.base || 'none'}<br>Saved: {saved || 'none'}</small>
+            <button class="choice" onclick={() => run(() => settingsEdits.rebaseFile(key, saved))}>Keep selected file</button>
+            <button class="choice" onclick={() => run(() => settingsEdits.discard(key))}>Keep saved file</button>
+          </div>
+        {/if}
       {/if}
     </section>
   {/each}
