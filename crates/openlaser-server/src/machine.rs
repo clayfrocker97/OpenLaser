@@ -992,10 +992,7 @@ pub async fn run_reviewed(
         })?;
         let zero = draft.zero()?;
         let binding = Execution::new(&coordinator, &configuration, zero)?;
-        let name = draft.job.as_ref().and_then(|id| coordinator.library.job(id).ok()).map_or_else(
-            || coordinator.library.part(&draft.part).map(|part| part.name.clone()),
-            |job| Ok(job.name.clone()),
-        )?;
+        let name = coordinator.draft_name(draft);
         let material = draft.recipe.as_ref().map(crate::document::MaterialView::from);
         let origin = draft.origin().ok_or_else(|| Error::Refused("no job origin".into()))?;
         let sheet = if compiled.dry_run { None } else { coordinator.sheet_plan(draft)? };
@@ -1396,10 +1393,7 @@ pub async fn frame(shared: &Shared) -> Result<()> {
             .configuration
             .ok_or_else(|| Error::Refused("connect and compile again".into()))?;
         let binding = Execution::new(&coordinator, &configuration, draft.zero()?)?;
-        let name = draft.job.as_ref().and_then(|id| coordinator.library.job(id).ok()).map_or_else(
-            || coordinator.library.part(&draft.part).map(|part| part.name.clone()),
-            |job| Ok(job.name.clone()),
-        )?;
+        let name = coordinator.draft_name(draft);
         let material = draft.recipe.as_ref().map(crate::document::MaterialView::from);
         let origin = draft.origin().ok_or_else(|| Error::Refused("no job origin".into()))?;
         let settings = coordinator.bound()?.frame;

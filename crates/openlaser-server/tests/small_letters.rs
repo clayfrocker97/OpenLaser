@@ -58,7 +58,7 @@ async fn small_svg_and_dxf_letters_retain_counters_and_cut_them_before_their_out
                 .unwrap_or_else(|error| panic!("{name}, kerf {width}: {error}"));
             let c = shared.lock().await;
             let draft = c.draft.as_ref().unwrap();
-            let count = c.library.part(&draft.part).unwrap().drawing.contours.len();
+            let count = draft.drawing().unwrap().contours.len();
             let preview = draft.preview.as_ref().unwrap();
             assert_eq!(preview.contours.len(), count, "{name}, kerf {width}");
             assert!(preview.contours.iter().all(|p| p.closed));

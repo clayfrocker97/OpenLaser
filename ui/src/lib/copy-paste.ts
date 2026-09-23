@@ -1,16 +1,24 @@
-import type { LeadOverride, Transform } from '../api';
+import type { DraftView, LeadOverride, Transform } from '../api';
 
 type Placed = { source: number; transform: Transform };
 export type PasteDirection = 'right' | 'left' | 'up' | 'down';
 export interface PasteSettings { count: number; gap: number; direction: PasteDirection }
 export interface CopiedShapes {
-  part: string;
+  /** The parts of the job copied from: sources index their joined drawing. */
+  parts: string[];
   contours: Placed[];
   leads: LeadOverride[];
   grouping: number[][];
   width: number;
   height: number;
   offset: [number, number];
+}
+
+/** Whether copied shapes paste into `draft`: its parts must begin with the
+ *  parts they were copied from, so every source means the same contour. */
+export function pasteable(copied: CopiedShapes | null, draft: Pick<DraftView, 'parts'> | null | undefined): boolean {
+  if (!copied || !draft || copied.parts.length > draft.parts.length) return false;
+  return copied.parts.every((id, index) => draft.parts[index]?.id === id);
 }
 
 /** One add request gives the whole batch one undo step. Indices are batch-relative. */

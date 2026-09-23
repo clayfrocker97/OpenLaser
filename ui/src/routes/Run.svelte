@@ -51,8 +51,7 @@
   const resumed = $derived(!!retained && !!execution && retained.id !== execution.id && !recovering);
   const material = $derived(displayed ? displayed.material : draft?.recipe);
   const preview = $derived(draft?.preview ?? null);
-  const part = $derived(doc.library.parts.find((p) => p.id === draft?.part) ?? null);
-  const jobName = $derived(displayed?.name ?? doc.library.jobs.find((j) => j.id === draft?.job)?.name ?? part?.name ?? 'untitled');
+  const jobName = $derived(displayed?.name ?? (draft?.name || 'untitled'));
   const frame = $derived.by(() => {
     const frame = frameOf(doc);
     if (displayed) return { ...frame, zero: displayed.zero, origin: displayed.origin };
@@ -62,7 +61,7 @@
     return frame;
   });
 
-  const camera = $derived(runView(`${draft?.job ?? draft?.part ?? 'empty'}/${draft?.sheets?.active ?? 0}`));
+  const camera = $derived(runView(`${draft?.job ?? draft?.key ?? 'empty'}/${draft?.sheets?.active ?? 0}`));
   const view = $derived(camera.view);
   const box = $derived(compiled ? boxOf(compiled.moves.filter(m => m.kind !== 'travel').map((m) => m.points)) : preview?.bounds ? boxOfBounds(preview.bounds) : null);
   const fit = () => {

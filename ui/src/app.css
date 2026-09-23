@@ -126,7 +126,7 @@ h3 { font-size: var(--t-xs); font-weight: 700; margin: 0; color: var(--ink-3); t
 .workspace { display: grid; grid-template-columns: minmax(0, 1fr) clamp(420px, 27vw, 540px); gap: 10px; min-height: 0; }
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); display: flex; flex-direction: column; min-height: 0; min-width: 0; overflow: hidden; }
 .panel.main { padding: 0; }
-.panel.side { padding: 16px; overflow: hidden; gap: 12px; }
+.panel.side { padding: 16px; overflow: hidden auto; overscroll-behavior: contain; gap: 12px; }
 .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 20px 22px 14px; }
 .panel-head.compact { padding: 8px 12px; border-bottom: 1px solid var(--line); }
 .panel-head.compact .actions { flex-wrap: nowrap; }

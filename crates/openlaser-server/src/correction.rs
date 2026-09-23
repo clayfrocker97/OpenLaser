@@ -242,7 +242,8 @@ impl Coordinator {
         svg.push_str("</svg>");
         self.queue_draft();
         let part = self.library.add_part("Matrix calibration.svg", svg.as_bytes(), drawing)?;
-        let mut draft = Draft::new(part.id, 9);
+        let sources = self.library.job_drawing(std::slice::from_ref(&part.id))?;
+        let mut draft = Draft::new(std::sync::Arc::new(sources));
         draft.calibration = true;
         draft.placement =
             Some(openlaser_library::placement::Placement::Fixed { origin: bed.min.into() });
@@ -343,7 +344,7 @@ mod tests {
                 }],
             }],
         };
-        let mut draft = Draft::new(openlaser_library::Id::from("fixture"), 1);
+        let mut draft = Draft::of(drawing.clone());
         draft.prepare(&drawing);
         let mut prepared = (*draft.prepared.unwrap()).clone();
         let process = SegmentProcess {

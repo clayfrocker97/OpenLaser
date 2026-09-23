@@ -171,6 +171,7 @@ Open a saved JOB ────→ Saved setup ──→ Review or change ─┘
 
 1. In **Parts**, import a DXF/SVG, use the drawing tools, or open an existing part.
    Verify dimensions and closed/open contours. Text must become outlines for cutting.
+   To cut several parts together, [pick them](#several-parts-in-one-job) first.
 2. Move to **Setup** and choose an existing material/thickness recipe. Check its
    laser mode, nozzle, manual focus, gas and process values for your machine.
 3. Prepare the geometry as needed: kerf, leads, micro-joints, bridges, cooling and

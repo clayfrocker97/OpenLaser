@@ -4,6 +4,7 @@
   import ImportParts from '../components/ImportParts.svelte';
   import EditHistory from '../components/EditHistory.svelte';
   import PartsSide from './PartsSide.svelte';
+  import PartPicks from '../components/PartPicks.svelte';
   import { api } from '../api/client';
   import { server } from '../stores/server.svelte';
   import { ui } from '../stores/ui.svelte';
@@ -12,13 +13,14 @@
   import { folderPath as pathOfFolder } from '../lib/folders';
   import { explain, laserLabel, recipeLabel, size } from '../lib/format';
   import { boxOf, pathOf, viewBoxFor } from '../lib/svg';
-  import type { Folder, JobView, PartView } from '../api';
+  import { hasAllParts, togglePick } from '../lib/job-parts';
+  import type { Folder, JobView } from '../api';
 
   const doc = $derived(server.doc!);
   const library = $derived(doc.library);
 
   /** A card: a part or a saved job. */
-  type Card = { id: string; kind: 'part' | 'job'; name: string; search: string; folder: string | null; laser: 'fiber' | 'co2' | null; material: string; size: string; contours: number; favourite: boolean; updated: number; outline: number[][][]; part: PartView };
+  type Card = { id: string; kind: 'part' | 'job'; name: string; search: string; folder: string | null; laser: 'fiber' | 'co2' | null; material: string; size: string; contours: number; favourite: boolean; updated: number; outline: number[][][]; parts: number };
 
   let kindFilter = $state<'all' | 'part' | 'job' | 'fav' | 'sheet'>('all');
   let laserFilter = $state<'all' | 'fiber' | 'co2'>('all');
@@ -26,11 +28,10 @@
   let historyOpen = $state(false);
 
   const cards = $derived.by((): Card[] => {
-    const parts = library.parts.map((p): Card => ({ id: p.id, kind: 'part', name: p.name, search: `${p.tags.join(' ')} ${p.notes}`, folder: p.folder, laser: null, material: '', size: size(p.bounds), contours: p.contours, favourite: p.favourite, updated: p.updated, outline: p.outline, part: p }));
+    const parts = library.parts.map((p): Card => ({ id: p.id, kind: 'part', name: p.name, search: `${p.tags.join(' ')} ${p.notes}`, folder: p.folder, laser: null, material: '', size: size(p.bounds), contours: p.contours, favourite: p.favourite, updated: p.updated, outline: p.outline, parts: 1 }));
     const jobs = library.jobs.flatMap((j: JobView): Card[] => {
-      const part = library.parts.find((p) => p.id === j.part);
-      if (!part) return [];
-      return [{ id: j.id, kind: 'job', name: j.name, search: `${j.tags.join(' ')} ${j.notes}`, folder: j.folder, laser: j.recipe.laser, material: recipeLabel(j.recipe), size: size(j.bounds), contours: j.contours, favourite: j.favourite, updated: j.updated, outline: j.outline, part }];
+      if (!hasAllParts(j, library.parts)) return [];
+      return [{ id: j.id, kind: 'job', name: j.name, search: `${j.tags.join(' ')} ${j.notes}`, folder: j.folder, laser: j.recipe.laser, material: recipeLabel(j.recipe), size: size(j.bounds), contours: j.contours, favourite: j.favourite, updated: j.updated, outline: j.outline, parts: j.parts.length }];
     });
     return [...parts, ...jobs];
   });
@@ -74,6 +75,16 @@
 
   const thumb = (outline: number[][][]) => { const box = boxOf(outline); return box ? viewBoxFor(box, 100, 70) : '0 0 100 70'; };
 
+  // Picking parts to set up together: a tap picks or unpicks a part card;
+  // folders still open, so parts can be picked from several.
+  const picking = $derived(ui.partPicks !== null);
+  const shownParts = $derived(visible.filter((c) => c.kind === 'part').map((c) => c.id));
+  function choose(card: Card): void {
+    if (!picking) { ui.selected = card.id; return; }
+    if (card.kind === 'job') { ui.say('A saved job cuts its own parts. Pick parts to set up a new job.'); return; }
+    ui.partPicks = togglePick(ui.partPicks ?? [], card.id);
+  }
+
   async function star(card: Card): Promise<void> {
     try {
       await (card.kind === 'job' ? api.updateJob(card.id, { favourite: !card.favourite }) : api.updatePart(card.id, { favourite: !card.favourite }));
@@ -103,6 +114,7 @@
   </div>
   {#if kindFilter !== 'sheet'}<div class="toolbar parts-actions">
     <div class="search"><i class="ic ic-search"></i><input placeholder="Search everything: name, material, size, folder…" bind:value={ui.search} onkeydown={(e) => { if (e.key === 'Escape') ui.search = ''; }}></div>
+    <button class="btn btn-ghost icon-btn" class:on={picking} aria-pressed={picking} onclick={() => (ui.partPicks = picking ? null : [])}><i class="ic ic-check"></i><span>Pick parts</span></button>
     <button class="btn btn-ghost icon-btn" onclick={newFolder} title="New folder"><i class="ic ic-folder-plus"></i><span>Folder</span></button>
     <ImportParts />
   </div>{/if}
@@ -130,14 +142,16 @@
         </div>
       {:else}
         {@const c = item.card}
-        <div class="card" class:selected={c.id === ui.selected} role="button" tabindex="0" onclick={() => (ui.selected = c.id)} onkeydown={(e) => { if (e.key === 'Enter') ui.selected = c.id; }}>
+        {@const pick = picking && c.kind === 'part' ? (ui.partPicks ?? []).indexOf(c.id) : -1}
+        <div class="card" class:selected={picking ? pick >= 0 : c.id === ui.selected} class:unpickable={picking && c.kind === 'job'} role="button" tabindex="0" aria-pressed={picking && c.kind === 'part' ? pick >= 0 : undefined} onclick={() => choose(c)} onkeydown={(e) => { if (e.key === 'Enter') choose(c); }}>
+          {#if picking && c.kind === 'part'}<span class="pick-mark" class:on={pick >= 0} aria-hidden="true">{pick >= 0 ? pick + 1 : ''}</span>{/if}
           <button class="fav" class:on={c.favourite} aria-label="Star" onclick={(e) => { e.stopPropagation(); star(c); }}><i class="ic {c.favourite ? 'ic-star-fill' : 'ic-star'}"></i></button>
           <div class="thumb"><svg viewBox={thumb(c.outline)}>{#each c.outline as line}<path d={pathOf(line)} fill="none" stroke="var(--ink)" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>{/each}</svg></div>
           <div class="title">{c.name}</div>
           <div class="sub">{#if q && c.folder}<i class="ic ic-folder sm"></i>{folderPath(c.folder).map((f) => f.name).join(' / ')} · {/if}{c.material ? `${c.material} · ` : ''}{c.size}</div>
           <div class="tags">
             {#if c.laser}<span class="tag {c.laser}">{laserLabel(c.laser)}</span>{/if}
-            <span class="tag">{c.kind === 'job' ? 'Job' : 'Part'}</span>
+            <span class="tag">{c.kind === 'job' ? (c.parts > 1 ? `Job · ${c.parts} parts` : 'Job') : 'Part'}</span>
             <span class="tag">{c.contours} paths</span>
           </div>
         </div>
@@ -155,7 +169,7 @@
 {/if}
 </section>
 
-{#if kindFilter !== 'sheet'}<PartsSide />{/if}
+{#if kindFilter !== 'sheet'}{#if picking}<PartPicks shown={shownParts} />{:else}<PartsSide />{/if}{/if}
 {#if historyOpen}<EditHistory onclose={() => (historyOpen = false)} />{/if}
 
 <style>
@@ -164,4 +178,8 @@
   .parts-actions { flex-shrink:0; padding:12px 16px; border-bottom:1px solid var(--line); gap:8px; }
   .parts-actions .search { min-width:120px; flex:1; }
   .parts-actions input { min-width:0; width:0; }
+  .parts-actions .on { border-color:var(--accent); color:var(--accent); background:var(--accent-soft); }
+  .pick-mark { position:absolute; top:8px; left:8px; width:32px; height:32px; border-radius:50%; border:2px solid var(--ink-3); background:var(--panel); display:grid; place-items:center; font-weight:700; font-size:var(--t-sm); z-index:1; }
+  .pick-mark.on { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .card.unpickable { opacity:.45; }
 </style>

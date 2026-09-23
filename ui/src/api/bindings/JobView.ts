@@ -49,9 +49,9 @@ name: string,
  */
 folder: Id | null, 
 /**
- * The part it cuts.
+ * The parts it cuts, in the order of its drawing.
  */
-part: Id, 
+parts: Array<Id>, 
 /**
  * The recipe it was saved with.
  */

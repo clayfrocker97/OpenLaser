@@ -16,7 +16,8 @@
   import { LatestPick, orderGroups } from '../../lib/picking';
   import { orderPosition, orderSegments } from '../../lib/cut-order';
   import { copiedLeadOverrides, leadLookup, setLeadOverrides } from '../../lib/lead-overrides';
-  import { pasteBatch, type CopiedShapes, type PasteSettings } from '../../lib/copy-paste';
+  import { pasteBatch, pasteable, type CopiedShapes, type PasteSettings } from '../../lib/copy-paste';
+  import { layersOf, partsOf } from '../../lib/job-parts';
   import { server } from '../../stores/server.svelte';
   import { ui } from '../../stores/ui.svelte';
   import { osk } from '../../lib/osk.svelte';
@@ -35,7 +36,7 @@
   const draft = $derived(doc.draft);
   const scene = $derived(server.canvasDraft);
   const updating = $derived(draft?.error === 'preparing geometry');
-  const part = $derived(doc.library.parts.find((p) => p.id === draft?.part) ?? null);
+  const layers = $derived(layersOf(partsOf(draft, doc.library.parts)));
   const preview = $derived(!updating && ui.picking?.revision === draft?.revision ? (ui.picking?.preview ?? scene?.preview ?? null) : scene?.preview ?? null);
   const groups = $derived(scene?.groups ?? []);
   const stockOutline = $derived(ui.nestPreview ? ui.nestStock?.outline ?? scene?.stock_outline ?? [] : scene?.stock_outline ?? []);
@@ -54,7 +55,7 @@
   };
   let fitted = '';
   $effect(() => {
-    const key = `${draft?.part ?? ''}/${draft?.job ?? ''}/${frame.bed ? 'bed' : ''}`;
+    const key = `${draft?.generation ?? ''}/${draft?.job ?? ''}/${frame.bed ? 'bed' : ''}`;
     if (key !== fitted) { fitted = key; untrack(fit); }
   });
   $effect(() => () => { ui.picking = null; });
@@ -117,7 +118,7 @@
   });
   // Another part or job starts unselected; the selection survives every
   // other document update.
-  const opened = $derived(`${draft?.generation ?? ''}/${draft?.part ?? ''}/${draft?.job ?? ''}`);
+  const opened = $derived(`${draft?.generation ?? ''}/${draft?.job ?? ''}`);
   $effect(() => { void opened; untrack(() => { selected = []; local = null; }); });
   let known = '';
   $effect.pre(() => {
@@ -135,18 +136,25 @@
   export function selectAll(): void {
     if (!updating && !pasting && !ui.picking) selected = groups.map((_, g) => g);
   }
+  /** Selects every shape drawn from the part whose contours are `first`
+   *  to `first + count` in the job's drawing. */
+  export function selectPart(first: number, count: number): void {
+    if (updating || pasting || ui.picking || !draft) return;
+    const mine = (i: number) => { const source = draft.placed[i]?.source ?? -1; return source >= first && source < first + count; };
+    selected = groups.flatMap((members, g) => (members.some(mine) ? [g] : []));
+  }
   function copy(): void {
     if (pasting || selectionLocked || !draft || !selected.length || !selection) return;
     const indices = contoursOf(selected);
     const contours = indices.flatMap((i) => { const p = draft.placed[i]; return p ? [{ source: p.source, transform: [...p.transform] as Transform }] : []; });
     const relative = new Map(indices.map((i, n) => [i, n]));
     const grouping = selected.map(g => (groups[g] ?? []).flatMap(i => relative.has(i) ? [relative.get(i)!] : []));
-    clipboard = { part: draft.part, contours, leads: copiedLeadOverrides(draft.features.leads, indices), grouping, width: selection.maxX - selection.minX, height: selection.maxY - selection.minY, offset: [0, 0] };
+    clipboard = { parts: draft.parts.map((p) => p.id), contours, leads: copiedLeadOverrides(draft.features.leads, indices), grouping, width: selection.maxX - selection.minX, height: selection.maxY - selection.minY, offset: [0, 0] };
     ui.setupPanel = 'clipboard';
   }
   export async function paste(count = 1): Promise<void> {
     if (pasting || updating || !clipboard || ui.picking || ui.nestPreview || ui.nestPicking || !draft) return;
-    if (clipboard.part !== draft.part) { ui.say('The copied shapes belong to another part. Copy shapes from this drawing before pasting.', true); return; }
+    if (!pasteable(clipboard, draft)) { ui.say('The copied shapes belong to another job. Copy shapes from this drawing before pasting.', true); return; }
     pasting = true;
     try {
       const copied = clipboard;
@@ -579,10 +587,10 @@
           <button class="btn btn-primary" disabled={updating || pickBusy || !!ui.picking.first} onclick={finishPicks}>Finish</button>
         </div>
       {/if}
-      {#if layersOpen && part && draft}
+      {#if layersOpen && layers.length && draft}
         <div class="layers-pop">
           <div class="lp-head"><h3>Layers</h3><button class="link" onclick={() => (layersOpen = false)}>Close</button></div>
-          {#each part.layers as layer (layer.name)}
+          {#each layers as layer (layer.name)}
             {@const skipped = draft.features.skip_layers.includes(layer.name)}
             <div class="lrow" class:hidden-layer={hidden(layer.name)}>
               <button class="eye" class:off={hidden(layer.name)} title="Show or hide" onclick={() => hide(layer.name, !hidden(layer.name))}><span class="sw" style="background:{skipped ? 'var(--ink-3)' : 'var(--ink)'}"></span></button>
@@ -609,7 +617,7 @@
     <button class="rail-btn" title="Show the bed" onclick={fit}><i class="ic ic-fit"></i><small>Fit</small></button>
     <button class="rail-btn" title="Zoom in" onclick={() => view.zoom(1.25)}><i class="ic ic-plus"></i><small>Zoom in</small></button>
     <button class="rail-btn" title="Zoom out" onclick={() => view.zoom(0.8)}><i class="ic ic-minus"></i><small>Zoom out</small></button>
-    <button class="rail-btn" class:on={layersOpen} title="Layers" onclick={() => (layersOpen = !layersOpen)} disabled={!part}><i class="ic ic-layers"></i><small>Layers</small></button>
+    <button class="rail-btn" class:on={layersOpen} title="Layers" onclick={() => (layersOpen = !layersOpen)} disabled={!layers.length}><i class="ic ic-layers"></i><small>Layers</small></button>
     <button class="rail-btn" class:on={ui.snap} onclick={() => ui.toggleSnap()}><strong>{ui.snap ? 'On' : 'Off'}</strong><small>Snap</small></button>
     <button class="rail-btn" onclick={gridSize}><strong>{quantity(ui.grid, 'mm')}</strong><small>Grid</small></button>
     <button class="rail-btn" title="Group the selected shapes" disabled={selectionLocked || selected.length < 2} onclick={() => groupSelection(true)}><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="2" stroke-dasharray="3 2"/><rect x="5" y="5" width="7" height="7"/><rect x="12" y="12" width="7" height="7"/></svg><small>Group</small></button>
@@ -625,7 +633,7 @@
     <button class="rail-btn" disabled={updating || !selection || !!ui.picking || !!ui.nestPreview || ui.nestPicking} onclick={() => resize('scale')}><strong>%</strong><small>Scale</small></button>
     <button class="rail-btn" disabled={updating || !selection || !!ui.picking || !!ui.nestPreview || ui.nestPicking} title="Put the selection back where the drawing has it" onclick={() => act('reset')}><i class="ic ic-reset"></i><small>Reset</small></button>
     <button class="rail-btn" class:on={ui.setupPanel === 'clipboard'} disabled={pasting || selectionLocked} title="Copy the selection" onclick={copy}><i class="ic ic-copy"></i><small>Copy</small></button>
-    <button class="rail-btn" title="Paste one copy" onclick={() => paste()} disabled={pasting || updating || !clipboard || clipboard.part !== draft?.part || !!ui.picking || !!ui.nestPreview || ui.nestPicking}><i class="ic ic-paste"></i><small>Paste</small></button>
+    <button class="rail-btn" title="Paste one copy" onclick={() => paste()} disabled={pasting || updating || !pasteable(clipboard, draft) || !!ui.picking || !!ui.nestPreview || ui.nestPicking}><i class="ic ic-paste"></i><small>Paste</small></button>
     <button class="rail-btn" disabled={updating || !selection || !!ui.picking || !!ui.nestPreview || ui.nestPicking} title="Take the selection off the sheet" onclick={remove}><i class="ic ic-trash"></i><small>Delete</small></button>
     <button class="rail-btn" disabled={!selection || !!ui.picking || !!ui.nestPreview || ui.nestPicking} title="Clear the selection" onclick={() => (selected = [])}><i class="ic ic-x"></i><small>Deselect</small></button>
   </div>

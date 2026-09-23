@@ -16,10 +16,20 @@ use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
+/// A retained draft on disk. Version 2 holds several parts; a draft of one
+/// part stays version 1, which earlier builds read.
 #[derive(Serialize, Deserialize)]
 struct Stored<T = Draft> {
     version: u32,
     draft: T,
+}
+
+/// The newest retained draft version this build reads.
+const NEWEST: u32 = 2;
+
+/// The oldest retained draft version that holds a draft of `parts` parts.
+pub(crate) const fn version(parts: usize) -> u32 {
+    if parts > 1 { 2 } else { 1 }
 }
 
 /// One retained draft in the pending-edits review.
@@ -28,10 +38,10 @@ struct Stored<T = Draft> {
 pub struct PendingDraft {
     /// Retained draft identity, independent of the active page.
     pub key: String,
-    /// Name of the saved job or source part.
+    /// Name of the saved job or of its parts.
     pub name: String,
-    /// Source part.
-    pub part: Id,
+    /// The parts it cuts.
+    pub parts: Vec<Id>,
     /// Saved job, if there is one.
     pub job: Option<Id>,
     /// Whether it has a material and can be saved as a job.
@@ -85,10 +95,10 @@ fn read<T: serde::de::DeserializeOwned>(path: &Path) -> Result<Option<T>> {
 pub fn key(draft: &Draft) -> String {
     draft.job.as_ref().map_or_else(
         || {
-            draft
-                .workspace_id
-                .as_ref()
-                .map_or_else(|| format!("part-{}", draft.part), |id| format!("draft-{id}"))
+            draft.workspace_id.as_ref().map_or_else(
+                || format!("part-{}", draft.parts.first().map_or("", Id::as_str)),
+                |id| format!("draft-{id}"),
+            )
         },
         |id| format!("job-{id}"),
     )
@@ -124,6 +134,7 @@ impl Coordinator {
         if let Some(draft) = &mut self.draft {
             draft.adopt(&saved);
         }
+        self.attach_draft()?;
         if prepared_changed {
             self.reprepare();
         } else {
@@ -133,7 +144,7 @@ impl Coordinator {
             self.draft_store.remove(&old_key);
         }
         self.library_changed();
-        Ok(JobView::new(&saved, self.library.part(&saved.part)?))
+        Ok(JobView::new(&saved, &self.library.job_drawing(&saved.parts)?))
     }
 
     /// Opens a retained working copy, including one whose saved job was deleted.
@@ -191,7 +202,9 @@ impl Coordinator {
                 let Some(stored) = read::<Stored>(&path(&self.config.data_dir, key)?)? else {
                     return Ok(None);
                 };
-                if stored.version != 1 || key != self::key(&stored.draft) {
+                if !(version(stored.draft.parts.len())..=NEWEST).contains(&stored.version)
+                    || key != self::key(&stored.draft)
+                {
                     return Err(Error::Refused(
                         "invalid retained draft version or identity".into(),
                     ));
@@ -199,9 +212,9 @@ impl Coordinator {
                 stored.draft
             }
         };
-        let count = self.library.part(&draft.part)?.drawing.contours.len();
-        draft.source_count = count;
-        draft.validate_saved(count)?;
+        draft.complete_history();
+        draft.validate_saved(|parts| self.library.job_drawing(parts).ok().map(|d| d.contours()))?;
+        self.attach(&mut draft)?;
         crate::placement::fresh(&mut draft);
         Ok(Some(draft))
     }
@@ -245,7 +258,7 @@ impl Coordinator {
                         pending.push(PendingDraft {
                             key: key.to_owned(),
                             name: key.to_owned(),
-                            part: Id::from(""),
+                            parts: Vec::new(),
                             job: None,
                             can_save: false,
                             problem: Some(error.to_string()),
@@ -257,11 +270,8 @@ impl Coordinator {
             if let Some(draft) = draft.filter(Draft::dirty) {
                 pending.push(PendingDraft {
                     key: key.to_owned(),
-                    name: draft.saved_base.as_ref().map_or_else(
-                        || self.library.part(&draft.part).map(|p| p.name.clone()),
-                        |j| Ok(j.name.clone()),
-                    )?,
-                    part: draft.part,
+                    name: self.draft_name(&draft),
+                    parts: draft.parts,
                     job: draft.job,
                     can_save: draft.recipe.is_some(),
                     problem: None,
@@ -290,7 +300,12 @@ impl Coordinator {
             });
         };
         let local = draft.job_value(name.unwrap_or(&base.name))?;
-        let (job, conflicts) = merge_jobs(base, &local, saved, &BTreeMap::new())?;
+        let (job, mut conflicts) = merge_jobs(base, &local, saved, &BTreeMap::new())?;
+        for conflict in conflicts.iter_mut().filter(|c| c.path == "/part") {
+            for text in [&mut conflict.base, &mut conflict.draft, &mut conflict.saved] {
+                *text = self.part_names(text);
+            }
+        }
         Ok(MergeReview {
             token: openlaser_library::sha256(&encode(&(base, local, saved))?),
             name: job.name,
@@ -320,11 +335,35 @@ impl Coordinator {
             return Err(Error::Refused("choose a value for every conflict".into()));
         }
         let draft = self.draft.as_mut().ok_or_else(|| Error::Refused("open a job first".into()))?;
+        let before = draft.clone();
         draft.remember();
         draft.adopt(&job);
         draft.saved_base = Some(saved);
+        if let Err(error) = self.attach_draft() {
+            self.draft = Some(before);
+            return Err(error);
+        }
         self.reprepare();
         Ok(job.name)
+    }
+}
+
+impl Coordinator {
+    /// The names of the parts in a stored parts value, for review.
+    fn part_names(&self, stored: &str) -> String {
+        #[derive(Deserialize)]
+        struct Parts(#[serde(with = "openlaser_library::stored_parts")] Vec<Id>);
+        serde_json::from_str::<Parts>(stored).map_or_else(
+            |_| stored.to_owned(),
+            |Parts(ids)| {
+                ids.iter()
+                    .map(|id| {
+                        self.library.part(id).map_or_else(|_| id.to_string(), |p| p.name.clone())
+                    })
+                    .collect::<Vec<_>>()
+                    .join(" + ")
+            },
+        )
     }
 }
 
@@ -371,8 +410,8 @@ async fn discard_owned(shared: &Shared, key: &str) -> Result<()> {
         c.draft_changed();
         if let Some(id) = draft.job.filter(|id| c.library.job(id).is_ok()) {
             c.open_job(&id)?;
-        } else if c.library.part(&draft.part).is_ok() {
-            c.open_part(&draft.part)?;
+        } else if draft.parts.iter().all(|id| c.library.part(id).is_ok()) {
+            c.open_parts(&draft.parts)?;
         }
     }
     drop(c);
@@ -405,7 +444,7 @@ impl Draft {
             id: Id::from(""),
             name: name.to_owned(),
             folder: None,
-            part: self.part.clone(),
+            parts: self.parts.clone(),
             recipe: recipe.clone(),
             film: None,
             features: self.features.clone(),
@@ -417,6 +456,7 @@ impl Draft {
             updated: 0,
         });
         name.clone_into(&mut job.name);
+        job.parts.clone_from(&self.parts);
         job.recipe = recipe;
         job.film.clone_from(&self.film);
         job.features.clone_from(&self.features);
@@ -433,9 +473,11 @@ impl Draft {
     }
 
     /// Adopts saved authoring values while retaining local undo history.
+    /// When the parts change, the drawing must be attached again.
     pub(crate) fn adopt(&mut self, job: &Job) {
         let retained_capture = crate::placement::is_head(self)
             && matches!(job.placement, Some(openlaser_library::placement::Placement::Head {}));
+        self.parts.clone_from(&job.parts);
         self.job = Some(job.id.clone());
         self.saved_base = Some(job.clone());
         self.recipe = Some(job.recipe.clone());
@@ -456,7 +498,14 @@ impl Draft {
     }
 }
 
+/// The values that name contours of the job's drawing by their index.
+/// Jobs cutting different parts number those contours differently, so the
+/// values only merge one by one between jobs cutting the same parts.
+const LAYOUT: [&str; 3] = ["part", "placed", "nesting"];
+
 /// Merges independent saved and local edits; arrays are one coherent value.
+/// When the two sides cut different parts, their parts and layout come
+/// together from the side that changed them, or from one choice at `/part`.
 pub(crate) fn merge_jobs(
     base: &Job,
     local: &Job,
@@ -464,16 +513,43 @@ pub(crate) fn merge_jobs(
     choices: &BTreeMap<String, bool>,
 ) -> Result<(Job, Vec<EditConflict>)> {
     let value = |j: &Job| serde_json::to_value(j).map_err(|e| Error::Refused(e.to_string()));
+    let (mut base, mut local, mut saved) = (value(base)?, value(local)?, value(saved)?);
     let mut conflicts = Vec::new();
-    let merged = merge(
-        Some(&value(base)?),
-        Some(&value(local)?),
-        Some(&value(saved)?),
-        "",
-        choices,
-        &mut conflicts,
-    )
-    .unwrap_or(Value::Null);
+    let layout = (local.get("part") != saved.get("part")).then(|| {
+        let take = |job: &mut Value| -> serde_json::Map<String, Value> {
+            let fields = job.as_object_mut();
+            fields.map_or_else(serde_json::Map::new, |fields| {
+                LAYOUT
+                    .iter()
+                    .filter_map(|&key| Some((key.to_owned(), fields.remove(key)?)))
+                    .collect()
+            })
+        };
+        let (base, local, saved) = (take(&mut base), take(&mut local), take(&mut saved));
+        if saved == base {
+            local
+        } else if local == base {
+            saved
+        } else if let Some(&keep_local) = choices.get("/part") {
+            if keep_local { local } else { saved }
+        } else {
+            let display = |layout: &serde_json::Map<String, Value>| {
+                layout.get("part").map_or_else(|| "removed".into(), Value::to_string)
+            };
+            conflicts.push(EditConflict {
+                path: "/part".into(),
+                base: display(&base),
+                draft: display(&local),
+                saved: display(&saved),
+            });
+            local
+        }
+    });
+    let mut merged = merge(Some(&base), Some(&local), Some(&saved), "", choices, &mut conflicts)
+        .unwrap_or(Value::Null);
+    if let (Some(layout), Value::Object(fields)) = (layout, &mut merged) {
+        fields.extend(layout);
+    }
     Ok((serde_json::from_value(merged).map_err(|e| Error::Refused(e.to_string()))?, conflicts))
 }
 
@@ -521,10 +597,12 @@ fn merge(
 fn save_library_job(library: &mut Library, draft: &Draft, name: &str) -> Result<Job> {
     let mut job = draft.job_value(name)?;
     if draft.saved_base.is_none() {
-        let part = library.part(&draft.part)?;
-        job.tags.clone_from(&part.tags);
-        job.notes.clone_from(&part.notes);
-        job.quantity = part.quantity;
+        let parts = draft
+            .parts
+            .iter()
+            .map(|id| library.part(id))
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        describe(&mut job, &parts);
     }
     Ok(match draft.saved_base.as_ref().filter(|base| library.job(&base.id).is_ok()) {
         Some(base) => {
@@ -546,8 +624,37 @@ fn save_library_job(library: &mut Library, draft: &Draft, name: &str) -> Result<
     })
 }
 
+/// A new job's tags, notes and quantity: its part's, or for several parts,
+/// every part's tags and each part's notes under its name, for one set.
+fn describe(job: &mut Job, parts: &[&openlaser_library::Part]) {
+    if let [part] = parts {
+        job.tags.clone_from(&part.tags);
+        job.notes.clone_from(&part.notes);
+        job.quantity = part.quantity;
+        return;
+    }
+    job.tags.clear();
+    for tag in parts.iter().flat_map(|part| &part.tags) {
+        if job.tags.len() < 40 && !job.tags.contains(tag) {
+            job.tags.push(tag.clone());
+        }
+    }
+    job.notes = parts
+        .iter()
+        .filter(|part| !part.notes.trim().is_empty())
+        .map(|part| format!("{}: {}", part.name, part.notes.trim()))
+        .collect::<Vec<_>>()
+        .join("\n\n");
+    if job.notes.len() > 10_000 {
+        let end = (0..=10_000).rev().find(|&i| job.notes.is_char_boundary(i)).unwrap_or(0);
+        job.notes.truncate(end);
+    }
+    job.quantity = 1;
+}
+
 fn preparation_changed(draft: &Draft, saved: &Job) -> bool {
-    draft.correction != saved.correction
+    draft.parts != saved.parts
+        || draft.correction != saved.correction
         || draft.calibration != saved.calibration
         || draft.nesting != saved.nesting
         || draft.recipe.as_ref() != Some(&saved.recipe)

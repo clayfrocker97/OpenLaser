@@ -29,6 +29,7 @@ export type { CutOrder } from './bindings/CutOrder';
 export type { Degrees } from './bindings/Degrees';
 export type { Direction } from './bindings/Direction';
 export type { Document } from './bindings/Document';
+export type { DraftPart } from './bindings/DraftPart';
 export type { DraftView } from './bindings/DraftView';
 export type { Edit } from './bindings/Edit';
 export type { EditConflict } from './bindings/EditConflict';

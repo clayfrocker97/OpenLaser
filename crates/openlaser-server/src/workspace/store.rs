@@ -180,7 +180,7 @@ fn write(
         if let Some(draft) = &entry.draft {
             openlaser_library::atomic_write(
                 &path(root, key)?,
-                &encode(&Stored { version: 1, draft })?,
+                &encode(&Stored { version: super::version(draft.parts()), draft })?,
             )?;
         }
     }
@@ -291,12 +291,9 @@ mod tests {
             std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
         ));
         let store = Store::new(&root);
-        let first = Arc::new(
-            crate::draft::Draft::new(openlaser_library::Id::from("a"), 1).authoring_state(),
-        );
-        let second = Arc::new(
-            crate::draft::Draft::new(openlaser_library::Id::from("b"), 1).authoring_state(),
-        );
+        let empty = || openlaser_core::geometry::Drawing { contours: Vec::new() };
+        let first = Arc::new(crate::draft::Draft::of(empty()).authoring_state());
+        let second = Arc::new(crate::draft::Draft::of(empty()).authoring_state());
         store.save("part-a", first.clone());
         store.flush().await.unwrap();
         let blocked = path(&root, "part-a").unwrap();

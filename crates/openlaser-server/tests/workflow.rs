@@ -462,7 +462,7 @@ async fn one_run_owns_admission_and_stop_bypasses_the_document_lock() {
     assert_eq!(usize::from(first.is_ok()) + usize::from(second.is_ok()), 1);
     let mut c = shared.lock().await;
     let execution = c.document().execution.unwrap();
-    let part = c.document().draft.unwrap().part.clone();
+    let part = c.document().draft.unwrap().parts[0].id.clone();
     c.open_part(&part).unwrap();
     assert!(std::sync::Arc::ptr_eq(&execution, c.document().execution.as_ref().unwrap()));
     tokio::time::timeout(Duration::from_secs(2), machine::stop(&shared)).await.unwrap().unwrap();

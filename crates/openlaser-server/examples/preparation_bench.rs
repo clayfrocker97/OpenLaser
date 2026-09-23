@@ -37,7 +37,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             black_box(draft::prepare(&drawing, &Placed::all(drawing.contours.len()), &features)?);
         let prepared_ms = started.elapsed().as_secs_f64() * 1000.;
 
-        let mut draft = Draft::new("benchmark".into(), drawing.contours.len());
+        let part = (openlaser_library::Id::from("benchmark"), std::sync::Arc::new(drawing.clone()));
+        let sources = openlaser_library::JobDrawing::new(vec![part]);
+        let mut draft = Draft::new(std::sync::Arc::new(sources));
         draft.features = features.clone();
         let started = Instant::now();
         draft.prepare(black_box(&drawing));

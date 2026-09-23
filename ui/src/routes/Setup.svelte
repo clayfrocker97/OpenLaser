@@ -11,7 +11,7 @@
   import { server } from '../stores/server.svelte';
   import { ui, type FeatureId } from '../stores/ui.svelte';
   import { explain } from '../lib/format';
-  import type { CopiedShapes, PasteSettings } from '../lib/copy-paste';
+  import { pasteable, type CopiedShapes, type PasteSettings } from '../lib/copy-paste';
   import { TOOLS, isOn, stateOf, toggled } from '../lib/features';
   import { flip } from 'svelte/animate';
 
@@ -33,7 +33,7 @@
   let menu = $state(false);
   let selectedContours = $state<number[]>([]);
   let orderProgress = $state(0);
-  let canvas = $state<{ paste: (count?: number) => Promise<void>; selectAll: () => void }>();
+  let canvas = $state<{ paste: (count?: number) => Promise<void>; selectAll: () => void; selectPart: (first: number, count: number) => void }>();
   let clipboard = $state<CopiedShapes | null>(null);
   let pasting = $state(false);
   let pasteSettings = $state<PasteSettings>({ count: 1, gap: 10, direction: 'right' });
@@ -173,13 +173,13 @@
   {:else if ui.setupPanel === 'copy'}
     <CopyPanel />
   {:else if ui.setupPanel === 'clipboard'}
-    <ClipboardPanel {clipboard} bind:settings={pasteSettings} {pasting} disabled={draft.error === 'preparing geometry' || clipboard?.part !== draft.part || !!ui.picking || !!ui.nestPreview || ui.nestPicking} onpaste={() => { void canvas?.paste(pasteSettings.count); }} />
+    <ClipboardPanel {clipboard} bind:settings={pasteSettings} {pasting} disabled={draft.error === 'preparing geometry' || !pasteable(clipboard, draft) || !!ui.picking || !!ui.nestPreview || ui.nestPicking} onpaste={() => { void canvas?.paste(pasteSettings.count); }} />
   {:else if ui.setupPanel === 'nest'}
     <NestPanel {selectedContours} onselectall={() => canvas?.selectAll()} />
   {:else if ui.setupPanel}
     <FeaturePanel id={ui.setupPanel} {selectedContours} {compact} bind:orderProgress ontoggle={() => toggle(ui.setupPanel!)} />
   {:else}
-    <JobPanel />
+    <JobPanel onselectpart={(first, count) => canvas?.selectPart(first, count)} />
   {/if}
 </aside>
 

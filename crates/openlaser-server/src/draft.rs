@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! The job being set up: the part's contours placed on the sheet, copies
-//! and all, each where the operator put it; prepared into a toolpath, and
-//! compiled into a job the run page binds to the bed. Every edit to the
-//! placement or the features can be undone. The recipe's contour shift
-//! moves the prepared geometry once, at compile time, and the film pass
-//! traces each contour's bare geometry under the film recipe.
+//! The job being set up: the contours of its parts' joined drawing placed
+//! on the sheet, copies and all, each where the operator put it; prepared
+//! into a toolpath, and compiled into a job the run page binds to the bed.
+//! Every edit to the placement, the parts or the features can be undone.
+//! The recipe's contour shift moves the prepared geometry once, at compile
+//! time, and the film pass traces each contour's bare geometry under the
+//! film recipe.
 
 use crate::Result;
 use crate::document::{
@@ -15,11 +16,13 @@ use openlaser_compiler::cut;
 use openlaser_compiler::pass::PassKind;
 use openlaser_compiler::program::{Binding, Film, Job, Kind, Program};
 use openlaser_compiler::settings::{Settings, Timeouts};
+use openlaser_core::features::OrderStrategy;
 use openlaser_core::features::{Features, LeadOverride};
 use openlaser_core::geometry::{Bounds, Contour, Curve, Drawing, Placed, Point, Transform};
 use openlaser_core::grouping::Grouping;
+use openlaser_core::nesting::{NestStock, Nesting};
 use openlaser_core::toolpath::{LeadRole, PreparedSegment, SegmentProcess, Toolpath};
-use openlaser_library::{Anchor, Id, Recipe};
+use openlaser_library::{Anchor, Id, JobDrawing, Recipe};
 use openlaser_protocol::records;
 use openlaser_xml::Bundle;
 use openlaser_xml::recipe::Request;
@@ -78,8 +81,13 @@ pub struct Draft {
     pub saved_base: Option<openlaser_library::Job>,
     /// Operator checklist policy, saved with the job.
     pub preflight: openlaser_library::preflight::JobPreflight,
-    /// The part.
-    pub part: Id,
+    /// The parts it cuts, whose drawings join in this order into its
+    /// drawing; stored as a saved job stores them.
+    #[serde(rename = "part", with = "openlaser_library::stored_parts")]
+    pub parts: Vec<Id>,
+    /// The joined drawing of `parts`, attached whenever they change.
+    #[serde(skip)]
+    sources: Option<Arc<JobDrawing>>,
     /// The saved job it was opened from, if any.
     pub job: Option<Id>,
     /// The recipe, once chosen.
@@ -125,9 +133,14 @@ pub struct Draft {
     pub preparing: bool,
 }
 
-/// The placement and the features at one point of the editing history.
+/// The parts, the placement and the features at one point of the editing
+/// history.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 struct Snapshot {
+    /// Absent from history kept before a job could cut several parts, when
+    /// every step had the draft's one part.
+    #[serde(default, rename = "part", with = "openlaser_library::stored_parts")]
+    parts: Vec<Id>,
     #[serde(default)]
     placement: Option<openlaser_library::placement::Placement>,
     #[serde(default)]
@@ -157,7 +170,6 @@ pub(crate) struct AuthoringState {
     dry_run: bool,
     calibration: bool,
     source_count: usize,
-    part: Id,
     job: Option<Id>,
     saved_base: Option<openlaser_library::Job>,
     #[serde(flatten)]
@@ -167,8 +179,9 @@ pub(crate) struct AuthoringState {
 }
 
 impl AuthoringState {
+    /// The draft again, without its drawing: the coordinator attaches that.
     pub(crate) fn draft(&self) -> Draft {
-        let mut draft = Draft::new(self.part.clone(), self.source_count);
+        let mut draft = Draft::blank(self.current.parts.clone(), self.source_count);
         draft.workspace_id.clone_from(&self.workspace_id);
         draft.dry_run = self.dry_run;
         draft.load_snapshot(self.current.clone());
@@ -180,6 +193,11 @@ impl AuthoringState {
         draft
     }
 
+    /// How many parts the draft cuts.
+    pub(crate) fn parts(&self) -> usize {
+        self.current.parts.len()
+    }
+
     pub(crate) fn matches(&self, draft: &Draft) -> bool {
         let same_history = |a: &[Arc<Snapshot>], b: &[Arc<Snapshot>]| {
             a.len() == b.len() && a.iter().zip(b).all(|(a, b)| Arc::ptr_eq(a, b))
@@ -188,7 +206,6 @@ impl AuthoringState {
             && self.dry_run == draft.dry_run
             && self.calibration == draft.calibration
             && self.source_count == draft.source_count
-            && self.part == draft.part
             && self.job == draft.job
             && self.saved_base == draft.saved_base
             && same_history(&self.past, &draft.past)
@@ -267,7 +284,6 @@ impl Draft {
             dry_run: self.dry_run,
             calibration: self.calibration,
             source_count: self.source_count,
-            part: self.part.clone(),
             job: self.job.clone(),
             saved_base: self.saved_base.clone(),
             current: self.snapshot(),
@@ -276,10 +292,24 @@ impl Draft {
         }
     }
 
-    /// A draft of `part`, a drawing of `contours` contours, with nothing
-    /// chosen and the drawing as drawn.
+    /// A draft cutting the parts of `sources`, with nothing chosen and
+    /// every part as drawn: each its own copy, so parts never group together.
     #[must_use]
-    pub fn new(part: Id, contours: usize) -> Self {
+    pub fn new(sources: Arc<JobDrawing>) -> Self {
+        let mut draft = Self::blank(sources.parts().cloned().collect(), sources.contours());
+        draft.placed = (0..sources.parts().len())
+            .flat_map(|part| {
+                let copy = u32::try_from(part).unwrap_or(u32::MAX);
+                sources.range(part).map(move |source| Placed { copy, ..Placed::drawn(source) })
+            })
+            .collect();
+        draft.sources = Some(sources);
+        draft
+    }
+
+    /// A draft of `parts` without a drawing attached, the drawing of
+    /// `contours` contours as drawn.
+    fn blank(parts: Vec<Id>, contours: usize) -> Self {
         Self {
             workspace_id: Some(Id::generate()),
             dry_run: false,
@@ -295,7 +325,8 @@ impl Draft {
             source_count: contours,
             saved_base: None,
             preflight: openlaser_library::preflight::JobPreflight::default(),
-            part,
+            parts,
+            sources: None,
             job: None,
             recipe: None,
             film: None,
@@ -316,7 +347,7 @@ impl Draft {
         }
     }
 
-    /// Places and prepares the part; a compiled job no longer applies.
+    /// Places and prepares the job's contours; a compiled job no longer applies.
     pub fn prepare(&mut self, drawing: &Drawing) {
         self.preparing = false;
         self.compiled = None;
@@ -371,7 +402,7 @@ impl Draft {
 
     // Placement --------------------------------------------------------------
 
-    /// The anchor point in drawing coordinates, once the part is prepared.
+    /// The anchor point in drawing coordinates, once the layout is prepared.
     #[must_use]
     pub fn dock(&self) -> Option<[f64; 2]> {
         let bounds = crate::placement::reference_bounds(self)?;
@@ -441,6 +472,7 @@ impl Draft {
 
     fn snapshot(&self) -> Snapshot {
         Snapshot {
+            parts: self.parts.clone(),
             placement: self.placement.clone(),
             sheets: self.sheets.clone(),
             correction: self.correction.clone(),
@@ -472,7 +504,10 @@ impl Draft {
         Ok(())
     }
 
+    /// Loads a step of the history. When its parts differ, the drawing
+    /// must be attached again before the geometry is used.
     fn load_snapshot(&mut self, snapshot: Snapshot) {
+        self.parts = snapshot.parts;
         self.placement = snapshot.placement;
         self.sheets = snapshot.sheets;
         self.correction = snapshot.correction;
@@ -493,6 +528,7 @@ impl Draft {
     pub fn dirty(&self) -> bool {
         self.saved_base.as_ref().map_or(self.recipe.is_some() || !self.past.is_empty(), |base| {
             self.sheets.is_some()
+                || self.parts != base.parts
                 || self.correction != base.correction
                 || self.calibration != base.calibration
                 || self.nesting != base.nesting
@@ -513,7 +549,9 @@ impl Draft {
     }
 
     /// Checks persisted authoring state before it is made editable again.
-    pub fn validate_saved(&self, count: usize) -> Result<()> {
+    /// `contours` counts the drawing of a list of parts; history steps whose
+    /// parts are gone are checked if an undo ever returns to them.
+    pub fn validate_saved(&self, contours: impl Fn(&[Id]) -> Option<usize>) -> Result<()> {
         for placement in std::iter::once(&self.placement)
             .chain(self.past.iter().map(|s| &s.placement))
             .chain(self.future.iter().map(|s| &s.placement))
@@ -521,38 +559,137 @@ impl Draft {
         {
             placement.validate().map_err(crate::Error::Refused)?;
         }
-        for sheets in std::iter::once(&self.sheets)
-            .chain(self.past.iter().map(|s| &s.sheets))
-            .chain(self.future.iter().map(|s| &s.sheets))
-            .flatten()
-        {
-            sheets.validate(count)?;
-        }
         if let Some(profile) = &self.correction {
             profile.validate().map_err(|e| crate::Error::Refused(e.to_string()))?;
         }
         if self.calibration && self.correction.is_some() {
             return Err(crate::Error::Refused("calibration jobs cannot have correction".into()));
         }
-        for nesting in std::iter::once(&self.nesting)
-            .chain(self.past.iter().map(|s| &s.nesting))
-            .chain(self.future.iter().map(|s| &s.nesting))
-            .flatten()
-        {
-            nesting.validate(count).map_err(crate::Error::Refused)?;
-        }
-        for (placed, grouping) in std::iter::once((&self.placed, &self.grouping))
-            .chain(self.past.iter().map(|s| (&s.placed, &s.grouping)))
-            .chain(self.future.iter().map(|s| (&s.placed, &s.grouping)))
-        {
-            grouping.validate(placed.len()).map_err(crate::Error::Refused)?;
-            Placed::validate_all(placed, count).map_err(crate::Error::Refused)?;
+        let count = contours(&self.parts)
+            .ok_or_else(|| crate::Error::Refused("a part of this job is missing".into()))?;
+        self.check_layout(count)?;
+        for step in self.past.iter().chain(&self.future) {
+            if let Some(count) = contours(&step.parts) {
+                check_layout(
+                    &step.placed,
+                    &step.grouping,
+                    step.nesting.as_ref(),
+                    step.sheets.as_ref(),
+                    count,
+                )?;
+            }
         }
         if self.past.len() > HISTORY || self.future.len() > HISTORY {
             return Err(crate::Error::Refused("stored draft history exceeds its limit".into()));
         }
         self.preflight.validate()?;
         Ok(())
+    }
+
+    /// Checks the current layout against a drawing of `count` contours.
+    fn check_layout(&self, count: usize) -> Result<()> {
+        check_layout(
+            &self.placed,
+            &self.grouping,
+            self.nesting.as_ref(),
+            self.sheets.as_ref(),
+            count,
+        )
+    }
+
+    /// History kept before a job could cut several parts names no parts:
+    /// every step had the draft's one part.
+    pub(crate) fn complete_history(&mut self) {
+        for step in self.past.iter_mut().chain(&mut self.future) {
+            if step.parts.is_empty() {
+                Arc::make_mut(step).parts.clone_from(&self.parts);
+            }
+        }
+    }
+
+    // Parts ------------------------------------------------------------------
+
+    /// The joined drawing of the parts, when it is attached.
+    #[must_use]
+    pub fn sources(&self) -> Option<&Arc<JobDrawing>> {
+        self.sources.as_ref().filter(|sources| sources.is_of(&self.parts))
+    }
+
+    /// The job's drawing: its parts' drawings joined in order.
+    pub fn drawing(&self) -> Result<&Arc<Drawing>> {
+        self.sources().map(|sources| sources.drawing()).ok_or_else(|| {
+            crate::Error::Refused("this job's drawing is not loaded; open the job again".into())
+        })
+    }
+
+    /// Attaches the drawing of the draft's parts, once the layout is known
+    /// to fit it.
+    pub(crate) fn attach(&mut self, sources: Arc<JobDrawing>) -> Result<()> {
+        if !sources.is_of(&self.parts) {
+            return Err(crate::Error::Refused("the drawing is not this job's".into()));
+        }
+        self.check_layout(sources.contours())?;
+        self.source_count = sources.contours();
+        self.sources = Some(sources);
+        Ok(())
+    }
+
+    /// Appends the parts `sources` adds to the draft's, their contours at
+    /// `placed`, as one edit. Everything already placed keeps its index.
+    pub(crate) fn add_parts(
+        &mut self,
+        sources: Arc<JobDrawing>,
+        placed: Vec<Placed>,
+    ) -> Result<()> {
+        let kept = self.parts.len();
+        if sources.parts().len() <= kept || !sources.parts().take(kept).eq(&self.parts) {
+            return Err(crate::Error::Refused("the parts must follow the job's own".into()));
+        }
+        self.remember();
+        let first = self.placed.len();
+        self.parts = sources.parts().cloned().collect();
+        self.source_count = sources.contours();
+        self.sources = Some(sources);
+        self.placed.extend(placed);
+        if let OrderStrategy::Manual(order) = &mut self.features.order.strategy {
+            order.extend(first..self.placed.len());
+        }
+        Ok(())
+    }
+
+    /// Drops the parts nothing refers to any more: no placed contour, no
+    /// stock outline and no other unsaved sheet. The contours of the parts
+    /// after them move down; placed indices, and every feature on them, stay.
+    pub(crate) fn prune_parts(&mut self) {
+        let Some(sources) = self.sources().cloned() else { return };
+        let mut used = vec![false; self.parts.len()];
+        let mut mark = |source: usize| {
+            if let Some(part) = sources.part_of(source) {
+                used[part] = true;
+            }
+        };
+        self.placed.iter().for_each(|p| mark(p.source));
+        outline_source(self.nesting.as_ref()).into_iter().for_each(&mut mark);
+        if let Some(set) = &self.sheets {
+            set.sources().for_each(&mut mark);
+        }
+        if used.iter().all(|&used| used) {
+            return;
+        }
+        let (kept, map) = sources.retain(&used);
+        let moved = |source: &mut usize| {
+            if let Some(next) = map.get(*source).copied().flatten() {
+                *source = next;
+            }
+        };
+        self.placed.iter_mut().for_each(|p| moved(&mut p.source));
+        remap_outline(&mut self.nesting, moved);
+        if let Some(set) = &mut self.sheets {
+            set.remap_sources(moved);
+        }
+        self.parts = kept.parts().cloned().collect();
+        self.source_count = kept.contours();
+        self.sources = Some(Arc::new(kept));
     }
 
     /// Moves, turns or mirrors placed contours by `matrix`, after what they
@@ -694,7 +831,20 @@ impl Draft {
             preflight: self.preflight.clone(),
             generation: 0,
             revision: 0,
-            part: self.part.clone(),
+            name: String::new(),
+            parts: self
+                .parts
+                .iter()
+                .enumerate()
+                .map(|(index, id)| {
+                    let range = self.sources().map_or(0..0, |s| s.range(index));
+                    crate::document::DraftPart {
+                        id: id.clone(),
+                        first: range.start,
+                        contours: range.len(),
+                    }
+                })
+                .collect(),
             job: self.job.clone(),
             recipe: self.recipe.as_ref().map(crate::document::RecipeView::new),
             film: self.film.as_ref().map(crate::document::RecipeView::new),
@@ -716,6 +866,39 @@ impl Draft {
 }
 
 // Placement ------------------------------------------------------------------
+
+/// Checks a layout against a drawing of `count` contours.
+fn check_layout(
+    placed: &[Placed],
+    grouping: &Grouping,
+    nesting: Option<&Nesting>,
+    sheets: Option<&crate::sheets::SheetSet>,
+    count: usize,
+) -> Result<()> {
+    if let Some(sheets) = sheets {
+        sheets.validate(count)?;
+    }
+    if let Some(nesting) = nesting {
+        nesting.validate(count).map_err(crate::Error::Refused)?;
+    }
+    grouping.validate(placed.len()).map_err(crate::Error::Refused)?;
+    Placed::validate_all(placed, count).map_err(crate::Error::Refused)
+}
+
+/// The drawing contour a stock outline was taken from.
+pub(crate) fn outline_source(nesting: Option<&Nesting>) -> Option<usize> {
+    match nesting.map(|n| &n.stock) {
+        Some(NestStock::Outline { contour }) => Some(contour.source),
+        _ => None,
+    }
+}
+
+/// Moves the drawing contour a stock outline was taken from.
+pub(crate) fn remap_outline(nesting: &mut Option<Nesting>, moved: impl Fn(&mut usize)) {
+    if let Some(Nesting { stock: NestStock::Outline { contour }, .. }) = nesting {
+        moved(&mut contour.source);
+    }
+}
 
 /// The sheet: each placed contour of the drawing under its transform.
 #[must_use]
@@ -1172,6 +1355,14 @@ pub fn moves(program: &Program) -> Vec<Move> {
 }
 
 #[cfg(test)]
+impl Draft {
+    /// A draft of one part with `drawing`, as drawn.
+    pub(crate) fn of(drawing: Drawing) -> Self {
+        Self::new(Arc::new(JobDrawing::new(vec![(Id::from("part"), Arc::new(drawing))])))
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use openlaser_core::features::{Bridge, Bridges, Pick, Spot};
@@ -1200,7 +1391,7 @@ mod tests {
 
     #[test]
     fn persistence_tracks_authoring_and_history_without_runtime_geometry() {
-        let mut draft = Draft::new(Id::from("part"), 1);
+        let mut draft = Draft::of(square());
         let saved = draft.authoring_state();
         let bytes = serde_json::to_vec(&draft).unwrap();
         draft.prepare(&square());
@@ -1209,7 +1400,7 @@ mod tests {
 
         // Each identity or authoring edit must cause a new durable write.
         let edits: [fn(&mut Draft); 8] = [
-            |d| d.part = Id::from("other"),
+            |d| d.parts = vec![Id::from("other")],
             |d| d.job = Some(Id::from("job")),
             |d| d.source_count = 2,
             |d| d.zero = Some([1., 2.]),
@@ -1273,7 +1464,7 @@ mod tests {
             ),
             vec![vec![0, 1]]
         );
-        let mut draft = Draft::new(Id::from("part"), 2);
+        let mut draft = Draft::of(drawing.clone());
         draft.placed = placed;
         let picked = pick(&drawing, &draft, [125., 50.5], 2., false).unwrap().unwrap();
         assert_eq!(picked.spot.contour, 1);
@@ -1286,7 +1477,7 @@ mod tests {
     #[test]
     fn copies_removal_undo_and_redo() {
         let drawing = square();
-        let mut draft = Draft::new(Id::from("part"), 1);
+        let mut draft = Draft::of(drawing.clone());
         let added = draft.add(&[(0, Transform::translation(Point::new(20., 0.)))]);
         assert_eq!(added, vec![1]);
         assert_eq!(draft.placed[1].copy, 1);
@@ -1324,7 +1515,7 @@ mod tests {
     #[test]
     fn sequential_bridges_keep_placement_identity() {
         let drawing = square();
-        let mut draft = Draft::new(Id::from("part"), 1);
+        let mut draft = Draft::of(drawing.clone());
         // Unrelated copy first, then three squares in a horizontal row.
         draft.placed = [
             Transform::translation(Point::new(0., 30.)),
@@ -1374,8 +1565,8 @@ mod tests {
     /// unplaced sheet at the bed's front-left once.
     #[test]
     fn pinning_puts_the_anchor_point_at_the_origin() {
-        let mut draft = Draft::new(Id::from("part"), 1);
         let moved = Drawing { contours: vec![square_at([30., 40.])] };
+        let mut draft = Draft::of(moved.clone());
         draft.prepare(&moved);
         assert_eq!(draft.dock(), Some([30., 40.]));
         assert!(draft.zero().is_err(), "not placed yet");
@@ -1393,7 +1584,7 @@ mod tests {
             "a move on the sheet leaves zero alone"
         );
         assert_eq!(draft.origin(), Some([515., 305.]));
-        let mut fresh = Draft::new(Id::from("part"), 1);
+        let mut fresh = Draft::of(moved.clone());
         fresh.prepare(&moved);
         fresh.settle(Some([[0., 1300.], [0., 900.]]));
         assert_eq!(fresh.origin(), None, "head mode waits for a physical capture");
@@ -1409,7 +1600,7 @@ mod tests {
     /// apart; the error says why.
     #[test]
     fn an_unpreparable_sheet_still_shows() {
-        let mut draft = Draft::new(Id::from("part"), 1);
+        let mut draft = Draft::of(square());
         draft.add(&[(0, Transform::translation(Point::new(5., 5.)))]);
         draft.prepare(&square());
         assert!(draft.prepared.is_none());

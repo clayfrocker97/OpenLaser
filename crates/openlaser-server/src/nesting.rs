@@ -172,7 +172,7 @@ impl Coordinator {
     pub fn set_stock(&mut self, choice: StockChoice) -> Result<()> {
         let draft =
             self.draft.as_ref().ok_or_else(|| Error::Refused("open a drawing first".into()))?;
-        let drawing = self.library.part(&draft.part)?.drawing.clone();
+        let drawing = draft.drawing()?.clone();
         let settings = draft.nesting.as_ref().map_or_else(NestSettings::default, |n| n.settings);
         let remove =
             if let StockChoice::Outline { contour } = &choice { Some(*contour) } else { None };
@@ -246,6 +246,8 @@ impl Coordinator {
             draft.remember();
         }
         draft.nesting = nesting;
+        // Clearing an outline stock can leave its part with nothing on the sheet.
+        draft.prune_parts();
         self.reprepare();
         Ok(())
     }
@@ -261,7 +263,7 @@ pub async fn start(shared: &Shared, revision: u64, request: NestRequest) -> Resu
         ));
     }
     let draft = c.draft.clone().ok_or_else(|| Error::Refused("open a drawing first".into()))?;
-    let drawing = c.library.part(&draft.part)?.drawing.clone();
+    let drawing = draft.drawing()?.clone();
     let input = input(&drawing, &draft, &request)?;
     let id = NEXT_TASK.fetch_add(1, Ordering::Relaxed);
     let total = input.items.iter().map(|i| i.quantity).sum();

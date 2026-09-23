@@ -19,6 +19,7 @@
 
 mod hash;
 pub mod history;
+mod job_parts;
 pub mod placement;
 pub mod preflight;
 mod storage;
@@ -26,7 +27,9 @@ mod store;
 mod validation;
 
 pub use hash::sha256;
+pub use job_parts::{JobDrawing, MAX_PARTS, stored_parts};
 pub use storage::atomic_write;
+pub use store::Schema;
 
 use openlaser_core::LaserMode;
 use openlaser_core::features::Features;
@@ -35,9 +38,6 @@ use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
-
-/// The schema version this build writes.
-pub const VERSION: u32 = 1;
 
 const fn one() -> u32 {
     1
@@ -63,12 +63,14 @@ pub enum Error {
         reason: String,
     },
     /// A file was written by a newer build.
-    #[error("{path} is schema version {version}; this build reads up to {VERSION}")]
+    #[error("{path} is schema version {version}; this build reads up to {newest}")]
     Newer {
         /// The file.
         path: String,
         /// Its version.
         version: u32,
+        /// The newest version of its kind this build reads.
+        newest: u32,
     },
     /// No such item.
     #[error("no {kind} {id}")]
@@ -319,7 +321,7 @@ impl Anchor {
     }
 }
 
-/// A frozen job: the part, a snapshot of the recipe, the machining
+/// A frozen job: its parts, a snapshot of the recipe, the machining
 /// features, the drawing's contours on the sheet, and where the sheet
 /// lies on the bed.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -360,8 +362,11 @@ pub struct Job {
     pub name: String,
     /// The folder it sits in, or the root.
     pub folder: Option<Id>,
-    /// The part it cuts.
-    pub part: Id,
+    /// The parts it cuts, whose drawings join in this order into the job's
+    /// drawing ([`JobDrawing`]). Stored under `part`: one part as its id, as
+    /// before a job could cut several, and several as a list.
+    #[serde(rename = "part", with = "stored_parts")]
+    pub parts: Vec<Id>,
     /// The recipe as it was when the job was saved.
     pub recipe: Recipe,
     /// The film process as it was when the job was saved.
@@ -369,8 +374,8 @@ pub struct Job {
     pub film: Option<Recipe>,
     /// The machining features.
     pub features: Features,
-    /// The drawing's contours on the sheet, copies and all; empty for the
-    /// drawing as drawn.
+    /// The job drawing's contours on the sheet, copies and all; empty for
+    /// the drawing as drawn.
     #[serde(default)]
     pub placed: Vec<Placed>,
     /// What the machine adds to a drawing coordinate: where the sheet lies
@@ -387,6 +392,16 @@ pub struct Job {
     pub created: u64,
     /// When it last changed.
     pub updated: u64,
+}
+
+/// Version 2 holds several parts. A job of one part stays version 1, which
+/// every earlier build reads.
+impl Schema for Job {
+    const NEWEST: u32 = 2;
+
+    fn version(&self) -> u32 {
+        if self.parts.len() > 1 { 2 } else { 1 }
+    }
 }
 
 /// Stable grouping for individual sheet jobs saved together.
@@ -627,8 +642,8 @@ impl Library {
 
     /// Removes a part no job uses.
     pub fn remove_part(&mut self, id: &Id) -> Result<()> {
-        if self.jobs.values().any(|j| &j.part == id) {
-            return Err(Error::InUse("a saved job uses this part".into()));
+        if let Some(job) = self.jobs.values().find(|j| j.parts.contains(id)) {
+            return Err(Error::InUse(format!("the saved job “{}” uses this part", job.name)));
         }
         self.part(id)?;
         history::remove(&self.path("parts", id))?;
@@ -697,7 +712,7 @@ impl Library {
         self.jobs.get(id).ok_or_else(|| Error::Missing { kind: "job", id: id.clone() })
     }
 
-    /// Saves a job; the id is assigned here and the part must exist.
+    /// Saves a job; the id is assigned here and its parts must exist.
     pub fn add_job(&mut self, mut job: Job) -> Result<Job> {
         job.id = Id::generate();
         job.name = clean_name(&job.name)?;
@@ -809,7 +824,7 @@ fn clean_name(name: &str) -> Result<String> {
 
 /// Reads any item file of this crate's kinds, for tools that inspect a
 /// library without opening it.
-pub fn read_item<T: DeserializeOwned>(path: &Path) -> Result<T> {
+pub fn read_item<T: DeserializeOwned + Schema>(path: &Path) -> Result<T> {
     store::read(path)
 }
 
@@ -923,7 +938,7 @@ mod tests {
             id: Id::from(""),
             name: "plate".into(),
             folder: None,
-            part: part.clone(),
+            parts: vec![part.clone()],
             recipe,
             film: None,
             features: Features::default(),
@@ -986,7 +1001,7 @@ mod tests {
                     id: Id::from(""),
                     name: "bracket".into(),
                     folder: None,
-                    part: part.id.clone(),
+                    parts: vec![part.id.clone()],
                     recipe: recipe.clone(),
                     film: None,
                     features: Features::default(),
@@ -1047,7 +1062,7 @@ mod tests {
                 id: Id::from(""),
                 name: "plate".into(),
                 folder: None,
-                part: part.id.clone(),
+                parts: vec![part.id.clone()],
                 recipe,
                 film: None,
                 features: Features::default(),
@@ -1072,6 +1087,64 @@ mod tests {
         assert_eq!(reopened.skipped()[0].file, "parts/future.json");
         assert!(reopened.skipped()[0].reason.contains("99"), "{:?}", reopened.skipped());
         assert_eq!(std::fs::read(&future).unwrap(), br#"{"version": 99}"#, "never rewritten");
+    }
+
+    /// A job of one part is stored exactly as before, so earlier builds
+    /// still read it; a job of several parts is schema version 2, joins its
+    /// parts' contours in order and protects every part it cuts.
+    #[test]
+    fn jobs_of_several_parts_are_version_two_and_protect_each_part() {
+        let root = scratch("several-parts");
+        let mut library = Library::open(&root).unwrap();
+        let recipe = library.add_recipe(recipe()).unwrap();
+        let a = library.add_part("a.dxf", b"a", square()).unwrap();
+        let mut two = square();
+        two.contours.push(two.contours[0].clone());
+        let b = library.add_part("b.svg", b"b", two).unwrap();
+        let single = library.add_job(job(&a.id, recipe.clone())).unwrap();
+        let file = |id: &Id| -> serde_json::Value {
+            let path = root.join("jobs").join(format!("{id}.json"));
+            serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap()
+        };
+        assert_eq!(file(&single.id)["version"], 1);
+        assert_eq!(file(&single.id)["part"], a.id.as_str());
+
+        let mut several = job(&a.id, recipe.clone());
+        several.parts = vec![b.id.clone(), a.id.clone()];
+        several.placed = vec![Placed::drawn(0), Placed::drawn(1), Placed::drawn(2)];
+        let several = library.add_job(several).unwrap();
+        assert_eq!(file(&several.id)["version"], 2);
+        assert_eq!(file(&several.id)["part"], serde_json::json!([b.id, a.id]));
+        let drawing = library.job_drawing(&several.parts).unwrap();
+        assert_eq!((drawing.contours(), drawing.range(1)), (3, 2..3));
+        assert_eq!(Library::open(&root).unwrap().job(&several.id).unwrap(), &several);
+        for part in [&a.id, &b.id] {
+            let refused = library.remove_part(part).unwrap_err().to_string();
+            assert!(refused.contains("plate"), "{refused}");
+        }
+
+        let refused = |change: fn(&mut Job)| {
+            let mut candidate = several.clone();
+            change(&mut candidate);
+            library.clone().update_job(&several.id, |job| *job = candidate).is_err()
+        };
+        assert!(refused(|job| job.parts.clear()));
+        assert!(refused(|job| job.parts.push(job.parts[0].clone())));
+        assert!(refused(|job| job.parts.push(Id::from("missing"))));
+        assert!(refused(|job| job.placed.push(Placed::drawn(3))));
+        assert!(!refused(|job| job.placed.truncate(2)));
+
+        // A version 1 file cannot hold several parts, and a later version is
+        // left for the build that wrote it.
+        let path = library.path("jobs", &several.id);
+        edit(&path, |job| job["version"] = 1.into());
+        let reason = |library: &Library| library.skipped()[0].reason.clone();
+        let reopened = Library::open(&root).unwrap();
+        assert!(reason(&reopened).contains("needs schema version 2"), "{}", reason(&reopened));
+        edit(&path, |job| job["version"] = 3.into());
+        let reopened = Library::open(&root).unwrap();
+        assert!(reason(&reopened).contains("reads up to 2"), "{}", reason(&reopened));
+        assert_eq!(reopened.job(&single.id).unwrap(), &single);
     }
 
     #[test]

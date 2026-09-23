@@ -91,6 +91,24 @@ impl SheetSet {
         Ok(())
     }
 
+    /// Every drawing contour a page places or takes its stock from.
+    pub(crate) fn sources(&self) -> impl Iterator<Item = usize> + '_ {
+        self.pages.iter().flat_map(|page| {
+            page.placed
+                .iter()
+                .map(|p| p.source)
+                .chain(crate::draft::outline_source(page.nesting.as_ref()))
+        })
+    }
+
+    /// Moves drawing contours on every page, as dropping a part does.
+    pub(crate) fn remap_sources(&mut self, moved: impl Fn(&mut usize) + Copy) {
+        for page in &mut self.pages {
+            page.placed.iter_mut().for_each(|p| moved(&mut p.source));
+            crate::draft::remap_outline(&mut page.nesting, moved);
+        }
+    }
+
     fn synchronized(&self, draft: &Draft) -> Self {
         let mut set = self.clone();
         set.pages[set.active] = SheetLayout::capture(draft);
@@ -210,6 +228,8 @@ impl Coordinator {
             let mut page = draft.clone();
             page.sheets = None;
             layout.load(&mut page);
+            // Each sheet becomes a job of its own, cutting only its parts.
+            page.prune_parts();
             jobs.push(page.job_value(name)?);
         }
         let (_, jobs) = self.library.add_sheet_set(name, jobs)?;
@@ -218,11 +238,12 @@ impl Coordinator {
             draft.sheets = None;
             draft.adopt(saved);
         }
+        self.attach_draft()?;
         self.library_changed();
         self.draft_changed();
         if old_key != format!("job-{}", saved.id) {
             self.draft_store.remove(&old_key);
         }
-        Ok(crate::document::JobView::new(saved, self.library.part(&saved.part)?))
+        Ok(crate::document::JobView::new(saved, &self.library.job_drawing(&saved.parts)?))
     }
 }

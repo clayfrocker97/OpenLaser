@@ -3,7 +3,7 @@ import { Server } from './server.svelte';
 import type { Document, DraftView } from '../api';
 
 const drawing = (revision = 1, changes: Partial<DraftView> = {}): DraftView => ({
-  part: 'part-a', job: null, generation: 1, revision,
+  key: 'draft-a', parts: [{ id: 'part-a', first: 0, contours: 1 }], job: null, generation: 1, revision,
   placed: [{ source: 0, copy: 0, transform: [1, 0, 0, 1, 0, 0] }],
   groups: [[0]], zero: [0, 0], origin: [0, 0],
   preview: { contours: [], warnings: [], bounds: null },
@@ -53,8 +53,15 @@ describe('canvas continuity during geometry preparation', () => {
     expect(server.doc!.draft).toBe(replacement);
   });
 
+  it('keeps the scene while parts are added to the same opening', () => {
+    const { server, ready } = started();
+    const parts = [{ id: 'part-a', first: 0, contours: 1 }, { id: 'part-b', first: 1, contours: 2 }];
+    server.applyDraft(pending(2, { parts }), 2);
+    expect(server.canvasDraft).toBe(ready);
+  });
+
   it.each([
-    { part: 'part-b' }, { job: 'job-b' }, { generation: 2 },
+    { key: 'draft-b' }, { job: 'job-b' }, { generation: 2 },
   ])('never carries geometry into a different opening: %j', changes => {
     const { server } = started();
     const next = pending(2, changes);

@@ -446,7 +446,7 @@ async fn completed_sheet_survives_edits_and_becomes_stock_with_all_cutouts_exclu
         let d = c.draft.as_ref().unwrap();
         assert_eq!(d.stock_cutouts.len(), 2);
         let n = d.nesting.as_ref().unwrap();
-        let drawing = &c.library.part(&d.part).unwrap().drawing;
+        let drawing = d.drawing().unwrap();
         let openlaser_core::nesting::NestStock::Remnant { cutouts, .. } = &n.stock else {
             panic!("expected remnant stock");
         };

@@ -78,6 +78,8 @@ pub fn router(shared: Shared, ui_dir: std::path::PathBuf) -> Router {
         .route("/api/machine/route", post(set_route))
         .route("/api/jobs/{id}", post(update_job).delete(remove_job))
         .route("/api/draft/part/{id}", post(open_part))
+        .route("/api/draft/parts", post(open_parts))
+        .route("/api/draft/parts/add", post(add_parts))
         .route("/api/drafts", get(pending_drafts))
         .route("/api/drafts/{key}", post(open_retained).delete(discard_draft))
         .route("/api/draft/merge", get(merge_review).post(resolve_merge))
@@ -524,6 +526,32 @@ async fn open_part(State(shared): State<Shared>, Path(id): Path<String>) -> Repl
     .await
 }
 
+/// Library parts, in the order a job cuts them.
+#[derive(Deserialize)]
+struct PartList {
+    parts: Vec<Id>,
+}
+
+async fn open_parts(State(shared): State<Shared>, Json(list): Json<PartList>) -> Reply {
+    edit(&shared, None, |c| {
+        c.open_parts(&list.parts)?;
+        Ok(Value::Null)
+    })
+    .await
+}
+
+async fn add_parts(
+    State(shared): State<Shared>,
+    Query(v): Query<Revision>,
+    Json(list): Json<PartList>,
+) -> Reply {
+    edit(&shared, Some(v.revision), |c| {
+        c.add_parts(&list.parts)?;
+        Ok(Value::Null)
+    })
+    .await
+}
+
 async fn open_job(State(shared): State<Shared>, Path(id): Path<String>) -> Reply {
     edit(&shared, None, |c| {
         c.open_job(&Id::from(id.as_str()))?;
@@ -713,7 +741,7 @@ async fn preview_features(
         let c = shared.lock().await;
         c.check_draft(v.revision)?;
         let d = c.draft.as_ref().ok_or_else(|| Error::Refused("open a part first".into()))?;
-        (c.library.part(&d.part).map_err(Error::from)?.drawing.clone(), d.placed.clone())
+        (d.drawing()?.clone(), d.placed.clone())
     };
     let prepared =
         tokio::task::spawn_blocking(move || crate::draft::prepare(&drawing, &placed, &features))

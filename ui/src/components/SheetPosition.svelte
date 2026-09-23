@@ -30,7 +30,6 @@
 
   function save(): void {
     const job = doc.library.jobs.find(j => j.id === draft?.job);
-    const part = doc.library.parts.find(p => p.id === draft?.part);
     const perform = async (name: string): Promise<void> => {
       busy = true;
       try { await api.saveJob(name); ui.say('Job saved'); }
@@ -38,7 +37,7 @@
       finally { busy = false; }
     };
     if (job) void perform(job.name);
-    else osk.text('Job name', part?.name ?? 'Job', name => { if (name.trim()) void perform(name.trim()); });
+    else osk.text('Job name', draft?.name || 'Job', name => { if (name.trim()) void perform(name.trim()); });
   }
 </script>
 

@@ -476,7 +476,7 @@ impl Coordinator {
     pub(crate) fn sheet_plan(&self, draft: &Draft) -> Result<Option<Arc<SheetPlan>>> {
         let Some(prepared) = &draft.prepared else { return Ok(None) };
         let Some(recipe) = &draft.recipe else { return Ok(None) };
-        let drawing = &self.library.part(&draft.part)?.drawing;
+        let drawing = draft.drawing()?;
         let machining_shift = command_shift(draft)?;
         let prepared = prepared.shifted(machining_shift)?;
         let moved = Transform::translation(Point::from(machining_shift));
@@ -532,10 +532,7 @@ impl Coordinator {
         if areas.is_empty() || prepared.contours.is_empty() {
             return Ok(None);
         }
-        let name = draft.job.as_ref().and_then(|id| self.library.job(id).ok()).map_or_else(
-            || self.library.part(&draft.part).map(|p| p.name.clone()),
-            |j| Ok(j.name.clone()),
-        )?;
+        let name = self.draft_name(draft);
         let parent = draft.nesting.as_ref().and_then(|n| {
             if let NestStock::Remnant { reference, .. } = &n.stock {
                 Some(reference.clone())
@@ -595,13 +592,13 @@ impl Coordinator {
     /// Record the operator's statement that a saved job was cut previously.
     pub fn report_cut_sheet(&mut self, job: &Id) -> Result<String> {
         let saved = self.library.job(job)?.clone();
-        let part = self.library.part(&saved.part)?;
-        let mut draft = Draft::new(saved.part.clone(), part.drawing.contours.len());
+        let sources = Arc::new(self.library.job_drawing(&saved.parts)?);
+        let mut draft = Draft::new(sources.clone());
         draft.adopt(&saved);
         if draft.placed.is_empty() {
-            draft.placed = openlaser_core::geometry::Placed::all(part.drawing.contours.len());
+            draft.placed = openlaser_core::geometry::Placed::all(sources.contours());
         }
-        draft.prepare(&part.drawing);
+        draft.prepare(sources.drawing());
         let plan = self
             .sheet_plan(&draft)?
             .ok_or_else(|| Error::Refused("the job has no cutting paths".into()))?;
