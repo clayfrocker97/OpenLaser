@@ -6,9 +6,9 @@
 //! into the arcs they follow, and import, which turns splines, ellipses and
 //! stretched arcs into the lines and arcs a machine cuts. A run of points is
 //! covered greedily by the longest line or arc that keeps every point, and
-//! every chord's middle, within the tolerance. Corners stay sharp, the first
-//! and last points are kept exactly, and consecutive arcs on one circle are
-//! joined.
+//! every chord's middle, within the tolerance. Corners stay sharp and the
+//! first and last points are kept exactly; an approximated curve also has
+//! consecutive arcs on one circle joined.
 //!
 //! ```
 //! use openlaser_core::fit;
@@ -61,7 +61,7 @@ pub fn fit_points(points: &[Point], tolerance: f64, curves: &mut Vec<Curve>) {
         let line = longest_line(&points, from, tolerance);
         match longest_arc(&points, from, tolerance) {
             Some((to, arc)) if to > line => {
-                push_arc(curves, arc);
+                curves.push(arc);
                 from = to;
             }
             _ => {
@@ -89,8 +89,15 @@ pub fn approximate(
         let last = points.len() - 1;
         points[last] = first;
     }
-    let mut curves = Vec::new();
-    fit_points(&points, tolerance * FIT_SHARE, &mut curves);
+    let mut fitted = Vec::new();
+    fit_points(&points, tolerance * FIT_SHARE, &mut fitted);
+    let mut curves = Vec::with_capacity(fitted.len());
+    for curve in fitted {
+        match curve {
+            Curve::Arc { .. } => push_arc(&mut curves, curve),
+            Curve::Line { .. } => curves.push(curve),
+        }
+    }
     (!curves.is_empty()).then_some(curves)
 }
 
