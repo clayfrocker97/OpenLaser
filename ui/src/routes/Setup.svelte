@@ -15,6 +15,7 @@
   import { pasteable, type CopiedShapes, type PasteSettings } from '../lib/copy-paste';
   import { TOOLS, isOn, stateOf, toggled } from '../lib/features';
   import { flip } from 'svelte/animate';
+  import { Reorder } from '../lib/reorder.svelte';
 
   let { compact = false }: { compact?: boolean } = $props();
   let canvasPanel = $state<HTMLElement | null>(null);
@@ -73,69 +74,22 @@
   }
 
   // Bar editing, as the mockup does it: ✕ removes, the star in the menu
-  // adds, and dragging reorders. A fixed ghost follows the pointer while
-  // the real tile stays as a placeholder; the order changes only when the
-  // pointer crosses into another slot, with a pause so the slide finishes.
-  const EASE = 'cubic-bezier(.2,0,0,1)';
-  let dragging = $state<string | null>(null);
-  let drag: { id: string; ghost: HTMLElement; ox: number; oy: number; sx: number; sy: number; x: number; y: number; raf: number; moved: boolean; cool: number } | null = null;
-  function barDown(e: PointerEvent): void {
-    if (!ui.editBar || (e.target as HTMLElement).closest('[data-remove]')) return;
-    const el = (e.target as HTMLElement).closest<HTMLElement>('.feature[data-feature]');
-    if (!el) return;
-    const r = el.getBoundingClientRect();
-    const ghost = el.cloneNode(true) as HTMLElement;
-    ghost.classList.add('ghost');
-    ghost.classList.remove('editing', 'open', 'placeholder');
-    ghost.querySelector('[data-remove]')?.remove();
-    Object.assign(ghost.style, { position: 'fixed', left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${r.height}px`, margin: '0', transform: 'none' });
-    document.body.appendChild(ghost);
-    drag = { id: el.dataset['feature']!, ghost, ox: e.clientX - r.left, oy: e.clientY - r.top, sx: e.clientX, sy: e.clientY, x: e.clientX, y: e.clientY, raf: 0, moved: false, cool: 0 };
-    el.setPointerCapture(e.pointerId);
-    e.preventDefault();
-  }
-  function tick(): void {
-    if (!drag) return;
-    drag.raf = 0;
-    if (!drag.moved) { if (Math.hypot(drag.x - drag.sx, drag.y - drag.sy) < 6) return; drag.moved = true; dragging = drag.id; }
-    drag.ghost.style.transform = `translate(${drag.x - drag.ox - parseFloat(drag.ghost.style.left)}px, ${drag.y - drag.oy - parseFloat(drag.ghost.style.top)}px)`;
-    if (performance.now() < drag.cool) return;
-    const hit = document.elementFromPoint(drag.x, drag.y)?.closest<HTMLElement>('.feature[data-feature]');
-    const target = hit?.dataset['feature'];
-    if (!hit || !target || target === drag.id) return;
-    const tr = hit.getBoundingClientRect();
-    const horizontal = !!hit.closest('.features');
-    const after = horizontal ? drag.x > tr.left + tr.width / 2 : drag.y > tr.top + tr.height / 2;
-    const order = ui.favTools.filter((x) => x !== drag!.id);
-    order.splice(order.indexOf(target) + (after ? 1 : 0), 0, drag.id);
-    if (order.join() === ui.favTools.join()) return;
-    ui.setBar(order);
-    drag.cool = performance.now() + 200;
-    setTimeout(() => { if (drag && !drag.raf) drag.raf = requestAnimationFrame(tick); }, 210);
-  }
-  function barMove(e: PointerEvent): void {
-    if (!drag) return;
-    drag.x = e.clientX;
-    drag.y = e.clientY;
-    if (!drag.raf) drag.raf = requestAnimationFrame(tick);
-  }
-  function barUp(): void {
-    if (!drag) return;
-    const { id, ghost } = drag;
-    drag = null;
-    const r = document.querySelector<HTMLElement>(`.feature[data-feature="${id}"]`)?.getBoundingClientRect();
-    const finish = () => { ghost.remove(); dragging = null; };
-    if (!r) { finish(); return; }
-    ghost.animate([{ transform: ghost.style.transform }, { transform: `translate(${r.left - parseFloat(ghost.style.left)}px, ${r.top - parseFloat(ghost.style.top)}px)` }], { duration: 180, easing: EASE }).onfinish = finish;
-  }
+  // adds, and dragging reorders (lib/reorder).
+  const bar = new Reorder({
+    attribute: 'feature',
+    order: () => ui.favTools,
+    save: (order) => ui.setBar(order),
+    editing: () => ui.editBar,
+    horizontal: (tile) => !!tile.closest('.features'),
+  });
 
   const tile = (id: string) => TOOLS.find((t) => t.id === id) ?? null;
 
 </script>
 
 {#snippet feature(id: string, t: { short: string } | null)}
-  <button class="feature" data-feature={id} class:editing={ui.editBar} class:set={t && draft ? isOn(draft.features, id) : false} class:open={ui.setupPanel === id} class:tool={!t} class:placeholder={dragging === id}
-    onclick={() => { if (!ui.editBar) runTool(id); }} onpointerdown={barDown} onpointermove={barMove} onpointerup={barUp} onpointercancel={barUp}>
+  <button class="feature" data-feature={id} class:editing={ui.editBar} class:set={t && draft ? isOn(draft.features, id) : false} class:open={ui.setupPanel === id} class:tool={!t} class:placeholder={bar.dragging === id}
+    onclick={() => { if (!ui.editBar) runTool(id); }} onpointerdown={bar.down} onpointermove={bar.move} onpointerup={bar.up} onpointercancel={bar.up}>
     {#if ui.editBar}<span class="remove" data-remove onclick={(e) => { e.stopPropagation(); ui.setBar(ui.favTools.filter((x) => x !== id)); }} role="button" tabindex="-1" onkeydown={() => undefined}><i class="ic ic-x"></i></span>{/if}
     <span>{t ? t.short : EXTRA.find((x) => x.id === id)?.short}</span><span class="state">{t && draft ? stateOf(draft.features, id) : 'tool'}</span>
   </button>

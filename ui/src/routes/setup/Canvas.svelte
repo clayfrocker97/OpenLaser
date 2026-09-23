@@ -9,6 +9,8 @@
   // apart and further each time; undo and redo are the server's. While a panel asks for places, a tap
   // snaps to a contour and the feature takes the spot.
   import { untrack, type Snippet } from 'svelte';
+  import { flip } from 'svelte/animate';
+  import { Reorder } from '../../lib/reorder.svelte';
   import Stage from '../../components/Stage.svelte';
   import { Viewport } from '../../lib/viewport.svelte';
   import { api } from '../../api/client';
@@ -167,6 +169,42 @@
     } catch (error) { fail(error); } finally { pasting = false; }
   }
   const selectionLocked = $derived(updating || !selection || !!ui.picking || ui.nestShown || ui.nestPicking);
+
+  // The drawing bar is one row. Editing tools appear only while something is
+  // selected; the view tools only while nothing is. Undo, Redo and Paste stay.
+  // Arrange lets the operator drag the tools into their own order.
+  type DrawTool = { label: string; title?: string; when: 'idle' | 'selected' | 'always'; icon?: string; text?: () => string; on?: () => boolean; disabled: () => boolean; run: () => void; /** Off the bar while it cannot apply at all. */ absent?: () => boolean };
+  const busyCanvas = () => updating || !!ui.picking || ui.nestShown || ui.nestPicking;
+  const DRAW_TOOLS: Record<string, DrawTool> = {
+    fit: { label: 'Fit', title: 'Frame the parts', when: 'idle', icon: 'ic-fit', disabled: () => false, run: () => fit() },
+    'zoom-in': { label: 'Zoom in', when: 'idle', icon: 'ic-plus', disabled: () => false, run: () => view.zoom(1.25) },
+    'zoom-out': { label: 'Zoom out', when: 'idle', icon: 'ic-minus', disabled: () => false, run: () => view.zoom(0.8) },
+    layers: { label: 'Layers', when: 'idle', icon: 'ic-layers', on: () => layersOpen, disabled: () => !layers.length, run: () => { layersOpen = !layersOpen; } },
+    snap: { label: 'Snap', when: 'idle', text: () => (ui.snap ? 'On' : 'Off'), on: () => ui.snap, disabled: () => false, run: () => ui.toggleSnap() },
+    grid: { label: 'Grid', when: 'idle', text: () => quantity(ui.grid, 'mm'), disabled: () => false, run: () => gridSize() },
+    'mirror-x': { label: 'Mirror X', title: 'Mirror horizontally', when: 'selected', icon: 'ic-mirror', disabled: () => busyCanvas() || !selection, run: () => act('mirror') },
+    'mirror-y': { label: 'Mirror Y', title: 'Mirror vertically', when: 'selected', icon: 'ic-mirror vertical', disabled: () => busyCanvas() || !selection, run: () => act('vertical') },
+    turn: { label: '90°', title: 'Turn the selection a quarter turn', when: 'selected', icon: 'ic-rotate', disabled: () => busyCanvas() || !selection, run: () => act('turn') },
+    scale: { label: 'Scale', when: 'selected', text: () => '%', disabled: () => busyCanvas() || !selection, run: () => resize('scale') },
+    center: { label: 'Center', title: 'Center on the bed', when: 'selected', icon: 'ic-target', disabled: () => busyCanvas() || !selection || !frame.bed, run: () => centerOnBed() },
+    reset: { label: 'Reset', title: 'Put the selection back where the drawing has it', when: 'selected', icon: 'ic-reset', disabled: () => busyCanvas() || !selection, run: () => act('reset') },
+    group: { label: 'Group', title: 'Group the selected shapes', when: 'selected', absent: () => selected.length < 2, disabled: () => selectionLocked || selected.length < 2, run: () => groupSelection(true) },
+    ungroup: { label: 'Ungroup', title: 'Ungroup the selected shapes', when: 'selected', absent: () => !selected.some(g => (groups[g]?.length ?? 0) > 1), disabled: () => selectionLocked || !selected.some(g => (groups[g]?.length ?? 0) > 1), run: () => groupSelection(false) },
+    copy: { label: 'Copy', title: 'Copy the selection', when: 'selected', icon: 'ic-copy', on: () => ui.setupPanel === 'clipboard', disabled: () => pasting || selectionLocked, run: () => copy() },
+    paste: { label: 'Paste', title: 'Paste one copy', when: 'always', icon: 'ic-paste', absent: () => !clipboard, disabled: () => pasting || busyCanvas() || !pasteable(clipboard, draft), run: () => { void paste(); } },
+    delete: { label: 'Delete', title: 'Take the selection off the sheet', when: 'selected', icon: 'ic-trash', disabled: () => busyCanvas() || !selection, run: () => remove() },
+    deselect: { label: 'Deselect', title: 'Clear the selection', when: 'selected', icon: 'ic-x', disabled: () => !selection || !!ui.picking || ui.nestShown || ui.nestPicking, run: () => { selected = []; } },
+    undo: { label: 'Undo', title: 'Undo the last edit', when: 'always', icon: 'ic-undo', disabled: () => !draft?.past, run: () => history(true) },
+    redo: { label: 'Redo', title: 'Do the edit undone again', when: 'always', icon: 'ic-redo', disabled: () => !draft?.future, run: () => history(false) },
+  };
+  // While arranging, every tool shows so each can be placed.
+  const drawOrder = $derived(ui.drawBar.filter((id) => {
+    const tool = DRAW_TOOLS[id];
+    if (!tool) return false;
+    if (ui.editDrawBar) return true;
+    return !tool.absent?.() && (tool.when === 'always' || tool.when === (selection ? 'selected' : 'idle'));
+  }));
+  const drawBar = new Reorder({ attribute: 'draw-tool', order: () => ui.drawBar, save: (order) => ui.setDrawBar(order), editing: () => ui.editDrawBar });
   function groupSelection(together: boolean): void {
     if (selectionLocked) return;
     api.group(contoursOf(selected), together).catch(fail);
@@ -624,36 +662,36 @@
   </Stage>
 </div>
 <div class="drawing-toolbar" role="toolbar" aria-label="Drawing tools">
-  <div class="tool-row">
-    <button class="rail-btn" title="Frame the parts" onclick={fit}><i class="ic ic-fit"></i><small>Fit</small></button>
-    <button class="rail-btn" title="Zoom in" onclick={() => view.zoom(1.25)}><i class="ic ic-plus"></i><small>Zoom in</small></button>
-    <button class="rail-btn" title="Zoom out" onclick={() => view.zoom(0.8)}><i class="ic ic-minus"></i><small>Zoom out</small></button>
-    <button class="rail-btn" class:on={layersOpen} title="Layers" onclick={() => (layersOpen = !layersOpen)} disabled={!layers.length}><i class="ic ic-layers"></i><small>Layers</small></button>
-    <button class="rail-btn" class:on={ui.snap} onclick={() => ui.toggleSnap()}><strong>{ui.snap ? 'On' : 'Off'}</strong><small>Snap</small></button>
-    <button class="rail-btn" onclick={gridSize}><strong>{quantity(ui.grid, 'mm')}</strong><small>Grid</small></button>
-    <button class="rail-btn" title="Group the selected shapes" disabled={selectionLocked || selected.length < 2} onclick={() => groupSelection(true)}><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="2" stroke-dasharray="3 2"/><rect x="5" y="5" width="7" height="7"/><rect x="12" y="12" width="7" height="7"/></svg><small>Group</small></button>
-    <button class="rail-btn" title="Ungroup the selected shapes" disabled={selectionLocked || !selected.some(g => (groups[g]?.length ?? 0) > 1)} onclick={() => groupSelection(false)}><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="2" y="2" width="8" height="8"/><rect x="14" y="14" width="8" height="8"/><path d="M14 4h6v6M20 4l-7 7M4 14v6h6M4 20l7-7"/></svg><small>Ungroup</small></button>
-    <button class="rail-btn" title="Undo the last edit" onclick={() => history(true)} disabled={!draft?.past}><i class="ic ic-undo"></i><small>Undo</small></button>
-    <button class="rail-btn" title="Do the edit undone again" onclick={() => history(false)} disabled={!draft?.future}><i class="ic ic-redo"></i><small>Redo</small></button>
-  </div>
-  <div class="tool-row">
-    <button class="rail-btn" disabled={updating || !selection || !!ui.picking || ui.nestShown || ui.nestPicking} title="Mirror horizontally" onclick={() => act('mirror')}><i class="ic ic-mirror"></i><small>Mirror X</small></button>
-    <button class="rail-btn" disabled={updating || !selection || !!ui.picking || ui.nestShown || ui.nestPicking} title="Mirror vertically" onclick={() => act('vertical')}><i class="ic ic-mirror vertical"></i><small>Mirror Y</small></button>
-    <button class="rail-btn" disabled={updating || !selection || !!ui.picking || ui.nestShown || ui.nestPicking || !frame.bed} onclick={centerOnBed}><i class="ic ic-target"></i><small>Center</small></button>
-    <button class="rail-btn" disabled={updating || !selection || !!ui.picking || ui.nestShown || ui.nestPicking} title="Turn the selection a quarter turn" onclick={() => act('turn')}><i class="ic ic-rotate"></i><small>90°</small></button>
-    <button class="rail-btn" disabled={updating || !selection || !!ui.picking || ui.nestShown || ui.nestPicking} onclick={() => resize('scale')}><strong>%</strong><small>Scale</small></button>
-    <button class="rail-btn" disabled={updating || !selection || !!ui.picking || ui.nestShown || ui.nestPicking} title="Put the selection back where the drawing has it" onclick={() => act('reset')}><i class="ic ic-reset"></i><small>Reset</small></button>
-    <button class="rail-btn" class:on={ui.setupPanel === 'clipboard'} disabled={pasting || selectionLocked} title="Copy the selection" onclick={copy}><i class="ic ic-copy"></i><small>Copy</small></button>
-    <button class="rail-btn" title="Paste one copy" onclick={() => paste()} disabled={pasting || updating || !pasteable(clipboard, draft) || !!ui.picking || ui.nestShown || ui.nestPicking}><i class="ic ic-paste"></i><small>Paste</small></button>
-    <button class="rail-btn" disabled={updating || !selection || !!ui.picking || ui.nestShown || ui.nestPicking} title="Take the selection off the sheet" onclick={remove}><i class="ic ic-trash"></i><small>Delete</small></button>
-    <button class="rail-btn" disabled={!selection || !!ui.picking || ui.nestShown || ui.nestPicking} title="Clear the selection" onclick={() => (selected = [])}><i class="ic ic-x"></i><small>Deselect</small></button>
+  <div class="tool-row" class:editing={ui.editDrawBar}>
+    {#each drawOrder as id (id)}
+      {@const tool = DRAW_TOOLS[id]!}
+      <div class="slot" animate:flip={{ duration: 180 }}>
+        <button class="rail-btn" data-draw-tool={id} class:on={tool.on?.() ?? false} class:placeholder={drawBar.dragging === id} class:editing={ui.editDrawBar}
+          title={tool.title ?? tool.label} disabled={!ui.editDrawBar && tool.disabled()} onclick={() => { if (!ui.editDrawBar) tool.run(); }}
+          onpointerdown={drawBar.down} onpointermove={drawBar.move} onpointerup={drawBar.up} onpointercancel={drawBar.up}>
+          {#if id === 'group'}<svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="2" stroke-dasharray="3 2"/><rect x="5" y="5" width="7" height="7"/><rect x="12" y="12" width="7" height="7"/></svg>
+          {:else if id === 'ungroup'}<svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="2" y="2" width="8" height="8"/><rect x="14" y="14" width="8" height="8"/><path d="M14 4h6v6M20 4l-7 7M4 14v6h6M4 20l7-7"/></svg>
+          {:else if tool.text}<strong>{tool.text()}</strong>
+          {:else}<i class="ic {tool.icon}"></i>{/if}
+          <small>{tool.label}</small>
+        </button>
+      </div>
+    {/each}
+    {#if ui.editDrawBar || !selection}<button class="rail-btn arrange" class:on={ui.editDrawBar} title={ui.editDrawBar ? 'Finish arranging' : 'Drag the tools into your order'} onclick={() => (ui.editDrawBar = !ui.editDrawBar)}><i class="ic {ui.editDrawBar ? 'ic-check' : 'ic-grip'}"></i><small>{ui.editDrawBar ? 'Done' : 'Order'}</small></button>{/if}
   </div>
 </div>
 
 <style>
   .resize-handle { pointer-events: all; }
   .drawing-toolbar { flex-shrink: 0; display: grid; gap: 8px; padding: 12px; border-top: 1px solid var(--line); background: var(--panel); overflow-x: auto; }
-  .tool-row { display: grid; grid-template-columns: repeat(10, minmax(64px, 1fr)); gap: 8px; }
+  .tool-row { display: flex; gap: 6px; }
+  .tool-row > .slot { flex: 1 0 56px; min-width: 56px; }
+  .tool-row.editing { flex-wrap: wrap; }
+  .tool-row.editing > .slot { flex: 0 0 72px; }
+  .tool-row > .arrange { flex: 0 0 52px; margin-left: auto; }
+  .tool-row small { white-space: nowrap; }
+  .tool-row.editing .rail-btn:not(.arrange) { cursor: grab; border-style: dashed; touch-action: none; }
+  .rail-btn.placeholder { opacity: .3; }
   .rail-btn { min-height: 66px; width: 100%; gap: 7px; }
   .rail-btn strong { font-size: var(--t-base); }
   .rail-btn small { font-size: var(--t-sm); letter-spacing: 0; }

@@ -34,6 +34,15 @@ export interface Picking {
   firstOwner?: number;
 }
 
+/** The drawing bar's default order: view tools, then editing tools, then history. */
+const DRAW_BAR = ['fit', 'zoom-in', 'zoom-out', 'layers', 'snap', 'grid', 'mirror-x', 'mirror-y', 'turn', 'scale', 'center', 'reset', 'group', 'ungroup', 'copy', 'paste', 'delete', 'deselect', 'undo', 'redo'];
+
+/** A saved order keeps only known tools and gains tools added since it was saved. */
+function withAll(order: string[], all: string[]): string[] {
+  const known = order.filter((id, i) => all.includes(id) && order.indexOf(id) === i);
+  return [...known, ...all.filter((id) => !known.includes(id))];
+}
+
 function remembered<T>(key: string, fallback: T): T {
   try {
     const raw = localStorage.getItem(key);
@@ -90,6 +99,9 @@ class Ui {
   hiddenDrawingLayers = $state<string[]>([]);
   favTools = $state<string[]>(remembered('ol-bar', FEATURE_IDS.filter(id => id !== 'common')));
   editBar = $state(false);
+  /** The drawing bar's tools in the operator's order; see Canvas.svelte. */
+  drawBar = $state<string[]>(withAll(remembered('ol-draw-bar', DRAW_BAR), DRAW_BAR));
+  editDrawBar = $state(false);
   jogFast = $state(false);
   /** The X/Y step a tap on a jog key moves, in millimetres. Holding a key jogs continuously. */
   jogStep = $state<number>(remembered<number | null>('ol-jog-step', 1) ?? 1);
@@ -136,6 +148,7 @@ class Ui {
     this.sheetSizes = this.sheetSizes.filter(([w, h]) => w !== size[0] || h !== size[1]);
     remember('ol-sheet-sizes', this.sheetSizes);
   }
+  setDrawBar(order: string[]): void { this.drawBar = withAll(order, DRAW_BAR); remember('ol-draw-bar', this.drawBar); }
   setJogStep(step: number): void { this.jogStep = step; remember('ol-jog-step', step); }
   toggleSnap(): void { this.snap = !this.snap; remember('ol-snap', this.snap); }
 
