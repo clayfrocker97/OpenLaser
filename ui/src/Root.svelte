@@ -1,22 +1,23 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { access, chooseLayout } from './lib/access.svelte';
+  import { access, layout } from './lib/access.svelte';
   import { subscribe } from './api/client';
   import { server } from './stores/server.svelte';
   import ControlGate from './components/ControlGate.svelte';
   import Confirm from './components/Confirm.svelte';
 
-  const layout = chooseLayout();
-  async function loadShell() {
-    if (layout === 'mobile') return await import('./mobile/Mobile.svelte');
+  async function loadShell(which: 'mobile' | 'full') {
+    if (which === 'mobile') return await import('./mobile/Mobile.svelte');
     return await import('./App.svelte');
   }
-  const shell = loadShell();
+  // The shell follows the window; the pages' state lives in stores and survives the switch.
+  const shell = $derived(loadShell(layout.current));
+  $effect(() => { document.documentElement.dataset.layout = layout.current; });
   onMount(() => {
-    document.documentElement.dataset.layout = layout;
     const stopAccess = access.mount();
+    const stopLayout = layout.mount();
     const stopEvents = subscribe(server.apply, server.setLink);
-    return () => { stopAccess(); stopEvents(); };
+    return () => { stopAccess(); stopLayout(); stopEvents(); };
   });
 </script>
 

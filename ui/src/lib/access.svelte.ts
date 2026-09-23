@@ -55,15 +55,49 @@ class Access {
 
 export const access = new Access();
 
-export function chooseLayout(): 'mobile' | 'full' {
+type Layout = 'mobile' | 'full';
+/** Windows narrower than this, or a small touch landscape, get the phone layout. */
+const PHONE_QUERY = '(max-width: 699px), (pointer: coarse) and (max-height: 500px) and (max-width: 950px)';
+
+/** A layout the address fixes: /mobile or /app. */
+function pinnedLayout(): Layout | null {
   if (location.pathname.startsWith('/mobile')) return 'mobile';
   if (location.pathname.startsWith('/app')) return 'full';
+  return null;
+}
+
+export function chooseLayout(): Layout {
+  const pinned = pinnedLayout();
+  if (pinned) return pinned;
   try {
     const preferred = localStorage.getItem('ol-layout');
     if (preferred === 'mobile' || preferred === 'full') return preferred;
   } catch { /* A private browser can still use either explicit address. */ }
-  return matchMedia('(max-width: 699px), (pointer: coarse) and (max-height: 500px) and (max-width: 950px)').matches ? 'mobile' : 'full';
+  return matchMedia(PHONE_QUERY).matches ? 'mobile' : 'full';
 }
+
+/**
+ * The layout in use. It follows the window: resizing across the phone
+ * width switches layouts at once, without a reload, unless the address
+ * pins one. Crossing the width also drops a remembered choice, since the
+ * window now says which layout fits.
+ */
+class LayoutChoice {
+  current = $state<Layout>(chooseLayout());
+
+  mount(): () => void {
+    const query = matchMedia(PHONE_QUERY);
+    const follow = (event: MediaQueryListEvent) => {
+      if (pinnedLayout()) return;
+      try { localStorage.removeItem('ol-layout'); } catch { /* Nothing was remembered. */ }
+      this.current = event.matches ? 'mobile' : 'full';
+    };
+    query.addEventListener('change', follow);
+    return () => query.removeEventListener('change', follow);
+  }
+}
+
+export const layout = new LayoutChoice();
 
 export function rememberLayout(layout: 'mobile' | 'full'): void {
   if (access.canControl) rememberControl();
