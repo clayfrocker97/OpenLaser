@@ -9,6 +9,7 @@
   import { explain } from '../lib/format';
   import { frameOf } from '../lib/frame';
   import { COMMON_SHEETS, fits, oriented } from '../lib/sheet-sizes';
+  import type { SheetView } from '../api';
   let { onclose, onselected }: { onclose: () => void; onselected: () => void } = $props();
   const stock = server.doc?.draft?.nesting?.stock;
   const bed = frameOf(server.doc!).bed;
@@ -30,42 +31,107 @@
   const aspect = $derived(width > 0 && height > 0 ? width / height : 1.5);
   async function rectangle(): Promise<void> {
     busy = true; error = '';
-    try { await api.setStock({ kind: 'rectangle', width, height }); ui.nestPicking = false; onselected(); onclose(); }
+    try {
+      await api.setStock({ kind: 'rectangle', width, height });
+      ui.nestPicking = false;
+      onselected();
+      onclose();
+    }
     catch (e) { error = explain(e); } finally { busy = false; }
   }
+  async function useRemnant(sheet: SheetView): Promise<void> {
+    await api.setStock({ kind: 'remnant', id: sheet.id });
+    ui.nestPicking = false;
+    onselected();
+    onclose();
+  }
+  function chooseOutline(): void {
+    ui.nestPicking = true;
+    onselected();
+    onclose();
+  }
+  function close(): void { if (!busy) onclose(); }
 </script>
 
-<Modal title="Choose nesting stock" wide onclose={() => { if (!busy) onclose(); }}>
-  <div class="stock-tabs seg"><button class:on={page === 'new'} disabled={busy} onclick={() => page = 'new'}>New sheet</button><button class:on={page === 'remnants'} disabled={busy} onclick={() => page = 'remnants'}>Remnants</button><button class:on={page === 'drawing'} disabled={busy} onclick={() => page = 'drawing'}>From drawing</button></div>
+<Modal title="Choose nesting stock" wide onclose={close}>
+  <div class="stock-tabs seg">
+    <button class:on={page === 'new'} disabled={busy} onclick={() => page = 'new'}>New sheet</button>
+    <button class:on={page === 'remnants'} disabled={busy} onclick={() => page = 'remnants'}>Remnants</button>
+    <button class:on={page === 'drawing'} disabled={busy} onclick={() => page = 'drawing'}>From drawing</button>
+  </div>
   {#if error}<p class="error" role="alert">{error}</p>{/if}
   {#if page === 'new'}
     <div class="new-stock">
-      <div class="sheet-preview"><div class="sheet-icon" style:aspect-ratio={aspect} style:width="min(100%, {Math.round(240 * aspect)}px)"><span>{distance(width)} × {distance(height)} {unitLabel('mm')}</span></div></div>
+      <div class="sheet-preview">
+        <div class="sheet-icon" style:aspect-ratio={aspect} style:width="min(100%, {Math.round(240 * aspect)}px)">
+          <span>{distance(width)} × {distance(height)} {unitLabel('mm')}</span>
+        </div>
+      </div>
       <div class="sheet-form">
         <h3>A fresh rectangular sheet</h3>
         <p>Additional copies continue onto fresh sheets of this size when needed.</p>
         <div class="dimensions">
-          <button disabled={busy} onclick={() => osk.number('Sheet width', width, 'mm', v => width = v)}><span>Width · X</span><strong>{quantity(width, 'mm')}</strong></button>
-          <button class="rotate" disabled={busy} onclick={rotate} aria-label="Rotate the sheet: swap width and height" title="Swap width and height"><i class="ic ic-rotate"></i><span>Rotate</span></button>
-          <button disabled={busy} onclick={() => osk.number('Sheet height', height, 'mm', v => height = v)}><span>Height · Y</span><strong>{quantity(height, 'mm')}</strong></button>
+          <button disabled={busy} onclick={() => osk.number('Sheet width', width, 'mm', v => width = v)}>
+            <span>Width · X</span><strong>{quantity(width, 'mm')}</strong>
+          </button>
+          <button
+            class="rotate"
+            disabled={busy}
+            onclick={rotate}
+            aria-label="Rotate the sheet: swap width and height"
+            title="Swap width and height"
+          >
+            <i class="ic ic-rotate"></i><span>Rotate</span>
+          </button>
+          <button disabled={busy} onclick={() => osk.number('Sheet height', height, 'mm', v => height = v)}>
+            <span>Height · Y</span><strong>{quantity(height, 'mm')}</strong>
+          </button>
         </div>
-        {#if !fits(size, bedSize)}<p class="warn-text" role="status">Larger than the bed ({distance(bedSize!.width)} × {distance(bedSize!.height)} {unitLabel('mm')}). Rotate it or pick a smaller size.</p>{/if}
+        {#if !fits(size, bedSize)}
+          <p class="warn-text" role="status">
+            Larger than the bed ({distance(bedSize!.width)} × {distance(bedSize!.height)} {unitLabel('mm')}).
+            Rotate it or pick a smaller size.
+          </p>
+        {/if}
         <h4>Common sizes</h4>
         <div class="chips">
-          {#each presets as preset (preset.label)}<button class="chip" class:on={same(preset.size, size)} disabled={busy || !fits(preset.size, bedSize)} title={fits(preset.size, bedSize) ? '' : 'Larger than the bed'} onclick={() => choose(preset.size)}>{preset.label}</button>{/each}
+          {#each presets as preset (preset.label)}
+            <button
+              class="chip"
+              class:on={same(preset.size, size)}
+              disabled={busy || !fits(preset.size, bedSize)}
+              title={fits(preset.size, bedSize) ? '' : 'Larger than the bed'}
+              onclick={() => choose(preset.size)}
+            >{preset.label}</button>
+          {/each}
         </div>
         <h4>Saved sizes</h4>
         <div class="chips">
           {#each ui.sheetSizes as entry (entry.join('x'))}
-            <span class="saved-size"><button class="chip" class:on={same(entry, size)} disabled={busy} onclick={() => choose(entry)}>{distance(entry[0])} × {distance(entry[1])}</button><button class="forget" aria-label="Forget {distance(entry[0])} × {distance(entry[1])}" onclick={() => ui.forgetSheetSize(entry)}><i class="ic ic-x"></i></button></span>
+            <span class="saved-size">
+              <button class="chip" class:on={same(entry, size)} disabled={busy} onclick={() => choose(entry)}>
+                {distance(entry[0])} × {distance(entry[1])}
+              </button>
+              <button class="forget" aria-label="Forget {distance(entry[0])} × {distance(entry[1])}" onclick={() => ui.forgetSheetSize(entry)}>
+                <i class="ic ic-x"></i>
+              </button>
+            </span>
           {/each}
-          <button class="chip save" disabled={busy || saved || width <= 0 || height <= 0} onclick={() => ui.saveSheetSize(size)}>{saved ? 'Saved' : '+ Save this size'}</button>
+          <button class="chip save" disabled={busy || saved || width <= 0 || height <= 0} onclick={() => ui.saveSheetSize(size)}>
+            {saved ? 'Saved' : '+ Save this size'}
+          </button>
         </div>
         <button class="btn btn-primary lg block" disabled={busy || width <= 0 || height <= 0} onclick={rectangle}>Use this sheet</button>
       </div>
     </div>
-  {:else if page === 'remnants'}<SheetLibrary onchoose={async sheet => { await api.setStock({ kind: 'remnant', id: sheet.id }); ui.nestPicking = false; onselected(); onclose(); }} />
-  {:else}<div class="drawing-stock"><h3>Use an existing outline</h3><p>Select a closed outline on your drawing. It becomes the stock boundary and is removed from cutting.</p><button class="btn btn-primary lg" onclick={() => { ui.nestPicking = true; onselected(); onclose(); }}>Choose outline on drawing</button></div>{/if}
+  {:else if page === 'remnants'}<SheetLibrary onchoose={useRemnant} />
+  {:else}
+    <div class="drawing-stock">
+      <h3>Use an existing outline</h3>
+      <p>Select a closed outline on your drawing. It becomes the stock boundary and is removed from cutting.</p>
+      <button class="btn btn-primary lg" onclick={chooseOutline}>Choose outline on drawing</button>
+    </div>
+  {/if}
 </Modal>
 
 <style>
