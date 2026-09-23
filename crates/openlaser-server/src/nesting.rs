@@ -561,7 +561,7 @@ fn input(
         machining_clearance: lead + kerf,
         sheet_limit: openlaser_nest::SheetLimit {
             contours: openlaser_prep::MAX_CONTOURS,
-            curves: 100_000,
+            curves: openlaser_prep::MAX_CURVES,
         },
         time_limit: Duration::from_secs(u64::from(request.seconds)),
         seed: 7,

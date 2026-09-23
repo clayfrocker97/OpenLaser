@@ -472,6 +472,256 @@ async fn completed_sheet_survives_edits_and_becomes_stock_with_all_cutouts_exclu
     assert_eq!(std::fs::read_dir(root.join("sheets")).unwrap().count(), 2);
 }
 
+/// Several parts nest onto an inspected remnant clear of its cut area, what
+/// does not fit goes onto a fresh sheet of the remnant's size, the running
+/// search shows each sheet with its own stock, and each saved sheet cuts
+/// only its parts and keeps its stock.
+#[tokio::test]
+#[allow(clippy::too_many_lines, reason = "one journey from a used sheet to saved remnant jobs")]
+async fn several_parts_nest_on_a_remnant_and_overflow_onto_a_fresh_sheet() {
+    use openlaser_core::LaserMode;
+    use openlaser_core::features::Features;
+    use openlaser_core::geometry::{Contour, Curve, Drawing, Point};
+    use openlaser_core::nesting::{NestRotation, NestSettings, NestStock};
+    use openlaser_server::coordinator::{NewRecipe, Values};
+    use openlaser_server::machine;
+    use openlaser_server::nesting::{self, NestRequest, StockChoice};
+    let rect = |x: f64, y: f64, w: f64, h: f64| {
+        let p = [[x, y], [x + w, y], [x + w, y + h], [x, y + h]];
+        Contour {
+            layer: "Cut".into(),
+            curves: (0..4)
+                .map(|i| Curve::Line { start: p[i].into(), end: p[(i + 1) % 4].into() })
+                .collect(),
+        }
+    };
+    let plain = Features { leads: None, kerf: None, ..Features::default() };
+    let server = Server::start().await;
+    // A 300 x 200 sheet whose left 180 mm were cut away.
+    let (recipe, parts) = {
+        let mut c = server.shared.lock().await;
+        let recipe = c
+            .add_recipe(&NewRecipe {
+                name: "Remnant steel".into(),
+                laser: LaserMode::Fiber,
+                thickness_mm: 1.,
+                values: Values::Bank(1),
+                gas: None,
+            })
+            .unwrap()
+            .id;
+        let used = Drawing { contours: vec![rect(0., 0., 300., 200.), rect(10., 5., 180., 190.)] };
+        let used = c.library.add_part("used.dxf", b"used sheet", used).unwrap().id;
+        let disc =
+            Contour { layer: "Cut".into(), curves: vec![Curve::circle(Point::new(0., 0.), 15.)] };
+        let mut add = |name: &str, contours: Vec<Contour>| {
+            c.library.add_part(name, name.as_bytes(), Drawing { contours }).unwrap().id
+        };
+        let parts = [
+            add("plate.dxf", vec![rect(0., 0., 100., 60.), rect(20., 20., 10., 10.)]),
+            add("tab.svg", vec![rect(-500., 300., 40., 20.)]),
+            add("disc.dxf", vec![disc]),
+        ];
+        c.open_part(&used).unwrap();
+        c.set_recipe(&recipe).unwrap();
+        c.set_features(plain.clone()).unwrap();
+        (recipe, parts)
+    };
+    machine::prepare(&server.shared).await.unwrap();
+    server.shared.lock().await.set_stock(StockChoice::Outline { contour: 0 }).unwrap();
+    machine::prepare(&server.shared).await.unwrap();
+    let used = server.shared.lock().await.save_job("Used sheet").unwrap();
+    let (status, response) =
+        server.request("POST", &format!("/api/jobs/{}/cut-sheet", used.id), None, &[]).await;
+    assert_eq!(status, 200, "{response}");
+    let sheet = response_json(&response)["id"].as_str().unwrap().to_owned();
+    let path = format!("/api/sheets/{sheet}");
+    let (_, response) = server.request("GET", &path, None, &[]).await;
+    let revision = response_json(&response)["revision"].clone();
+    let change = serde_json::json!({"revision": revision, "name": "Right strip", "bounds": null});
+    let (status, response) = server.request("POST", &path, Some(&change.to_string()), &[]).await;
+    assert_eq!(status, 200, "{response}");
+
+    // Three parts on that remnant: only the plate is too wide for the strip.
+    {
+        let mut c = server.shared.lock().await;
+        c.open_parts(&parts).unwrap();
+        c.set_recipe(&recipe).unwrap();
+        c.set_features(plain).unwrap();
+    }
+    machine::prepare(&server.shared).await.unwrap();
+    server.shared.lock().await.set_stock(StockChoice::Remnant { id: sheet.clone() }).unwrap();
+    machine::prepare(&server.shared).await.unwrap();
+    let (revision, remnant) = {
+        let c = server.shared.lock().await;
+        let draft = c.draft.as_ref().unwrap();
+        assert_eq!(draft.stock_cutouts.len(), 1, "the cut area is reserved");
+        let remnant = nesting::stock(draft.drawing().unwrap(), draft.nesting.as_ref().unwrap())
+            .unwrap()
+            .bounds()
+            .unwrap();
+        (c.document().draft_revision, remnant)
+    };
+    let settings = NestSettings {
+        spacing: 3.,
+        margin: 3.,
+        remnant_clearance: 5.,
+        rotation: NestRotation::Fixed,
+    };
+    let request = NestRequest { contours: vec![], quantity: 1, settings, seconds: 2 };
+    let work = nesting::start(&server.shared, revision, request).await.unwrap();
+    let result = loop {
+        let view = nesting::status(&server.shared, work.id).await.unwrap();
+        if let Some(live) = &view.live {
+            let fresh = live.sheet > 1;
+            assert_eq!(live.stock_cutouts.is_empty(), fresh, "sheet {}: {live:?}", live.sheet);
+            assert!(!live.stock_outline.is_empty());
+        }
+        if !view.running {
+            break view;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    };
+    assert!(result.error.is_none(), "{:?}", result.error);
+    let sheets: Vec<_> = result.sheets.iter().map(|s| (s.parts, s.fresh)).collect();
+    assert_eq!(sheets, [(2, false), (1, true)]);
+    let first = nesting::sheet_preview(&server.shared, work.id, 0).await.unwrap();
+    let second = nesting::sheet_preview(&server.shared, work.id, 1).await.unwrap();
+    assert_eq!((first.stock_cutouts.len(), second.stock_cutouts.len()), (1, 0));
+    nesting::apply(&server.shared, work.id).await.unwrap();
+    machine::prepare(&server.shared).await.unwrap();
+    {
+        let c = server.shared.lock().await;
+        let d = c.draft.as_ref().unwrap();
+        assert!(d.error.is_none(), "{:?}", d.error);
+        let n = d.nesting.as_ref().unwrap();
+        let NestStock::Remnant { cutouts, .. } = &n.stock else { panic!("remnant stock") };
+        let drawing = d.drawing().unwrap();
+        let placed = openlaser_server::draft::place(drawing, &d.placed);
+        openlaser_nest::check_region(
+            &nesting::stock(drawing, n).unwrap(),
+            cutouts,
+            &placed.contours,
+            n.margin(),
+        )
+        .unwrap();
+        assert!(placed.bounds().unwrap().min.x > remnant.min.x + 180., "clear of the cut area");
+    }
+    server.shared.lock().await.select_sheet(1).unwrap();
+    machine::prepare(&server.shared).await.unwrap();
+    {
+        let c = server.shared.lock().await;
+        let d = c.draft.as_ref().unwrap();
+        assert!(d.error.is_none(), "{:?}", d.error);
+        let NestStock::Rectangle { bounds } = &d.nesting.as_ref().unwrap().stock else {
+            panic!("fresh rectangular stock")
+        };
+        assert!((bounds.width() - remnant.width()).abs() < 1e-9);
+        assert!((bounds.height() - remnant.height()).abs() < 1e-9);
+        assert!(d.stock_cutouts.is_empty());
+    }
+    let mut c = server.shared.lock().await;
+    c.save_job("Remnant batch").unwrap();
+    let names = |job: &openlaser_library::Job| -> Vec<String> {
+        job.parts.iter().map(|id| c.library.part(id).unwrap().name.clone()).collect()
+    };
+    let mut jobs: Vec<_> = c.library.jobs().filter(|j| j.sheet.is_some()).cloned().collect();
+    jobs.sort_by_key(|j| j.sheet.as_ref().unwrap().number);
+    assert_eq!(jobs.len(), 2);
+    assert_eq!(names(&jobs[0]), ["tab", "disc"]);
+    assert!(matches!(jobs[0].nesting.as_ref().unwrap().stock, NestStock::Remnant { .. }));
+    assert_eq!(names(&jobs[1]), ["plate"]);
+    assert!(matches!(jobs[1].nesting.as_ref().unwrap().stock, NestStock::Rectangle { .. }));
+    drop(c);
+    server.close().await;
+}
+
+/// Simplifying a drawing shows what it would do, saves the result as a new
+/// part once, and leaves the part and its jobs as they are.
+#[tokio::test]
+async fn simplifying_a_drawing_saves_a_new_part_and_keeps_the_original() {
+    use openlaser_core::geometry::{Contour, Curve, Drawing, Point};
+    let server = Server::start().await;
+    let circle: Vec<Curve> = (0..120)
+        .map(|k| {
+            let at = |k: i32| {
+                Point::new(50., 50.)
+                    + Point::direction(std::f64::consts::TAU * f64::from(k) / 120.) * 20.
+            };
+            Curve::Line { start: at(k), end: at(k + 1) }
+        })
+        .collect();
+    let square = |x: f64| {
+        let p = [[x, 0.], [x + 10., 0.], [x + 10., 10.], [x, 10.]];
+        Contour {
+            layer: "Cut".into(),
+            curves: (0..4)
+                .map(|i| Curve::Line { start: p[i].into(), end: p[(i + 1) % 4].into() })
+                .collect(),
+        }
+    };
+    let drawing = Drawing {
+        contours: vec![Contour { layer: "Cut".into(), curves: circle }, square(100.), square(100.)],
+    };
+    let original = server
+        .shared
+        .lock()
+        .await
+        .library
+        .add_part("flattened.dxf", b"flat", drawing.clone())
+        .unwrap();
+    let path = format!("/api/parts/{}/simplify", original.id);
+    let ask = |save: bool| serde_json::json!({ "tolerance": 0.02, "save": save }).to_string();
+    let (status, response) = server.request("POST", &path, Some(&ask(false)), &[]).await;
+    assert_eq!(status, 200, "{response}");
+    let preview = response_json(&response);
+    assert_eq!(
+        (preview["curves_before"].as_u64(), preview["curves_after"].as_u64()),
+        (Some(128), Some(6))
+    );
+    assert_eq!(
+        (preview["contours_after"].as_u64(), preview["repeats"].as_u64()),
+        (Some(2), Some(1))
+    );
+    assert!(preview["part"].is_null());
+    let count = server.shared.lock().await.library.parts().count();
+    assert_eq!(count, 1, "a preview saves nothing");
+    let (status, response) = server.request("POST", &path, Some(&ask(true)), &[]).await;
+    assert_eq!(status, 200, "{response}");
+    let made = response_json(&response)["part"].as_str().unwrap().to_owned();
+    let (_, again) = server.request("POST", &path, Some(&ask(true)), &[]).await;
+    assert_eq!(response_json(&again)["part"], made.as_str(), "the same result is the same part");
+    {
+        let c = server.shared.lock().await;
+        let simplified = c.library.part(&openlaser_library::Id::from(made.as_str())).unwrap();
+        assert_eq!(simplified.name, "flattened simplified");
+        assert_eq!(simplified.drawing.contours.len(), 2);
+        assert_eq!(*c.library.part(&original.id).unwrap().drawing, drawing, "the original is kept");
+    }
+    // A wave simplifies further at a coarser tolerance: a second, numbered part.
+    let wave: Vec<Curve> = (0..200)
+        .map(|k| {
+            let at = |k: i32| Point::new(f64::from(k) * 0.5, 10. * (f64::from(k) / 30.).sin());
+            Curve::Line { start: at(k), end: at(k + 1) }
+        })
+        .collect();
+    let wave = Drawing { contours: vec![Contour { layer: "Cut".into(), curves: wave }] };
+    let wave = server.shared.lock().await.library.add_part("wave.dxf", b"wave", wave).unwrap();
+    let path = format!("/api/parts/{}/simplify", wave.id);
+    let mut names = Vec::new();
+    for tolerance in [0.01, 0.1] {
+        let ask = serde_json::json!({ "tolerance": tolerance, "save": true }).to_string();
+        let (status, response) = server.request("POST", &path, Some(&ask), &[]).await;
+        assert_eq!(status, 200, "{response}");
+        let id = openlaser_library::Id::from(response_json(&response)["part"].as_str().unwrap());
+        names.push(server.shared.lock().await.library.part(&id).unwrap().name.clone());
+    }
+    assert_eq!(names, ["wave simplified", "wave simplified 2"]);
+    let bad = serde_json::json!({ "tolerance": 5., "save": false }).to_string();
+    assert_eq!(server.request("POST", &path, Some(&bad), &[]).await.0, 409);
+    server.close().await;
+}
+
 #[tokio::test]
 async fn a_job_with_only_an_open_cut_can_be_saved_as_a_remnant() {
     use openlaser_server::coordinator::{NewRecipe, Values};

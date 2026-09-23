@@ -1,5 +1,6 @@
 <script lang="ts">
   import ImportParts from '../components/ImportParts.svelte';
+  import SimplifyPart from '../components/SimplifyPart.svelte';
   import { api } from '../api/client';
   import { server } from '../stores/server.svelte';
   import { ui } from '../stores/ui.svelte';
@@ -72,7 +73,8 @@
     osk.text('Notes', item.notes, (notes) => run(() => savedJob ? api.updateJob(id, { notes }) : api.updatePart(id, { notes })));
   }
 
-  const outline = $derived(job?.outline ?? part?.outline ?? []);
+  const outline = $derived(item?.outline ?? []);
+  let simplifying = $state(false);
   const thumb = $derived.by(() => { const box = boxOf(outline); return box ? viewBoxFor(box, 100, 70) : '0 0 100 70'; });
 </script>
 
@@ -108,6 +110,7 @@
       <button class="btn btn-ghost" onclick={rename}>Rename</button>
       <button class="btn btn-ghost" onclick={remove}>Delete</button>
     </div>
+    {#if part}<button class="btn btn-ghost block" onclick={() => (simplifying = true)}>Simplify drawing…</button>{/if}
     </div>
     <div class="side-foot">
       {#if job}
@@ -120,6 +123,7 @@
     </div>
   {/if}
 </aside>
+{#if simplifying && part}<SimplifyPart {part} onclose={() => (simplifying = false)} />{/if}
 
 <style>
   /* Details scroll on a short screen; the actions at the foot stay in reach. */

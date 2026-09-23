@@ -8,8 +8,13 @@ use openlaser_core::geometry::Point;
 use std::cmp::Reverse;
 use std::collections::BTreeMap;
 
-/// The most contours a search-based order will take.
-const MAX_SEARCH: usize = 10_000;
+/// The most contours nearest-next ordering takes. Each step searches every
+/// contour left, some 0.7 s at this size on a current desktop.
+const MAX_NEAREST: usize = 10_000;
+
+/// The most contours heat spreading takes: a cheaper search than
+/// nearest-next, some 0.7 s at a full sheet.
+const MAX_SPREAD: usize = crate::MAX_CONTOURS;
 
 /// What ordering needs to know about one prepared contour.
 pub(crate) struct Item {
@@ -65,8 +70,10 @@ fn base_order(items: &[Item], strategy: &OrderStrategy) -> Result<Vec<usize>> {
 
 /// Each next contour the nearest to the last, starting from the origin.
 fn nearest(items: &[Item]) -> Result<Vec<usize>> {
-    if items.len() > MAX_SEARCH {
-        return Err(Error::Budget("nearest-next ordering"));
+    if items.len() > MAX_NEAREST {
+        return Err(Error::Limit(format!(
+            "nearest-next ordering takes up to {MAX_NEAREST} contours; choose a positional order"
+        )));
     }
     let mut pending: Vec<usize> = (0..items.len()).collect();
     let mut sequence = Vec::with_capacity(items.len());
@@ -107,8 +114,10 @@ fn manual_ranks(items: &[Item], listed: &[usize]) -> Result<BTreeMap<usize, usiz
 /// Keeps consecutive cuts apart: within each run of equal priority, the
 /// next contour is the one farthest from the last.
 fn spread(items: &[Item], order: &CutOrder, mut pending: Vec<usize>) -> Result<Vec<usize>> {
-    if pending.len() > MAX_SEARCH {
-        return Err(Error::Budget("heat-spreading order"));
+    if pending.len() > MAX_SPREAD {
+        return Err(Error::Limit(format!(
+            "spreading heat takes up to {MAX_SPREAD} contours; turn it off for this sheet"
+        )));
     }
     let priority = |i: usize| {
         (if order.inner_first { items[i].depth } else { 0 }, order.circles_first && items[i].circle)

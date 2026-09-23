@@ -144,6 +144,7 @@ export type { SheetState } from './bindings/SheetState';
 export type { SheetTab } from './bindings/SheetTab';
 export type { SheetView } from './bindings/SheetView';
 export type { Side } from './bindings/Side';
+export type { SimplifyView } from './bindings/SimplifyView';
 export type { SkippedView } from './bindings/SkippedView';
 export type { SoftView } from './bindings/SoftView';
 export type { Spot } from './bindings/Spot';

@@ -60,6 +60,7 @@ pub fn router(shared: Shared, ui_dir: std::path::PathBuf) -> Router {
         .route("/api/parts", post(import_part))
         .route("/api/parts/{id}", post(update_part).delete(remove_part))
         .route("/api/parts/{id}/duplicate", post(duplicate_part))
+        .route("/api/parts/{id}/simplify", post(simplify_part))
         .route("/api/folders", post(add_folder))
         .route("/api/folders/{id}", post(update_folder).delete(remove_folder))
         .route("/api/recipes", post(add_recipe))
@@ -362,6 +363,31 @@ async fn duplicate_recipe(
 async fn duplicate_part(State(shared): State<Shared>, Path(id): Path<String>) -> Reply {
     let copy = shared.lock().await.duplicate_part(&Id::from(id.as_str()))?;
     Ok(Json(json!({ "ok": true, "id": copy.id })))
+}
+
+/// How closely a simplified drawing follows its part, and whether to keep it.
+#[derive(Deserialize)]
+struct SimplifyRequest {
+    /// Millimetres.
+    tolerance: f64,
+    save: bool,
+}
+
+/// Simplifies off the coordinator lock; only saving the result takes it again.
+async fn simplify_part(
+    State(shared): State<Shared>,
+    Path(id): Path<String>,
+    Json(request): Json<SimplifyRequest>,
+) -> Reply {
+    let id = Id::from(id.as_str());
+    let drawing = shared.lock().await.library.part(&id).map_err(Error::from)?.drawing.clone();
+    let result = tokio::task::spawn_blocking(move || {
+        openlaser_prep::simplify::simplify(&drawing, request.tolerance).map_err(Error::from)
+    })
+    .await
+    .map_err(|error| Error::Refused(format!("simplify task: {error}")))??;
+    let view = shared.lock().await.simplified_part(&id, result, request.save)?;
+    Ok(Json(serde_json::to_value(view).map_err(|e| Error::Refused(e.to_string()))?))
 }
 
 async fn remove_part(State(shared): State<Shared>, Path(id): Path<String>) -> Reply {
