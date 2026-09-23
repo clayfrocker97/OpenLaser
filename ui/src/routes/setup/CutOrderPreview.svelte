@@ -30,6 +30,6 @@
 
 <style>
   .order-preview { display:grid; gap:12px; padding-top:16px; border-top:1px solid var(--line); }
-  .row { justify-content:space-between; font-size:13px; }
-  input { width: 100%; height: 32px; margin: 0; accent-color: var(--accent); cursor: pointer; }
+  .row { justify-content:space-between; font-size:var(--t-sm); }
+  input { width: 100%; height: 44px; margin: 0; accent-color: var(--accent); cursor: pointer; }
 </style>

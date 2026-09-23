@@ -78,7 +78,7 @@
 {/snippet}
 
 {#snippet chips(label: string, options: Array<[string, string]>, current: string, apply: (v: string) => void)}
-  <div class="field"><div class="lbl" style="font-weight:600;font-size:14px">{label}</div><div class="chips">{#each options as [value, text]}<button class="chip" class:on={current === value} onclick={() => apply(value)} disabled={!on}>{text}</button>{/each}</div></div>
+  <div class="field"><div class="lbl" style="font-weight:600;font-size:var(--t-base)">{label}</div><div class="chips">{#each options as [value, text]}<button class="chip" class:on={current === value} onclick={() => apply(value)} disabled={!on}>{text}</button>{/each}</div></div>
 {/snippet}
 
 {#snippet toggle(label: string, value: boolean, apply: (v: boolean) => void)}
@@ -100,7 +100,7 @@
 {#if id === 'order'}<CutOrderPreview preview={draft.preview} disabled={!!ui.picking} bind:progress={orderProgress} />{/if}
 {#if featureEdits.error}<p class="muted">{featureEdits.error} <button class="link" onclick={() => featureEdits.discard()}>Discard refused edits</button></p>{/if}
 {#if id === 'leads'}{@render tabs(['Entry', 'Exit'])}{/if}
-{#if id === 'leads'}<p class="muted" style="font-size:12px">Drag a lead to edit it. Selected copies update the matching lead.</p>{/if}
+{#if id === 'leads'}<p class="muted" style="font-size:var(--t-sm)">Drag a lead to edit it. Selected copies update the matching lead.</p>{/if}
 {#if id === 'joints' || id === 'start'}{@render tabs(['Basic', 'More'])}{/if}
 <div class="stack" style="opacity:{on ? 1 : 0.45}">
   {#if id === 'leads'}
@@ -116,7 +116,7 @@
     {@render chips('Side', [['auto', 'Auto'], ['inside', 'Inside'], ['outside', 'Outside']], leads.side, (v) => set((f) => { f.leads!.side = v as typeof leads.side; }))}
     {@render toggle('Closed contours only', leads.closed_only, (v) => set((f) => { f.leads!.closed_only = v; }))}
     {#if leads.overrides?.length}
-      <p class="muted" style="font-size:12px">{leads.overrides.length} contour{leads.overrides.length === 1 ? '' : 's'} with individual lead settings</p>
+      <p class="muted" style="font-size:var(--t-sm)">{leads.overrides.length} contour{leads.overrides.length === 1 ? '' : 's'} with individual lead settings</p>
       <button class="btn btn-soft" disabled={!on || !leads.overrides.some(edited => selectedContours.includes(edited.location.contour))} onclick={() => set(f => { f.leads!.overrides = f.leads!.overrides.filter(edited => !selectedContours.includes(edited.location.contour)); })}>Use job defaults for selection</button>
       <button class="btn btn-ghost" disabled={!on} onclick={() => set(f => { f.leads!.overrides = []; })}>Reset all individual leads</button>
     {/if}
@@ -142,7 +142,7 @@
       {@render toggle('Slow down in the joint', joints.slow_speed !== null, (v) => set((f) => { f.joints!.slow_speed = v ? 5 : null; }))}
       {#if joints.slow_speed !== null}{@render stepper('Joint speed', joints.slow_speed, 'mm/s', 1, (v) => set((f) => { f.joints!.slow_speed = Math.max(0.1, v); }))}{/if}
       {@render toggle('Pierce again after each joint', joints.repierce, (v) => set((f) => { f.joints!.repierce = v; }))}
-      <p class="muted" style="font-size:12px;margin:0">Piercing again needs a recipe with pierce stages.</p>
+      <p class="muted" style="font-size:var(--t-sm);margin:0">Piercing again needs a recipe with pierce stages.</p>
     {/if}
   {:else if id === 'cooling'}
     {@const cooling = features.cooling ?? defaultCooling()}
@@ -197,7 +197,7 @@
         {@const seam = features.seam}
         {@render stepper('gap' in seam ? 'Gap' : 'Overcut', 'gap' in seam ? seam.gap : seam.overcut, 'mm', 0.1, (v) => set((f) => { f.seam = 'gap' in seam ? { gap: v } : { overcut: v }; }))}
       {/if}
-      <p class="muted" style="font-size:12px;margin:0">Gap leaves an attachment; overcut cuts past the start.</p>
+      <p class="muted" style="font-size:var(--t-sm);margin:0">Gap leaves an attachment; overcut cuts past the start.</p>
     {/if}
   {/if}
 </div>

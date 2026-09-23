@@ -63,11 +63,11 @@
   .tone-warn .dot { background: var(--warn); }
   .tone-warn .status-summary { border-color: var(--warn); }
   .status-text { flex: 1; min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
-  .more { flex: none; color: var(--ink-3); font-size: var(--t-xs); }
+  .more { flex: none; color: var(--ink-3); font-size: var(--t-sm); }
   .status-details { display: grid; gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; font-size: var(--t-sm); }
   ul { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
   li { display: grid; gap: 2px; }
   li span { color: var(--ink-2); }
-  .technical summary { cursor: pointer; color: var(--ink-3); font-size: var(--t-xs); min-height: 32px; display: flex; align-items: center; }
-  .technical code { display: block; margin-top: 4px; font-size: var(--t-xs); color: var(--ink-3); overflow-wrap: anywhere; }
+  .technical summary { cursor: pointer; color: var(--ink-3); font-size: var(--t-sm); min-height: 44px; display: flex; align-items: center; }
+  .technical code { display: block; margin-top: 4px; font-size: var(--t-sm); color: var(--ink-3); overflow-wrap: anywhere; }
 </style>

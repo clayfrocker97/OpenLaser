@@ -240,7 +240,7 @@
 
 <style>
 .run-choice { display:flex; align-items:center; justify-content:flex-end; gap:8px; padding:8px 12px; border-bottom:1px solid var(--line); }
-.run-choice > span { margin-right:auto; font-size:12px; }
+.run-choice > span { margin-right:auto; font-size:var(--t-sm); }
 .run-choice button { min-height:44px; }
 .recovery-toggle { min-height:44px; }
 .panel-head.compact { display:grid; grid-template-columns:auto minmax(0,1fr); gap:5px 14px; min-height:66px; padding:9px 12px; }
@@ -252,5 +252,5 @@
 .stock-reference { fill:var(--accent); fill-opacity:.035; stroke:var(--accent); stroke-width:1; }
 .stock-cutout { fill:var(--ink-3); fill-opacity:.2; stroke:var(--ink-3); stroke-width:1; }
 .path.skipped { opacity:0.25; stroke-dasharray:5 5; } .path.restart-selected { stroke:var(--hold); stroke-width:3; opacity:1; }
-.sheet-complete { display:flex; align-items:center; justify-content:space-between; gap:20px; padding:14px 22px; border-top:1px solid var(--line); } .sheet-complete strong { font-size:14px; } .sheet-complete small { display:block; margin-top:5px; color:var(--ink-3); font-size:11px; } .sheet-complete button { min-height:48px; } .recovery-key { display:flex; align-items:center; gap:8px; font-size:11px; color:var(--ink-3); } .recovery-key i { width:22px; height:3px; background:var(--hold); } .finished-key i { background:var(--ink-3); opacity:.45; }
+.sheet-complete { display:flex; align-items:center; justify-content:space-between; gap:20px; padding:14px 22px; border-top:1px solid var(--line); } .sheet-complete strong { font-size:var(--t-base); } .sheet-complete small { display:block; margin-top:5px; color:var(--ink-3); font-size:var(--t-sm); } .sheet-complete button { min-height:48px; } .recovery-key { display:flex; align-items:center; gap:8px; font-size:var(--t-sm); color:var(--ink-3); } .recovery-key i { width:22px; height:3px; background:var(--hold); } .finished-key i { background:var(--ink-3); opacity:.45; }
 </style>

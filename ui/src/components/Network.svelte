@@ -12,5 +12,5 @@
 </Modal>
 
 <style>
-  .network-address { display:grid; gap:14px; }.network-address span { font-size:13px; color:var(--ink-2); }.network-address strong { font-size:27px; letter-spacing:-.02em; overflow-wrap:anywhere; }.network-address p { color:var(--ink-3); font-size:14px; line-height:1.6; }
+  .network-address { display:grid; gap:14px; }.network-address span { font-size:var(--t-sm); color:var(--ink-2); }.network-address strong { font-size:var(--t-xl); letter-spacing:-.02em; overflow-wrap:anywhere; }.network-address p { color:var(--ink-3); font-size:var(--t-base); line-height:1.6; }
 </style>

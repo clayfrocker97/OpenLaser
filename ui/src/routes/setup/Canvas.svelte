@@ -655,7 +655,7 @@
   .tool-row { display: grid; grid-template-columns: repeat(10, minmax(64px, 1fr)); gap: 8px; }
   .rail-btn { min-height: 66px; width: 100%; gap: 7px; }
   .rail-btn strong { font-size: var(--t-base); }
-  .rail-btn small { font-size: 11px; letter-spacing: 0; }
+  .rail-btn small { font-size: var(--t-sm); letter-spacing: 0; }
   .rail-btn:disabled { opacity: .38; cursor: default; }
   .rail-btn .ic { width: 23px; height: 23px; }
   .vertical { transform: rotate(90deg); }

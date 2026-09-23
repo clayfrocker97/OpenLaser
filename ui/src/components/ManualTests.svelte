@@ -43,7 +43,7 @@
   .gas-fields > :global(.btn) { grid-column: 1 / -1; }
   .gas-choices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
   .test-value { display: grid; gap: 8px; text-align: left; min-width: 0; padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel-2); color: var(--ink); cursor: pointer; }
-  .test-value > span { color: var(--ink-3); font-size: var(--t-xs); }
+  .test-value > span { color: var(--ink-3); font-size: var(--t-sm); }
   .test-value strong { font-size: var(--t-base); white-space: nowrap; }
   .gas-label { margin-top: 20px; }
 </style>

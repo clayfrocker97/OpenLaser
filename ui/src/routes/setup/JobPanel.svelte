@@ -99,7 +99,7 @@
 {#if draft.compiled?.plan.some((pass) => pass.omitted_cooling > 0)}
   <p class="muted">{draft.compiled.plan.reduce((n, pass) => n + pass.omitted_cooling, 0)} cooling points skipped within {quantity(0.2, 'mm')} of endpoints.</p>
 {/if}
-{#if draft.error}<div class="warn-text" style="font-size:13px">{draft.error}</div>{/if}
+{#if draft.error}<div class="warn-text" style="font-size:var(--t-sm)">{draft.error}</div>{/if}
 </div>
 
 <div class="stack">
@@ -118,7 +118,7 @@
   /* The cards scroll on a short screen; saving and Go to Run stay in reach. */
   .job-scroll { flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; display:flex; flex-direction:column; gap:12px; margin:-2px; padding:2px; }
   .stack { flex-shrink:0; }
-  .correction-status { padding:10px 12px; font-size:11px; color:var(--ink-3); border-left:2px solid var(--accent); }
+  .correction-status { padding:10px 12px; font-size:var(--t-sm); color:var(--ink-3); border-left:2px solid var(--accent); }
   .job-parts { list-style:none; margin:0; padding:0; display:grid; gap:6px; max-height:220px; overflow-y:auto; }
   .job-part { width:100%; min-height:48px; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:8px 12px; border:1px solid var(--line); border-radius:10px; background:var(--panel-2); color:var(--ink); text-align:left; cursor:pointer; }
   .job-part span { font-weight:600; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }

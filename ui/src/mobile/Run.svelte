@@ -88,4 +88,4 @@
 </div>
 {#if preflight}<FlightChecklist initial={preflight} onclose={() => preflight = null} />{/if}
 
-<style>.phone-run-choice { display:flex; margin-bottom:12px; }.phone-run-choice button { flex:1; min-height:44px; }.phone-pause-position { padding:12px; border:1px solid var(--hold); border-radius:9px; font-size:13px; line-height:1.5; }</style>
+<style>.phone-run-choice { display:flex; margin-bottom:12px; }.phone-run-choice button { flex:1; min-height:44px; }.phone-pause-position { padding:12px; border:1px solid var(--hold); border-radius:9px; font-size:var(--t-sm); line-height:1.5; }</style>

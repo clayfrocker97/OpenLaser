@@ -9,4 +9,4 @@
 <div class="phone-action-list phone-settings-list">{#each SETTINGS_PAGES as page}<button onclick={() => open(page.id)}>{page.label}<i class="ic ic-arrow-right"></i></button>{/each}</div>
 <div class="phone-action-list phone-settings-list"><button onclick={materials}>Material library<i class="ic ic-arrow-right"></i></button><button onclick={() => ui.modal = 'pending'}>Pending changes<i class="ic ic-arrow-right"></i></button></div>
 
-<style>.version { color: var(--ink-3); font-size: 12px; }</style>
+<style>.version { color: var(--ink-3); font-size: var(--t-sm); }</style>

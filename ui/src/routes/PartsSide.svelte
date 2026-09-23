@@ -133,7 +133,7 @@
   .meta-notes:hover { border-color: var(--accent); }
   .meta-notes:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .meta-label { display: flex; justify-content: space-between; align-items: center; color: var(--ink-2); font-weight: 600; }
-  .edit-label { color: var(--accent-2); font-weight: 600; font-size: var(--t-xs); }
+  .edit-label { color: var(--accent-2); font-weight: 600; font-size: var(--t-sm); }
   .placeholder { color: var(--ink-3); }
   .meta-notes { min-height: 100px; }
   .meta-notes > span:last-child { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 110px; overflow: auto; }

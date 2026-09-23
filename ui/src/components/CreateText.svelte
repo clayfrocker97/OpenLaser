@@ -91,23 +91,23 @@
 
 <style>
   .text-editor { display: grid; gap: 18px; }
-  .text-label { display: grid; gap: 8px; font-size: 13px; color: var(--ink-2); }
-  textarea { width: 100%; resize: vertical; min-height: 100px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); color: var(--ink); padding: 12px; font: inherit; font-size: 19px; line-height: 1.4; }
+  .text-label { display: grid; gap: 8px; font-size: var(--t-sm); color: var(--ink-2); }
+  textarea { width: 100%; resize: vertical; min-height: 100px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); color: var(--ink); padding: 12px; font: inherit; font-size: var(--t-lg); line-height: 1.4; }
   .text-controls { display: grid; grid-template-columns: 1.3fr 1fr; gap: 14px 24px; }
   .text-fonts { grid-column: 1 / -1; }
-  .text-face-note { align-self: center; font-size: 12px; margin: 0; }
+  .text-face-note { align-self: center; font-size: var(--t-sm); margin: 0; }
   .text-choices { display: flex; gap: 6px; }
   .text-choices button, .text-number { min-height: 44px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); color: var(--ink); font: inherit; cursor: pointer; padding: 10px 15px; }
   .text-choices button { flex: 1; }
   .text-choices .on { color: var(--accent); border-color: var(--accent); background: color-mix(in srgb, var(--accent) 9%, var(--panel)); }
-  .text-size-row { display: flex; align-items: end; justify-content: space-between; gap: 10px; padding-bottom: 1px; font-size: 13px; }
+  .text-size-row { display: flex; align-items: end; justify-content: space-between; gap: 10px; padding-bottom: 1px; font-size: var(--t-sm); }
   .text-size-row > span { align-self: center; }
   .text-weight { align-self: end; }
   .text-preview { min-height: 220px; display: grid; place-items: center; gap: 10px; padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel-2); }
   .text-preview svg { width: 100%; height: 190px; color: var(--accent); }
   .text-preview path { fill: color-mix(in srgb, var(--accent) 14%, transparent); stroke: currentColor; stroke-width: 1; }
-  .text-dimensions { font-size: 12px; color: var(--ink-2); }
+  .text-dimensions { font-size: var(--t-sm); color: var(--ink-2); }
   .text-footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-  .text-footer span { font-size: 12px; }
+  .text-footer span { font-size: var(--t-sm); }
   @media (max-width: 650px) { .text-controls { grid-template-columns: 1fr; } .text-footer { flex-wrap: wrap; } }
 </style>

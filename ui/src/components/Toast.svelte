@@ -21,7 +21,7 @@
 {/if}
 
 <style>
-  .toast-detail { margin-top: 4px; font-size: var(--t-xs); }
-  .toast-detail summary { cursor: pointer; min-height: 28px; }
+  .toast-detail { margin-top: 4px; font-size: var(--t-sm); }
+  .toast-detail summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; }
   .toast-detail code { display: block; overflow-wrap: anywhere; opacity: .8; }
 </style>

@@ -200,13 +200,13 @@
 {/if}
 
 <style>
-  .tools-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; color: var(--ink-3); font-size: 13px; }
+  .tools-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; color: var(--ink-3); font-size: var(--t-sm); }
   .tool-choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   .tool-choice { display: grid; grid-template-columns: 44px 1fr; min-width: 0; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); }
-  .tool-star { width: 44px; min-height: 58px; border: 0; border-radius: 10px 0 0 10px; background: transparent; color: var(--ink-3); font-size: 20px; cursor: pointer; }
+  .tool-star { width: 44px; min-height: 58px; border: 0; border-radius: 10px 0 0 10px; background: transparent; color: var(--ink-3); font-size: var(--t-lg); cursor: pointer; }
   .tool-star.on { color: var(--warn); }
-  .tool-open { display: flex; flex-direction: column; justify-content: center; align-items: start; gap: 4px; min-width: 0; min-height: 58px; padding: 8px 10px 8px 0; border: 0; border-radius: 0 10px 10px 0; background: transparent; color: var(--ink); font: inherit; font-size: 13px; font-weight: 600; text-align: left; cursor: pointer; }
-  .tool-open small { color: var(--ink-3); font-size: 11px; font-weight: 400; }
+  .tool-open { display: flex; flex-direction: column; justify-content: center; align-items: start; gap: 4px; min-width: 0; min-height: 58px; padding: 8px 10px 8px 0; border: 0; border-radius: 0 10px 10px 0; background: transparent; color: var(--ink); font: inherit; font-size: var(--t-sm); font-weight: 600; text-align: left; cursor: pointer; }
+  .tool-open small { color: var(--ink-3); font-size: var(--t-sm); font-weight: 400; }
   .tool-star:active, .tool-open:active { background: var(--accent-soft); }
   @media (max-width: 520px) { .tool-choices { grid-template-columns: 1fr; } }
 </style>

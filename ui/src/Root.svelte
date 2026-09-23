@@ -31,5 +31,5 @@
 
 <style>
   .interface-shell { display:contents; }
-  .opening { min-height:100dvh; padding:24px; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:24px; text-align:center; }.opening img { width:160px; }.opening h1 { font-size:20px; }.opening p { max-width:450px; color:var(--ink-2); }
+  .opening { min-height:100dvh; padding:24px; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:24px; text-align:center; }.opening img { width:160px; }.opening h1 { font-size:var(--t-lg); }.opening p { max-width:450px; color:var(--ink-2); }
 </style>

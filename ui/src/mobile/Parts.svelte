@@ -95,12 +95,12 @@
   .phone-title-actions { display:flex; align-items:center; gap:8px; }
   .pick-toggle { min-height:44px; }
   .pick-toggle[aria-pressed="true"] { border-color:var(--accent); color:var(--accent); }
-  .pick-mark { flex:none; width:30px; height:30px; border-radius:50%; border:2px solid var(--ink-3); display:grid; place-items:center; font-weight:700; font-size:12px; }
+  .pick-mark { flex:none; width:30px; height:30px; border-radius:50%; border:2px solid var(--ink-3); display:grid; place-items:center; font-weight:700; font-size:var(--t-sm); }
   .pick-mark.on { background:var(--accent); border-color:var(--accent); color:#fff; }
   .phone-library-item.picked { border-color:var(--accent); background:var(--accent-soft); }
   .phone-library-item.unpickable { opacity:.45; }
   .phone-picks-bar { position:sticky; bottom:0; margin-top:12px; padding:12px; display:grid; gap:8px; background:var(--panel); border:1px solid var(--line); border-radius:16px; box-shadow:0 -6px 18px #17230d14; }
-  .phone-picks-bar p { margin:0; font-size:12px; color:var(--ink-3); }
+  .phone-picks-bar p { margin:0; font-size:var(--t-sm); color:var(--ink-3); }
   .phone-picks-bar .btn { min-height:48px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .phone-picks-bar .phone-primary { background:var(--accent); }
 </style>

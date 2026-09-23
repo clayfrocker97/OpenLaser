@@ -80,8 +80,8 @@
 
 <style>
   .font-picker { display: grid; gap: 8px; min-width: 0; }
-  .font-heading, .font-imported-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 13px; color: var(--ink-2); }
-  .font-heading button { color: var(--accent); min-height: 40px; padding: 8px 12px; }
+  .font-heading, .font-imported-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: var(--t-sm); color: var(--ink-2); }
+  .font-heading button { color: var(--accent); min-height: 44px; padding: 8px 12px; }
   button { min-height: 44px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); color: var(--ink); font: inherit; cursor: pointer; padding: 10px 15px; }
   button.on { color: var(--accent); border-color: var(--accent); background: color-mix(in srgb, var(--accent) 9%, var(--panel)); }
   .font-defaults { display: flex; gap: 6px; }
@@ -89,9 +89,9 @@
   .font-imported-heading { margin-top: 6px; }
   .font-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; max-height: 170px; overflow: auto; }
   .font-list button { display: grid; gap: 5px; text-align: left; overflow-wrap: anywhere; }
-  .font-list small, .font-help { color: var(--ink-2); font-size: 11px; }
+  .font-list small, .font-help { color: var(--ink-2); font-size: var(--t-sm); }
   .font-help, .font-notices p, .warn-text { margin: 0; }
-  .font-notices { color: var(--ink-2); font-size: 12px; overflow-wrap: anywhere; max-height: 72px; overflow: auto; }
+  .font-notices { color: var(--ink-2); font-size: var(--t-sm); overflow-wrap: anywhere; max-height: 72px; overflow: auto; }
   .font-search { min-height: 44px; width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; color: var(--ink); background: var(--panel-2); font: inherit; }
   @media (max-width: 420px) { .font-list { grid-template-columns: 1fr; } }
 </style>

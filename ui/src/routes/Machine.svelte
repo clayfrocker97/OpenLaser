@@ -184,10 +184,10 @@
   .settings-head { justify-content: flex-start; gap: 20px; padding-block: 12px; }
   .settings-head h1 { flex: none; }
   .settings-title { flex: none; }
-  .settings-title span { display: block; margin-top: 3px; font-size: 10px; color: var(--ink-3); }
+  .settings-title span { display: block; margin-top: 3px; font-size: var(--t-sm); color: var(--ink-3); }
   .settings-navigation { min-width: 0; overflow-x: auto; }
   .settings-navigation .seg button { min-height: 44px; padding-inline: 13px; }
-  .hold-sample { display: inline-grid; place-items: center; width: auto; padding: 0 4px; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; border: 1px solid var(--line-2); }
+  .hold-sample { display: inline-grid; place-items: center; width: auto; padding: 0 4px; font-size: var(--t-sm); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; border: 1px solid var(--line-2); }
   .settings.wide-page { display: block; overflow-y: auto; min-height: 0; }
   @media (max-width: 700px) { .settings-head { flex-wrap: wrap; gap: 10px; } .settings-navigation { width: 100%; } }
 </style>

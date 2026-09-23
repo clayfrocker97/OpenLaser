@@ -112,27 +112,27 @@
   .alarm-text { display: grid; gap: 3px; min-width: 0; }
   .alarm-text .also { color: var(--ink-2); font-size: var(--t-sm); }
   .alarm-text .fix { color: var(--ink); font-size: var(--t-sm); }
-  .alarm-technical { grid-column: 2 / -1; font-size: var(--t-xs); color: var(--ink-3); }
-  .alarm-technical summary { min-height: 32px; padding: 0; }
+  .alarm-technical { grid-column: 2 / -1; font-size: var(--t-sm); color: var(--ink-3); }
+  .alarm-technical summary { min-height: 44px; padding: 0; }
   .alarm-technical span { display: block; }
   .all-clear { display: flex; gap: 10px; align-items: center; padding: 12px 0; color: var(--move); }
   .live-footer, .history-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   .live-footer { font-size: var(--t-sm); }
   .history-panel { margin-top: 4px; border-top: 1px solid var(--line); }
-  .history-heading { padding: 16px 0 4px; font-size: var(--t-base); font-weight: 600; list-style: none; }
+  .history-heading { min-height: 44px; padding: 16px 0 4px; font-size: var(--t-base); font-weight: 600; list-style: none; }
   .history-heading::-webkit-details-marker { display: none; }
   .chevron { color: var(--ink-3); transition: transform .15s; }
   .history-panel[open] > .history-heading .chevron { transform: rotate(180deg); }
   .history-content { display: grid; gap: 12px; padding-top: 10px; }
   .history-session { min-width: 0; }
-  .restart { display: flex; align-items: center; gap: 12px; margin: 10px 0 5px; color: var(--ink-3); font-size: var(--t-xs); font-weight: 600; }
+  .restart { display: flex; align-items: center; gap: 12px; margin: 10px 0 5px; color: var(--ink-3); font-size: var(--t-sm); font-weight: 600; }
   .restart::after { content: ''; flex: 1; height: 1px; background: var(--line); }
   .past-alarm { border-bottom: 1px solid var(--line); }
-  summary { display: flex; align-items: baseline; gap: 14px; justify-content: space-between; padding: 12px 0; cursor: pointer; font-size: var(--t-sm); }
+  summary { min-height: 44px; display: flex; align-items: baseline; gap: 14px; justify-content: space-between; padding: 12px 0; cursor: pointer; font-size: var(--t-sm); }
   summary > span:first-child { min-width: 0; overflow-wrap: anywhere; }
   .when { white-space: nowrap; color: var(--ink-3); font-variant-numeric: tabular-nums; }
-  .when b { margin-left: 8px; font-size: var(--t-xs); color: var(--ink-2); }
-  .alarm-detail { display: grid; gap: 4px; color: var(--ink-2); font-size: var(--t-xs); padding-bottom: 12px; }
+  .when b { margin-left: 8px; font-size: var(--t-sm); color: var(--ink-2); }
+  .alarm-detail { display: grid; gap: 4px; color: var(--ink-2); font-size: var(--t-sm); padding-bottom: 12px; }
   .empty-history { font-size: var(--t-sm); padding: 8px 0; margin: 0; }
   p { margin: 0; font-size: var(--t-sm); }
 </style>

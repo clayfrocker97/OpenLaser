@@ -51,7 +51,8 @@ touch-first CNC interface and adapted for a laser.
    when work is lost. Routine, undoable edits are not confirmed.
 8. **Say why on screen.** A touch screen has no hover, so a disabled machine
    control shows its reason as text (`.gate-reason`), not only in a tooltip.
-9. **Big targets.** Every control is at least 44 px (`--touch` 48 px for
+9. **Big targets.** Every control is at least 44 × 44 px, including
+   `<summary>` rows and the label around a checkbox (`--touch` 48 px for
    buttons; 64 and 80 px for the primary machine actions), with gaps of 8 px
    or more.
 10. **Hardened surfaces.** Controls never open a long-press callout, select
@@ -75,6 +76,20 @@ touch-first CNC interface and adapted for a laser.
 - **Hidden double-tap modes, and labels that read as "set zero" but move the
   machine.** Go origin (a move) and Set origin (a reference) stay visibly
   different.
+
+## Type
+
+Four sizes, nothing smaller than 13 px:
+
+| Token | Size | For |
+| --- | --- | --- |
+| `--t-sm` | 13 px | Labels, captions, units, hints |
+| `--t-base` | 15 px | Body text and buttons |
+| `--t-lg` | 18 px | Section and dialog titles |
+| `--t-xl` | 24 px | Page titles and large readouts |
+
+Use the tokens, never a pixel size. A readout that shrinks to fit clamps at
+`--t-sm`.
 
 ## Colour
 

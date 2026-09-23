@@ -186,5 +186,5 @@
   .checklist-review { margin: 14px 0; } .checklist-review ul { margin: 6px 0; padding-left: 22px; } .checklist-review li + li { margin-top: 6px; }
   .choice { text-align: left; padding: 10px; border: 1px solid var(--line); background: var(--panel); border-radius: 6px; overflow-wrap: anywhere; white-space: pre-wrap; }
   .choice.chosen { border-color: var(--accent); background: var(--accent-soft); }
-  pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 240px; overflow: auto; font-size: 12px; } summary { cursor: pointer; color: var(--ink-2); }
+  pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 240px; overflow: auto; font-size: var(--t-sm); } summary { cursor: pointer; color: var(--ink-2); }
 </style>

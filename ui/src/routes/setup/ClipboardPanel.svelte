@@ -43,13 +43,13 @@
 
 <style>
   fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
-  .copy-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 58px; font-size: 13px; }
+  .copy-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 58px; font-size: var(--t-sm); }
   .num { min-width: 95px; padding: 12px; border: 1px solid var(--line); border-radius: 9px; background: var(--panel-2); color: var(--ink); font: inherit; text-align: right; }
   .num small { color: var(--ink-3); }
   .directions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-  .choice { min-height: 44px; border: 1px solid var(--line); border-radius: 9px; background: var(--panel-2); color: var(--ink-2); font: inherit; font-size: 13px; cursor: pointer; }
+  .choice { min-height: 44px; border: 1px solid var(--line); border-radius: 9px; background: var(--panel-2); color: var(--ink-2); font: inherit; font-size: var(--t-sm); cursor: pointer; }
   .choice[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
-  .direction-label { font-size: 13px; margin: 12px 0 8px; }
+  .direction-label { font-size: var(--t-sm); margin: 12px 0 8px; }
   .paste { margin-top: 24px; }
-  .copy-note { font-size: 12px; line-height: 1.6; margin-top: 12px; }
+  .copy-note { font-size: var(--t-sm); line-height: 1.6; margin-top: 12px; }
 </style>

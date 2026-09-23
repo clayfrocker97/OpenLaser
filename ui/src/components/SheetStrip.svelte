@@ -22,8 +22,8 @@
 
 <style>
   .sheet-strip { display:flex; align-items:center; gap:18px; padding:10px 18px; border-bottom:1px solid var(--line); min-width:0; }
-  .sheet-label { font-size:12px; font-weight:700; color:var(--ink-2); flex:none; } .sheet-label small { display:block; font-weight:400; color:var(--ink-3); margin-top:5px; }
+  .sheet-label { font-size:var(--t-sm); font-weight:700; color:var(--ink-2); flex:none; } .sheet-label small { display:block; font-weight:400; color:var(--ink-3); margin-top:5px; }
   .sheet-pages { display:flex; gap:8px; overflow-x:auto; padding:3px; min-width:0; }
-  button { cursor:pointer; flex:none; min-width:100px; min-height:54px; padding:9px 16px; border:1px solid var(--line); border-radius:8px; background:var(--panel-2); color:var(--ink-2); font-size:13px; }
-  button small { display:block; font-size:10px; color:var(--ink-3); margin-top:5px; } button.on { border-color:var(--accent); color:var(--accent); background:var(--accent-soft); }
+  button { cursor:pointer; flex:none; min-width:100px; min-height:54px; padding:9px 16px; border:1px solid var(--line); border-radius:8px; background:var(--panel-2); color:var(--ink-2); font-size:var(--t-sm); }
+  button small { display:block; font-size:var(--t-sm); color:var(--ink-3); margin-top:5px; } button.on { border-color:var(--accent); color:var(--accent); background:var(--accent-soft); }
 </style>

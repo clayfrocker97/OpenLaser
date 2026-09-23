@@ -19,6 +19,6 @@
 
 <style>
   form { display:grid; gap:20px; }
-  label { display:grid; gap:10px; color:var(--ink-2); font-size:13px; }
-  input { height:58px; width:100%; min-width:0; padding:0 14px; border:1px solid var(--line-2); border-radius:12px; background:var(--panel-2); color:var(--ink); font-size:20px; user-select:text; }
+  label { display:grid; gap:10px; color:var(--ink-2); font-size:var(--t-sm); }
+  input { height:58px; width:100%; min-width:0; padding:0 14px; border:1px solid var(--line-2); border-radius:12px; background:var(--panel-2); color:var(--ink); font-size:var(--t-lg); user-select:text; }
 </style>
