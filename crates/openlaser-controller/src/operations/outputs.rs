@@ -4,8 +4,10 @@
 //! plan's on-steps run in order with their settle delays; the outputs stay
 //! on while the operator holds the control and the lease is renewed, and
 //! the off-writes run when the control is released, the lease lapses, or
-//! anything goes wrong.
+//! anything goes wrong. A head jogged down onto the plate stops and rises
+//! to the safe height by itself, whatever the operator's control does.
 
+use super::raise::Raise;
 use super::{Operation, Step, admit, admit_alarms, admit_idle};
 use crate::alarms::Concession;
 use crate::snapshot::Snapshot;
@@ -49,6 +51,10 @@ pub struct Outputs {
     holding_since: Option<Instant>,
     allowed: (u16, u32),
     recovery_deadline: Option<Instant>,
+    /// Where a head jogged down onto the plate rises to.
+    raise: Option<sequences::Raise>,
+    /// The rise after the head touched the plate.
+    touched: Option<Box<Raise>>,
 }
 
 impl Outputs {
@@ -65,7 +71,24 @@ impl Outputs {
             holding_since: None,
             allowed: (0, 0),
             recovery_deadline: None,
+            raise: None,
+            touched: None,
         }
+    }
+
+    /// Raises a head jogged down onto the plate to `raise` afterwards.
+    #[must_use]
+    pub const fn rising_on_touch(mut self, raise: Option<sequences::Raise>) -> Self {
+        self.raise = raise;
+        self
+    }
+
+    /// A downward head jog whose head reports touching the plate, head
+    /// bit 5, after it was admitted.
+    fn touched_down(&self, snapshot: &Snapshot) -> bool {
+        self.phase != Phase::Admitting
+            && self.head_jog() == Some(false)
+            && snapshot.head.alarm_word() & (1 << 5) != 0
     }
 
     /// The plan's name.
@@ -100,8 +123,12 @@ impl Outputs {
                 || self.recovery_deadline.is_some_and(|deadline| now >= deadline))
     }
 
-    /// Switches off now: the writes to send.
+    /// Switches off now: the writes to send. A head rising from the plate
+    /// is not stopped by letting go; only Stop cancels it.
     pub fn release(&mut self) -> Vec<Write> {
+        if self.touched.is_some() {
+            return Vec::new();
+        }
         self.phase = Phase::Done;
         self.plan.off.clone()
     }
@@ -211,6 +238,9 @@ impl Operation for Outputs {
     }
 
     fn phase(&self) -> &'static str {
+        if self.touched.is_some() {
+            return "raising head";
+        }
         match self.phase {
             Phase::Admitting | Phase::Starting => "starting",
             Phase::Holding if self.recovery_deadline.is_some() => "recovering Z",
@@ -225,8 +255,23 @@ impl Operation for Outputs {
         blocked: Option<&str>,
         now: Instant,
     ) -> Result<Step, String> {
+        if let Some(raise) = &mut self.touched {
+            let writes = raise.step(snapshot, now);
+            return Ok(if raise.done() {
+                Step::Finish(writes)
+            } else if writes.is_empty() {
+                Step::Wait
+            } else {
+                Step::Send(writes)
+            });
+        }
         if self.phase == Phase::Done {
             return Ok(Step::Finish(Vec::new()));
+        }
+        if self.touched_down(snapshot) {
+            self.phase = Phase::Done;
+            self.touched = Some(Box::new(Raise::new(self.raise, Vec::new(), now)));
+            return Ok(Step::Send(self.plan.off.clone()));
         }
         self.admit_and_check(snapshot, blocked, now)?;
         if self.expired(now) {

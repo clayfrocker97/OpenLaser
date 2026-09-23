@@ -14,6 +14,7 @@
 
 use crate::bindings::Bindings;
 use crate::operations::home::Home;
+use crate::operations::raise::Raise;
 use crate::operations::{Operation, Step, admit_motion};
 use crate::snapshot::Snapshot;
 use crate::state::{CheckpointView, OperationKind, ProgramState};
@@ -25,6 +26,9 @@ use std::time::{Duration, Instant};
 
 /// A stopped program must settle within this host watchdog.
 const SETTLE_TIMEOUT: Duration = Duration::from_secs(10);
+/// How long a pause waits for the head to finish rising before it ends
+/// with the head still busy.
+const RAISE_WAIT: Duration = Duration::from_secs(3);
 
 /// A program ready to run.
 #[derive(Clone, Debug, PartialEq)]
@@ -105,6 +109,8 @@ pub struct Run {
     shutdown: sequences::Shutdown,
     head: Option<Home>,
     head_started: bool,
+    /// The head raise of a pause, and the gas it holds back.
+    raise: Option<Raise>,
 }
 
 impl Run {
@@ -129,6 +135,7 @@ impl Run {
             checkpoint: None,
             executing: None,
             shutdown: bindings.shutdown.clone(),
+            raise: None,
         })
     }
 
@@ -194,12 +201,33 @@ impl Run {
 
     /// Begins a hold or a stop: the writes to send now, after which the
     /// run settles and captures its checkpoint.
-    pub fn end(&mut self, ending: Ending, snapshot: &Snapshot) -> Result<Vec<Write>, String> {
+    ///
+    /// With `raise`, a hold on a machine with a head switches the laser off
+    /// with the stop and holds the gas back; the settling run then sends
+    /// the head to its safe height before the gas goes off, and the hold
+    /// ends once X and Y stop and the head is still, or after `RAISE_WAIT`
+    /// with the head still busy. A stop, or a
+    /// hold that cannot trust its feedback, switches everything off at once
+    /// and cancels any raise in progress.
+    pub fn end(
+        &mut self,
+        ending: Ending,
+        snapshot: &Snapshot,
+        raise: bool,
+    ) -> Result<Vec<Write>, String> {
         if !self.active() && ending != Ending::Stopped {
             return Err("the program is not running".into());
         }
-        self.phase = Phase::Settling { ending, stopped: Instant::now() };
+        let stopped = Instant::now();
+        self.phase = Phase::Settling { ending, stopped };
         let head_active = snapshot.head.command() != 0;
+        self.raise = None;
+        if raise && ending == Ending::Held && self.shutdown.raise.is_some() {
+            let after =
+                sequences::gas_and_outputs_off(&self.shutdown, &[]).map_err(|e| e.to_string())?;
+            self.raise = Some(Raise::new(self.shutdown.raise, after, stopped));
+            return Ok(sequences::stop_and_laser_off(&self.shutdown, true, head_active));
+        }
         sequences::shutdown(&self.shutdown, true, head_active, &[]).map_err(|e| e.to_string())
     }
 
@@ -286,6 +314,16 @@ impl Run {
         ending: Ending,
         stopped: Instant,
     ) -> Result<Step, String> {
+        if let Some(raise) = &mut self.raise
+            && !raise.done()
+        {
+            let writes = raise.step(snapshot, now);
+            if raise.done() {
+                // Settling starts over from the raise, on feedback after it.
+                self.phase = Phase::Settling { ending, stopped: now };
+            }
+            return Ok(if writes.is_empty() { Step::Wait } else { Step::Send(writes) });
+        }
         if now.saturating_duration_since(stopped) > SETTLE_TIMEOUT {
             return Err("the axes or head did not settle after the stop".into());
         }
@@ -293,7 +331,16 @@ impl Run {
         // stopped queue may still advertise activity until it is cleared.
         // The stop writes have already been acknowledged; use fresh axis
         // speeds/phases and head feedback before saving and clearing it.
-        if snapshot.taken > stopped && snapshot.stationary() {
+        // A rising head finishes on its own; the pause waits only for XY.
+        // `stopped` is when the raise went out. A head controller that stays
+        // busy after a touch does not hold the pause past RAISE_WAIT.
+        let still = if self.raise.is_some() {
+            snapshot.xy_stationary()
+                && (snapshot.head_idle() || now.saturating_duration_since(stopped) > RAISE_WAIT)
+        } else {
+            snapshot.stationary()
+        };
+        if snapshot.taken > stopped && still {
             if self.checkpoint.is_none() {
                 let [x, y, _] = snapshot.position_mm().map_err(|e| e.to_string())?;
                 let mut checkpoint = Checkpoint::from_status(&snapshot.status);
@@ -493,7 +540,7 @@ mod tests {
         acknowledged(&mut run, &step);
         let running =
             snapshot_with(&[(16, 90_000), (19, 1), (23, 7), (24, 3)], &[(0, 0x0201_0000)], &[]);
-        let writes = run.end(Ending::Held, &running).unwrap();
+        let writes = run.end(Ending::Held, &running, false).unwrap();
         assert_eq!(writes[0].words, vec![1, 31, 2, 5999, 200_000]);
         assert!(writes.iter().any(|w| w.address == 103 && w.words == [3]));
         assert_eq!(run.step(&running, None, now).unwrap(), Step::Wait);
@@ -509,7 +556,7 @@ mod tests {
         );
         assert_eq!(run.ending(), Some(Ending::Held));
         assert_eq!(run.state(), ProgramState::Held);
-        run.end(Ending::Stopped, &settled).unwrap();
+        run.end(Ending::Stopped, &settled, false).unwrap();
         assert_eq!(run.state(), ProgramState::Stopped);
     }
 
@@ -541,7 +588,7 @@ mod tests {
         run.step(&idle, None, now).unwrap();
         let step = run.step(&idle, None, now).unwrap();
         acknowledged(&mut run, &step);
-        run.end(Ending::Held, &idle).unwrap();
+        run.end(Ending::Held, &idle, false).unwrap();
         assert_eq!(
             run.step(&idle, None, Instant::now()).unwrap(),
             Step::Wait,
@@ -559,7 +606,7 @@ mod tests {
         assert_eq!(run.checkpoint(), None);
 
         let mut pending = Run::new(program(2), 100_000, &bindings()).unwrap();
-        pending.end(Ending::Held, &idle).unwrap();
+        pending.end(Ending::Held, &idle, false).unwrap();
         pending.step(&snapshot_with(&[], &[], &[]), None, Instant::now()).unwrap();
         assert_eq!(pending.ending(), Some(Ending::Held));
         assert_eq!(pending.checkpoint().unwrap().item, i32::MIN, "restart before the first pass");

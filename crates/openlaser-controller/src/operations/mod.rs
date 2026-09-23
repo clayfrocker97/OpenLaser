@@ -13,6 +13,7 @@ pub mod mode;
 pub mod motion;
 pub mod outputs;
 pub mod parameters;
+pub mod raise;
 pub mod relief;
 
 use crate::snapshot::Snapshot;

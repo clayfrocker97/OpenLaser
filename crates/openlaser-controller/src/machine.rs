@@ -36,12 +36,15 @@ use openlaser_protocol::requests::{Read, Write};
 use openlaser_protocol::sequences;
 use std::collections::VecDeque;
 use std::net::{Ipv4Addr, SocketAddrV4};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use tokio::sync::{mpsc, oneshot, watch};
 use tokio::time::MissedTickBehavior;
 
 /// The product id the MCC100 reports.
 const MCC100: u32 = 103;
+/// How long a head-only read waits for its reply before it is skipped, so
+/// a lost datagram cannot hold up the program upload.
+const HEAD_WATCH_TIMEOUT: Duration = Duration::from_millis(20);
 
 /// A parameter bank to apply: the axis index and its fourteen words.
 pub type Bank = (u8, [u32; PARAMETER_BANK_WORDS]);
@@ -509,6 +512,9 @@ struct Task {
     capture: Option<Capture>,
     missed_polls: u8,
     read_next: bool,
+    /// Set when a head-only read went unanswered, until the next full
+    /// poll, so a slow controller never queues more than one of them.
+    head_watch_paused: bool,
     stopped_at: Option<Instant>,
     released_at: Option<Instant>,
     active: Option<Active>,
@@ -544,6 +550,7 @@ impl Task {
             capture: None,
             missed_polls: 0,
             read_next: false,
+            head_watch_paused: false,
             stopped_at: None,
             released_at: None,
             active: None,
@@ -581,6 +588,7 @@ impl Task {
             }
             let work = self.link.is_some()
                 && (self.capture.is_some()
+                    || self.watching_head()
                     || self.active.as_ref().is_some_and(|active| !active.pending.is_empty()));
             tokio::select! {
                 command = commands.recv() => match command {
@@ -923,7 +931,7 @@ impl Task {
 
     fn prepare_outputs(&self, plan: Plan, requested: Instant) -> Result<Outputs> {
         let (snapshot, bindings) = self.ready()?;
-        let outputs = Outputs::new(plan, requested);
+        let outputs = Outputs::new(plan, requested).rising_on_touch(bindings.shutdown.raise);
         if let Some(up) = outputs.head_jog() {
             if !bindings.head_enabled {
                 return Err(Error::Refused("no head controller is configured".into()));
@@ -1020,7 +1028,7 @@ impl Task {
             return outcome;
         };
         if matches!(&active.job, Job::Run(..)) {
-            return self.end_run(active, Ending::Stopped).await;
+            return self.end_run(active, Ending::Stopped, false).await;
         }
         let mut writes = active.job.view().cancel();
         writes.extend(self.abort_writes(active.sent));
@@ -1044,7 +1052,7 @@ impl Task {
         self.connected()?;
         match self.active.take() {
             Some(active) if matches!(&active.job, Job::Run(run, _) if run.active()) => {
-                self.end_run(active, Ending::Held).await
+                self.end_run(active, Ending::Held, true).await
             }
             Some(active) if matches!(&active.job, Job::Run(run, _) if run.state() == ProgramState::Held) =>
             {
@@ -1061,7 +1069,7 @@ impl Task {
 
     /// Begins a hold or a stop of the running program; the run then settles
     /// over the next ticks and answers its requester with the ending.
-    async fn end_run(&mut self, mut active: Active, ending: Ending) -> Result<()> {
+    async fn end_run(&mut self, mut active: Active, ending: Ending, raise: bool) -> Result<()> {
         let Job::Run(run, _) = &mut active.job else {
             self.active = Some(active);
             return Err(Error::Refused("no program is running".into()));
@@ -1070,7 +1078,7 @@ impl Task {
             self.active = Some(active);
             return Err(Error::Disconnected);
         };
-        match run.end(ending, &snapshot) {
+        match run.end(ending, &snapshot, raise) {
             Ok(writes) => match self.cleanup(&writes).await {
                 Ok(()) => {
                     active.pending.clear();
@@ -1183,12 +1191,67 @@ impl Task {
 
     async fn exchange(&mut self) {
         let pending = self.active.as_ref().is_some_and(|active| !active.pending.is_empty());
-        if pending && self.missed_polls == 0 && (!self.read_next || self.capture.is_none()) {
+        let watching = self.watching_head();
+        if pending
+            && self.missed_polls == 0
+            && (!self.read_next || (self.capture.is_none() && !watching))
+        {
             self.read_next = true;
             self.write_one().await;
-        } else {
+        } else if self.capture.is_some() {
             self.read_next = false;
             self.read_one().await;
+        } else if watching {
+            self.read_next = false;
+            self.watch_head().await;
+            return;
+        }
+        self.publish();
+    }
+
+    /// Whether a program is cutting or framing with a head configured. The
+    /// head alone is then read between full feedback polls, so a nozzle
+    /// touching the plate pauses the program within a read or two rather
+    /// than a poll.
+    fn watching_head(&self) -> bool {
+        self.missed_polls == 0
+            && !self.head_watch_paused
+            && self.bindings.as_ref().is_some_and(|bindings| bindings.head_enabled)
+            && self.active.as_ref().is_some_and(
+                |active| matches!(&active.job, Job::Run(run, _) if run.active() && !run.preparing_head()),
+            )
+    }
+
+    /// One head-only read. Any head fault, including a lost reference,
+    /// holds the program at once; the full poll that follows records the
+    /// alarm. A read without a reply is only skipped, and head reads wait
+    /// for the next full poll: losing feedback is the full poll's to judge.
+    async fn watch_head(&mut self) {
+        let Some(link) = self.link.as_mut() else { return };
+        let read = link.read(Read::block(registers::HEAD));
+        let head = match tokio::time::timeout(HEAD_WATCH_TIMEOUT, read).await {
+            Ok(Ok(words)) => feedback::Head::decode(&words).ok(),
+            _ => None,
+        };
+        let Some(head) = head else {
+            self.head_watch_paused = true;
+            return;
+        };
+        if catalogue::head_word(head.alarm_word(), true) == 0 && head.referenced() {
+            return;
+        }
+        tracing::warn!(
+            head_alarms = format_args!("{:#06x}", head.alarm_word() & 0xffff),
+            referenced = head.referenced(),
+            "head fault while cutting: pausing"
+        );
+        if let Some(active) = self.active.take()
+            && let Err(error) = self.end_run(active, Ending::Held, true).await
+        {
+            self.last_error = Some(error.to_string());
+        }
+        if self.link.is_some() {
+            self.capture = Some(Capture::new());
         }
         self.publish();
     }
@@ -1229,6 +1292,7 @@ impl Task {
         match outcome {
             Ok(Some(snapshot)) => {
                 self.missed_polls = 0;
+                self.head_watch_paused = false;
                 self.snapshot = Some(snapshot);
                 self.monitor.operation = self.operation_state();
                 self.monitor.observe(&snapshot, &self.details);
@@ -1250,7 +1314,7 @@ impl Task {
                     .is_some_and(|active| matches!(&active.job, Job::Run(run, _) if run.active()))
                     && let Some(active) = self.active.take()
                 {
-                    let _ = self.end_run(active, Ending::Held).await;
+                    let _ = self.end_run(active, Ending::Held, false).await;
                 }
                 if self.link.is_some() {
                     // Discard the whole partial capture. A successful
@@ -1287,7 +1351,7 @@ impl Task {
             && run.active()
             && (pause || blocked.is_some())
         {
-            if let Err(error) = self.end_run(active, Ending::Held).await {
+            if let Err(error) = self.end_run(active, Ending::Held, true).await {
                 self.last_error = Some(error.to_string());
             }
             return;

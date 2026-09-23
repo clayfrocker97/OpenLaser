@@ -114,13 +114,15 @@ impl Snapshot {
             && self.status.alarm_group_2() == 0
     }
 
-    /// Manual Z may move away from a reported upper or lower limit. The
+    /// Manual Z may move away from a reported upper or lower limit, and up
+    /// from a nozzle touching the plate. The
     /// opposite limit, every unrelated head fault and other controller bits
     /// still block. Bit 24 alone is not evidence of a directional Z limit.
     #[must_use]
     pub const fn head_jog_alarms_clear(&self, up: bool) -> bool {
         let head = self.head.alarm_word();
-        let limits = if up { 0b1010 } else { 0b0101 };
+        // Up also moves away from a nozzle touching the plate, head bit 5.
+        let limits = if up { 0b10_1010 } else { 0b0101 };
         let accompanied = !self.head.referenced() || head & ((1 << 12) | limits) != 0;
         head & !((1 << 12) | limits) == 0
             && self.status.alarm_group_1() & if accompanied { !(1 << 24) } else { u32::MAX } == 0
@@ -379,6 +381,7 @@ pub(crate) mod tests {
                 point_laser_frequency: 0,
                 rapid_deceleration: 5999,
                 ports: Vec::new(),
+                raise: None,
             },
             home: HomeOutputs { z_origin_done_port: 2, manual_signal_port: 1 },
             mode_switch: ModeSwitch {
