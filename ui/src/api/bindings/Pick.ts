@@ -4,11 +4,11 @@ import type { Point } from "./Point";
 /**
  * A point picked on a contour.
  */
-export type Pick = { 
+export type Pick = {
 /**
  * The contour, as an index into the contours at the time of the pick.
  */
-contour: number, 
+contour: number,
 /**
  * Point in the local coordinates of the result's lowest original
  * placed owner; preparation resolves that owner through prior bridges.

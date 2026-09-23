@@ -3,15 +3,15 @@
 /**
  * The connection to the controller.
  */
-export type Connection = { "state": "disconnected" } | { "state": "connected", 
+export type Connection = { "state": "disconnected" } | { "state": "connected",
 /**
  * The connection count.
  */
-epoch: number, 
+epoch: number,
 /**
  * The endpoint.
  */
-endpoint: string, } | { "state": "faulted", 
+endpoint: string, } | { "state": "faulted",
 /**
  * Why.
  */

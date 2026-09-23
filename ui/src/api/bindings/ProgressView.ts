@@ -3,15 +3,15 @@
 /**
  * Item-tag progress; the unverified native progress unit is not used.
  */
-export type ProgressView = { 
+export type ProgressView = {
 /**
  * Confirmed completed passes in this execution.
  */
-completed: number, 
+completed: number,
 /**
  * The pass being approached or processed, when the tag names one.
  */
-pass: number | null, 
+pass: number | null,
 /**
  * Whether its approach is active; for preliminary points the tag also
  * covers the point process until its completion checkpoint.

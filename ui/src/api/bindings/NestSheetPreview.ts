@@ -4,15 +4,15 @@ import type { Preview } from "./Preview";
 /**
  * Preview geometry for exactly one sheet.
  */
-export type NestSheetPreview = { 
+export type NestSheetPreview = {
 /**
  * Prepared cutting geometry.
  */
-preview: Preview | null, 
+preview: Preview | null,
 /**
  * Outer reference boundary.
  */
-stock_outline: Array<[number, number]>, 
+stock_outline: Array<[number, number]>,
 /**
  * Previously removed regions.
  */

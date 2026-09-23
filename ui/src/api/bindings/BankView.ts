@@ -5,23 +5,23 @@ import type { RecipeSummary } from "./RecipeSummary";
 /**
  * One layer bank of the machine files.
  */
-export type BankView = { 
+export type BankView = {
 /**
  * Which laser.
  */
-laser: LaserMode, 
+laser: LaserMode,
 /**
  * The bank, 1 to 11.
  */
-bank: number, 
+bank: number,
 /**
  * The vendor's `LayerFileName`, often the material it was saved from.
  */
-name: string, 
+name: string,
 /**
  * Whether the vendor disabled it.
  */
-disabled: boolean, 
+disabled: boolean,
 /**
  * Its headline values.
  */

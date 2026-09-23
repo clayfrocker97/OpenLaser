@@ -4,11 +4,11 @@ import type { Transform } from "./Transform";
 /**
  * One copy of one of the draft's groups in a running search.
  */
-export type NestCopy = { 
+export type NestCopy = {
 /**
  * The group, as the draft lists its groups.
  */
-group: number, 
+group: number,
 /**
  * Moves the group from where it lies now to where the copy goes.
  */

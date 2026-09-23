@@ -3,15 +3,15 @@
 /**
  * One host input rule.
  */
-export type RuleView = { 
+export type RuleView = {
 /**
  * The vendor's id.
  */
-id: number, 
+id: number,
 /**
  * The label.
  */
-label: string, 
+label: string,
 /**
  * The input.
  */

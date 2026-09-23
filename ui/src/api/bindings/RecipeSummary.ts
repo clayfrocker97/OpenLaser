@@ -3,27 +3,27 @@
 /**
  * The headline process values of a recipe.
  */
-export type RecipeSummary = { 
+export type RecipeSummary = {
 /**
  * `CutSpeed` in millimetres per second.
  */
-speed: string | null, 
+speed: string | null,
 /**
  * `CutPower` in percent.
  */
-power: string | null, 
+power: string | null,
 /**
  * `CutAirPressure` in bar.
  */
-pressure: string | null, 
+pressure: string | null,
 /**
  * `CutHeight` in millimetres.
  */
-height: string | null, 
+height: string | null,
 /**
  * `CutFreq` in hertz.
  */
-frequency: string | null, 
+frequency: string | null,
 /**
  * `CutGasType`, the gas selection 0 to 5.
  */

@@ -5,59 +5,59 @@ import type { HeadView } from "./HeadView";
 /**
  * The feedback as last read.
  */
-export type Feedback = { 
+export type Feedback = {
 /**
  * X, Y and Z in millimetres.
  */
-position_mm: [number, number, number], 
+position_mm: [number, number, number],
 /**
  * W/table position from axis record 4, separate from the head.
  */
-table_mm: number, 
+table_mm: number,
 /**
  * Whether the table reports zero speed and phase.
  */
-table_stationary: boolean, 
+table_stationary: boolean,
 /**
  * The controller's units per millimetre.
  */
-scale: number, 
+scale: number,
 /**
  * The interpolation cycle in microseconds.
  */
-cycle_us: number, 
+cycle_us: number,
 /**
  * Whether X and Y report a reference.
  */
-referenced: [boolean, boolean], 
+referenced: [boolean, boolean],
 /**
  * Whether X and Y are stationary.
  */
-stationary: boolean, 
+stationary: boolean,
 /**
  * The head.
  */
-head: HeadView, 
+head: HeadView,
 /**
  * The 24 digital inputs.
  */
-inputs: number, 
+inputs: number,
 /**
  * The standard output bank.
  */
-outputs: number, 
+outputs: number,
 /**
  * The extended output bank.
  */
-extended_outputs: number, 
+extended_outputs: number,
 /**
  * The FIFO.
  */
-fifo: FifoView, 
+fifo: FifoView,
 /**
  * The two controller alarm aggregates.
  */
-alarm_groups: [number, number], 
+alarm_groups: [number, number],
 /**
  * How old the snapshot is, in milliseconds.
  */

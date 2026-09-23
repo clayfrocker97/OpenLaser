@@ -4,27 +4,27 @@ import type { Point } from "./Point";
 /**
  * A line or an arc.
  */
-export type Curve = { "type": "line", 
+export type Curve = { "type": "line",
 /**
  * Where it starts.
  */
-start: Point, 
+start: Point,
 /**
  * Where it ends.
  */
-end: Point, } | { "type": "arc", 
+end: Point, } | { "type": "arc",
 /**
  * The centre.
  */
-center: Point, 
+center: Point,
 /**
  * The radius.
  */
-radius: number, 
+radius: number,
 /**
  * The angle of the start point, in radians.
  */
-start_angle: number, 
+start_angle: number,
 /**
  * The signed angle swept, in radians; negative is clockwise.
  */

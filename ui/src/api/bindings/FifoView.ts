@@ -3,27 +3,27 @@
 /**
  * The FIFO as last read.
  */
-export type FifoView = { 
+export type FifoView = {
 /**
  * Free space in bytes.
  */
-free: number, 
+free: number,
 /**
  * Total capacity in bytes, once read.
  */
-capacity: number | null, 
+capacity: number | null,
 /**
  * The activity byte: 1 while a program runs.
  */
-activity: number, 
+activity: number,
 /**
  * The stamp of the last accepted upload.
  */
-stamp: number, 
+stamp: number,
 /**
  * The running item tag and progress within it.
  */
-item: number, 
+item: number,
 /**
  * Progress within the running item.
  */

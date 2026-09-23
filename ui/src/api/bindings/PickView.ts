@@ -4,15 +4,15 @@ import type { Spot } from "./Spot";
 /**
  * A tap on the drawing snapped to a contour.
  */
-export type PickView = { 
+export type PickView = {
 /**
  * The contour and the fraction along it, as the features refer to it.
  */
-spot: Spot, 
+spot: Spot,
 /**
  * The point on the contour, in drawing coordinates.
  */
-point: [number, number], 
+point: [number, number],
 /**
  * The placed contour whose local coordinates hold `point`.
  */

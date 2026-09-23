@@ -4,39 +4,39 @@ import type { Id } from "./Id";
 /**
  * A change to a recipe.
  */
-export type RecipeChange = { 
+export type RecipeChange = {
 /**
  * Saved values when these staged attributes were first edited.
  */
-expected_attributes?: { [key in string]: string | null }, 
+expected_attributes?: { [key in string]: string | null },
 /**
  * Saved film choice when the staged edit began.
  */
-expected_film?: Id | null, 
+expected_film?: Id | null,
 /**
  * The material.
  */
-name?: string, 
+name?: string,
 /**
  * The sheet thickness.
  */
-thickness_mm?: number, 
+thickness_mm?: number,
 /**
  * The assist gas.
  */
-gas?: string, 
+gas?: string,
 /**
  * Starred or not.
  */
-favourite?: boolean, 
+favourite?: boolean,
 /**
  * The note.
  */
-note?: string, 
+note?: string,
 /**
  * The film process; `Some(None)` clears it.
  */
-film?: Id | null, 
+film?: Id | null,
 /**
  * Attribute values to replace.
  */

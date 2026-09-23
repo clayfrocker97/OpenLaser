@@ -5,79 +5,79 @@ import type { Gate } from "./Gate";
  * The gates the UI enables its controls from. The server checks again
  * when the command arrives.
  */
-export type Readiness = { 
+export type Readiness = {
 /**
  * Connect to the controller.
  */
-connect: Gate, 
+connect: Gate,
 /**
  * Go Origin.
  */
-home: Gate, 
+home: Gate,
 /**
  * Head calibration.
  */
-calibrate: Gate, 
+calibrate: Gate,
 /**
  * Manual X/Y or configured table jogging using the controller's limits.
  */
-jog: Gate, 
+jog: Gate,
 /**
  * X then Y, each negative then positive, including limit recovery.
  */
-xy_jog: [[Gate, Gate], [Gate, Gate]], 
+xy_jog: [[Gate, Gate], [Gate, Gate]],
 /**
  * X/Y presses are bounded to 1 mm at no more than 1 mm/s during recovery.
  */
-xy_recovery: boolean, 
+xy_recovery: boolean,
 /**
  * Manual Z up, including recovery from a lower limit.
  */
-head_up: Gate, 
+head_up: Gate,
 /**
  * Manual Z down, including recovery from an upper limit.
  */
-head_down: Gate, 
+head_down: Gate,
 /**
  * Z presses are bounded to 1 mm at no more than 1 mm/s during recovery.
  */
-head_recovery: boolean, 
+head_recovery: boolean,
 /**
  * Move to an absolute job origin or bed point under matched parameters.
  */
-position: Gate, 
+position: Gate,
 /**
  * Hold a manual output.
  */
-outputs: Gate, 
+outputs: Gate,
 /**
  * Set the job origin where the head is.
  */
-set_origin: Gate, 
+set_origin: Gate,
 /**
  * Compile the draft.
  */
-compile: Gate, 
+compile: Gate,
 /**
  * Run the compiled draft.
  */
-run: Gate, 
+run: Gate,
 /**
  * Resume the held program.
  */
-resume: Gate, 
+resume: Gate,
 /**
  * Hold the running program.
  */
-hold: Gate, 
+hold: Gate,
 /**
  * The stop sequence.
  */
-stop: Gate, 
+stop: Gate,
 /**
  * Switch the laser mode.
  */
-mode: Gate, 
+mode: Gate,
 /**
  * Trace the job's bounds with the laser off.
  */

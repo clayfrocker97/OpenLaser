@@ -6,15 +6,15 @@ import type { StartPosition } from "./StartPosition";
 /**
  * Where each contour starts and which way it runs.
  */
-export type Start = { 
+export type Start = {
 /**
  * Where cutting starts.
  */
-position: StartPosition, 
+position: StartPosition,
 /**
  * Which way the cut runs.
  */
-direction: Direction, 
+direction: Direction,
 /**
  * Starts chosen on the drawing, one per contour, over the position.
  */

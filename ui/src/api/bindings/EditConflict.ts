@@ -3,19 +3,19 @@
 /**
  * One value changed independently in both the draft and the saved job.
  */
-export type EditConflict = { 
+export type EditConflict = {
 /**
  * JSON pointer identifying the conflicting value.
  */
-path: string, 
+path: string,
 /**
  * Value before either edit.
  */
-base: string, 
+base: string,
 /**
  * Draft value for review.
  */
-draft: string, 
+draft: string,
 /**
  * Saved value for review.
  */

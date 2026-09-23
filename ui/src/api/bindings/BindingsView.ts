@@ -6,31 +6,31 @@ import type { RuleView } from "./RuleView";
 /**
  * The bound machine, as the UI needs it.
  */
-export type BindingsView = { 
+export type BindingsView = {
 /**
  * The laser the bindings are for.
  */
-mode: LaserMode, 
+mode: LaserMode,
 /**
  * Whether a head controller is configured.
  */
-head_enabled: boolean, 
+head_enabled: boolean,
 /**
  * Slow and fast jog speeds in millimetres per second.
  */
-jog_speed: [number, number], 
+jog_speed: [number, number],
 /**
  * The lifting table's positive travel limit, when that branch is configured.
  */
-table_maximum_mm: number | null, 
+table_maximum_mm: number | null,
 /**
  * The travel of X and Y in millimetres, lower then upper.
  */
-extent: [[number, number], [number, number]], 
+extent: [[number, number], [number, number]],
 /**
  * Which manual outputs are assigned.
  */
-outputs: OutputsView, 
+outputs: OutputsView,
 /**
  * The host input rules, for the alarm list.
  */

@@ -3,19 +3,19 @@
 /**
  * A note for the operator, with when it was raised.
  */
-export type Message = { 
+export type Message = {
 /**
  * Unique publication id, including notes raised within the same second.
  */
-id: number, 
+id: number,
 /**
  * The text.
  */
-text: string, 
+text: string,
 /**
  * Whether it reports a failure.
  */
-error: boolean, 
+error: boolean,
 /**
  * Seconds since the epoch.
  */

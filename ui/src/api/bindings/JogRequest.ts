@@ -3,19 +3,19 @@
 /**
  * A jog request from the UI.
  */
-export type JogRequest = { 
+export type JogRequest = {
 /**
  * 0 for X, 1 for Y.
  */
-axis: number, 
+axis: number,
 /**
  * The direction: positive or negative.
  */
-positive: boolean, 
+positive: boolean,
 /**
  * The step in millimetres, or `None` for a held jog to the limit.
  */
-step_mm: number | null, 
+step_mm: number | null,
 /**
  * Fast or slow.
  */

@@ -4,43 +4,43 @@ import type { ResetRecord } from "./ResetRecord";
 /**
  * One alarm's occurrences during an application session.
  */
-export type AlarmRecord = { 
+export type AlarmRecord = {
 /**
  * Stable source and native ID, independent of the translated label.
  */
-key: string, 
+key: string,
 /**
  * Native alarm ID, if available.
  */
-id: number | null, 
+id: number | null,
 /**
  * Where the alarm was observed.
  */
-source: string, 
+source: string,
 /**
  * Latest human-readable description.
  */
-label: string, 
+label: string,
 /**
  * First trip in seconds since the epoch.
  */
-first: number, 
+first: number,
 /**
  * Most recent trip.
  */
-last: number, 
+last: number,
 /**
  * Distinct inactive-to-active transitions.
  */
-count: number, 
+count: number,
 /**
  * Last observed recovery, if any. Restart does not imply recovery.
  */
-recovered: number | null, 
+recovered: number | null,
 /**
  * Whether the cause was present at the last observation in this session.
  */
-active: boolean, 
+active: boolean,
 /**
  * Most recent reset attempt for this row.
  */
