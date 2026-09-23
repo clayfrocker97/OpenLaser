@@ -1,5 +1,6 @@
 <script lang="ts">
   import { distance, unitLabel } from '../lib/units.svelte';
+  import { plain } from '../lib/plain';
   import { api } from '../api/client';
   import type { PlacementChange } from '../api';
   import { server } from '../stores/server.svelte';
@@ -51,7 +52,7 @@
     <div class="origin-state" class:captured={placement.captured}>{placement.captured ? 'Origin set' : 'Origin not set'}{#if !placement.captured && !fixed}<small>Set at head for this job</small>{/if}</div>
     {#if position}<div class="position-state"><strong>{placement.captured ? '' : 'Head · '}X {distance(position[0])} · Y {distance(position[1])} {unitLabel('mm')}</strong></div>{/if}
     {#if !completed}<HoldButton class="set-origin" kind="zero" disabled={disabled || !doc.readiness.set_origin.ok} title={doc.readiness.set_origin.reason ?? 'Set origin at the head'} onhold={() => change({ kind: 'set_origin' })}>Set origin</HoldButton>
-    {#if !disabled && !doc.readiness.set_origin.ok && doc.readiness.set_origin.reason}<p class="gate-reason origin-reason">{doc.readiness.set_origin.reason}</p>{/if}{/if}
+    {#if !disabled && !doc.readiness.set_origin.ok && doc.readiness.set_origin.reason}<p class="gate-reason origin-reason">{plain(doc.readiness.set_origin.reason).text}</p>{/if}{/if}
   </section>
 {/if}
 

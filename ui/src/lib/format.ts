@@ -1,6 +1,7 @@
 // Small formatters shared by the pages.
 import type { LaserMode, RecipeView } from '../api';
-import { distance, diagnosticText, quantity, unitLabel } from './units.svelte';
+import { distance, quantity, unitLabel } from './units.svelte';
+import { plain } from './plain';
 
 export const fmt = (n: number, digits = 2): string => n.toFixed(digits);
 
@@ -34,5 +35,20 @@ export const ago = (epochSeconds: number): string => {
 export const size = (bounds: { min: { x: number; y: number }; max: { x: number; y: number } } | null): string =>
   bounds ? `${distance(bounds.max.x - bounds.min.x, 0)} × ${distance(bounds.max.y - bounds.min.y, 0)} ${unitLabel('mm')}` : '—';
 
-/** Reports a refusal in the toast. */
-export const explain = (error: unknown): string => diagnosticText(error instanceof Error ? error.message : String(error));
+/** The original technical text of recent plain messages, for the toast's Details. */
+const originals = new Map<string, string>();
+const ORIGINALS_KEPT = 20;
+
+/** Reports a refusal in plain words; the original stays behind `technicalDetail`. */
+export const explain = (error: unknown): string => {
+  const { text, detail } = plain(error instanceof Error ? error.message : String(error));
+  if (detail) {
+    originals.delete(text);
+    originals.set(text, detail);
+    if (originals.size > ORIGINALS_KEPT) originals.delete(originals.keys().next().value!);
+  }
+  return text;
+};
+
+/** The technical text a plain message was made from, when `explain` reworded it. */
+export const technicalDetail = (text: string): string | null => originals.get(text) ?? null;

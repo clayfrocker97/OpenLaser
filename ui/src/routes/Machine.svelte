@@ -17,6 +17,7 @@
   import { ui } from '../stores/ui.svelte';
   import { osk } from '../lib/osk.svelte';
   import { explain, fmt, laserLabel } from '../lib/format';
+  import { plain } from '../lib/plain';
   import type { OutputRequest } from '../api';
   import { units, distance, displayNumber, quantity, unitLabel } from '../lib/units.svelte';
 
@@ -108,7 +109,7 @@
         <div class="setting-group"><h3>Laser</h3>
           <div class="setting"><div class="lbl">Operating mode<small>Hold to switch · the XY reference is kept</small></div>
             <div class="seg">{#each ['fiber', 'co2'] as mode}{#if doc.mode === mode}<button class="on" disabled>{laserLabel(mode as 'fiber' | 'co2')}</button>{:else}<HoldButton class="" disabled={!readiness.mode.ok} title={readiness.mode.reason ?? ''} onhold={() => run(() => api.machine('mode', { mode: mode as 'fiber' | 'co2' }))}>{laserLabel(mode as 'fiber' | 'co2')}</HoldButton>{/if}{/each}</div>
-            {#if !readiness.mode.ok && readiness.mode.reason}<p class="gate-reason">{readiness.mode.reason}</p>{/if}</div>
+            {#if !readiness.mode.ok && readiness.mode.reason}<p class="gate-reason">{plain(readiness.mode.reason).text}</p>{/if}</div>
           <div class="setting"><div class="lbl">Applied on this connection<small>Current session</small></div><div class="val">{machine.session.mode ? laserLabel(machine.session.mode) : 'not yet'}</div></div>
           <div class="setting"><div class="lbl">Head controller<small>Machine backup</small></div><div class="val">{bindings ? (bindings.head_enabled ? 'configured' : 'none') : '—'}</div></div>
           <div class="setting"><div class="lbl">Head calibration<small>on this connection</small></div><div class="val">{machine.session.calibration ?? 'not yet'}</div></div>
