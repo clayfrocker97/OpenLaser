@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { distance, quantity, unitLabel } from '../lib/units.svelte';
+  import { diagnosticText, distance, quantity, unitLabel } from '../lib/units.svelte';
   // The run side: the DRO, homing and origin, and the jog pad. An axis
   // moves while its button is held and a heartbeat renews the lease;
   // anything that could lose the release, a blur, a hidden page or a
@@ -7,6 +7,7 @@
   import { onMount } from 'svelte';
   import { Hold } from '../lib/hold';
   import SheetPosition from '../components/SheetPosition.svelte';
+  import HoldButton from '../components/HoldButton.svelte';
   import { api } from '../api/client';
   import { server } from '../stores/server.svelte';
   import { ui } from '../stores/ui.svelte';
@@ -58,6 +59,16 @@
       : api.machine('jog', { lease, jog: { axis, positive, step_mm: null, fast: ui.jogFast } }));
   }
 
+  // Why the held motion controls are unavailable, once per reason.
+  const originGate = $derived(readiness.position.ok && !origin ? { ok: false, reason: 'set a job origin first' } : readiness.position);
+  const motionReasons = $derived.by(() => {
+    const gates: Array<[string, { ok: boolean; reason: string | null }]> = [['Home', readiness.home], ['Go origin', originGate], ['Frame', readiness.frame]];
+    if (headEnabled) gates.push(['Calibrate', readiness.calibrate]);
+    const reasons = new Map<string, string[]>();
+    for (const [name, gate] of gates) if (!gate.ok && gate.reason) reasons.set(gate.reason, [...(reasons.get(gate.reason) ?? []), name]);
+    return [...reasons].map(([reason, names]) => names.length === gates.length ? reason : `${names.join(', ')}: ${reason}`);
+  });
+
   const canJog = $derived(readiness.xy_jog.some(axis => axis.some(direction => direction.ok)));
   const jogTitle = $derived(canJog ? '' : readiness.jog.reason ?? '');
   const jogSpeed = $derived(doc.bindings?.jog_speed[ui.jogFast ? 1 : 0]);
@@ -91,11 +102,12 @@
   </div>
 
   <div class="row motion-actions">
-    <button class="btn btn-move" onclick={() => call(() => api.machine('home'))} disabled={!readiness.home.ok} title={readiness.home.reason ?? ''}><i class="ic ic-home"></i>Home</button>
-    <button class="btn btn-move" onclick={() => call(() => api.machine('go-origin', { fast: ui.jogFast }))} disabled={!readiness.position.ok || !origin} title={readiness.position.reason ?? (!origin ? 'Set a job origin first' : '')}>Go origin</button>
-    <button class="btn btn-move" aria-label="Calibrate head" onclick={() => call(() => api.machine('calibrate'))} disabled={!readiness.calibrate.ok} title={readiness.calibrate.reason ?? ''}>Calibrate</button>
+    <HoldButton class="btn btn-move" onhold={() => call(() => api.machine('home'))} disabled={!readiness.home.ok} title={readiness.home.reason ?? ''}><i class="ic ic-home"></i>Home</HoldButton>
+    <HoldButton class="btn btn-move" onhold={() => call(() => api.machine('go-origin', { fast: ui.jogFast }))} disabled={!originGate.ok} title={originGate.reason ?? ''}>Go origin</HoldButton>
+    <HoldButton class="btn btn-move" label="Calibrate head" onhold={() => call(() => api.machine('calibrate'))} disabled={!readiness.calibrate.ok} title={readiness.calibrate.reason ?? ''}>Calibrate</HoldButton>
   </div>
-  <button class="btn btn-move frame-action" onclick={() => call(() => api.machine('frame'))} disabled={!readiness.frame.ok} title={readiness.frame.reason ?? ''}><i class="ic ic-frame"></i>Frame</button>
+  <HoldButton class="btn btn-move frame-action" onhold={() => call(() => api.machine('frame'))} disabled={!readiness.frame.ok} title={readiness.frame.reason ?? ''}><i class="ic ic-frame"></i>Frame · laser off</HoldButton>
+  {#each motionReasons as reason}<p class="gate-reason motion-reason">{diagnosticText(reason)}</p>{/each}
 
   <div class="jogblock">
     <div class="jog" class:disabled={!canJog} title={jogTitle}>
@@ -111,6 +123,7 @@
       {@render key(auxiliary, false, 'ic-arrow-down', auxiliary === 'z' ? 'Z down' : 'W−', auxiliaryDown)}
     </div>
   </div>
+  {#if !canJog && jogTitle && !readiness.xy_recovery}<p class="gate-reason motion-reason">Jog: {diagnosticText(jogTitle)}</p>{/if}
   {#if readiness.xy_recovery}<p class="muted auxiliary-hint" role="status">X/Y limit recovery: hold an available direction to move away up to 1 mm at 1 mm/s or slower. Release between presses. Once clear, use Home.</p>{/if}
   {#if auxiliary === 'w'}
     {#if tableEnabled}
@@ -132,11 +145,12 @@
   .pause-position span { color:var(--ink-3); line-height:1.4; }
   .run-side-scroll { flex:1; min-height:0; overflow-y:auto; display:flex; flex-direction:column; gap:8px; padding-right:2px; }
   .run-side-scroll > :global(*) { flex-shrink:0; }
-  .motion-actions .btn { min-width:0; padding:0 6px; font-size:12px; }
+  .motion-actions :global(.btn) { min-width:0; padding:0 6px; font-size:12px; }
+  .motion-reason { margin:0; font-size:11px; }
   .dro .cell { container-type:inline-size; padding:6px 8px; height:76px; gap:1px; }
   .dro .val { font-size:min(24px, calc(100cqw / var(--characters) / .64)); line-height:1.15; overflow:visible; white-space:nowrap; }
   .dro .mach { font-size:10px; line-height:1.2; color:var(--ink-3); text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
-  .frame-action { width:100%; min-height:52px; font-size:15px; }
+  .run-side-scroll :global(.frame-action) { width:100%; min-height:52px; font-size:15px; }
   .jogblock { flex:1 0 204px; display: grid; grid-template-columns: minmax(0, 3fr) minmax(88px, 1fr); gap: 12px; }
   .jog { height: auto; grid-template-rows:repeat(3,minmax(64px,1fr)); }
   .zcol { grid-template-columns: minmax(0, 1fr); grid-template-rows:repeat(3,minmax(64px,1fr)); }

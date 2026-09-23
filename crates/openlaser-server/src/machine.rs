@@ -885,7 +885,8 @@ pub async fn import_soft_reviewed(
     Ok(())
 }
 
-/// Switches the laser mode; the reference must then be established again.
+/// Switches the laser mode. The XY reference carries over while the
+/// controller keeps reporting it; parameters are verified again.
 pub async fn switch_mode(shared: &Shared, mode: LaserMode) -> Result<()> {
     shared.epoch()?;
     {
@@ -973,11 +974,14 @@ pub async fn run_reviewed(
     shared: &Shared,
     confirmation: Option<&PreflightConfirmation>,
 ) -> Result<()> {
+    // Placement capture would re-pin the held job's origin: refuse first.
+    shared.lock().await.not_held()?;
     crate::placement::prepare(shared).await?;
     let epoch = shared.epoch()?;
     let requested = Instant::now();
     let (owner, compiled, zero, binding, name, material, origin, sheet) = {
         let mut coordinator = shared.lock().await;
+        coordinator.not_held()?;
         coordinator.check_preflight(PreflightIntent::Run, epoch, confirmation)?;
         let draft =
             coordinator.draft.as_ref().ok_or_else(|| Error::Refused("open a part first".into()))?;
@@ -1375,11 +1379,13 @@ impl crate::Coordinator {
 /// Frames the compiled process envelope (including leads and cleaning), with
 /// the laser off. Initial approach and return are checked separately too.
 pub async fn frame(shared: &Shared) -> Result<()> {
+    shared.lock().await.not_held()?;
     crate::placement::prepare(shared).await?;
     let epoch = shared.epoch()?;
     let requested = Instant::now();
     let (owner, compiled, binding, settings, name, material, origin) = {
         let mut coordinator = shared.lock().await;
+        coordinator.not_held()?;
         let draft =
             coordinator.draft.as_ref().ok_or_else(|| Error::Refused("open a part first".into()))?;
         let compiled = draft

@@ -29,6 +29,9 @@ and tests. Use the Node version in `.node-version` or a newer supported version.
   the crate's public API. Add regressions for observable failures and preserve
   byte-level fixtures for protocol and compiler changes. Exercise touch UI
   changes in the running application, including layout and cancellation.
+- Interface controls follow the touch rules in [ui/DESIGN.md](ui/DESIGN.md):
+  anything that moves the machine, fires the beam or sets a reference is
+  held, Stop is always one tap, and destructive actions confirm.
 
 ## The machine-exact crates
 

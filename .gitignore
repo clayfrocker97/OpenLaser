@@ -37,6 +37,7 @@ __pycache__/
 !/CHANGELOG.md
 !/RELEASING.md
 !/THIRD-PARTY-NOTICES.md
+!/ui/DESIGN.md
 !/crates/openlaser/assets/README.md
 !/crates/openlaser-svg/fonts/SOURCES.md
 !/fixtures/fonts/SOURCES.md

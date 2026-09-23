@@ -2,12 +2,13 @@
   import { diagnosticText } from '../lib/units.svelte';
   import { untrack } from 'svelte';
   import Modal from './Modal.svelte';
+  import HoldButton from './HoldButton.svelte';
   import { api } from '../api/client';
   import { server } from '../stores/server.svelte';
   import { ui } from '../stores/ui.svelte';
   import { explain } from '../lib/format';
   import type { PreflightReview, PostflightReview } from '../api';
-  import { actionName, movesMachine } from '../lib/preflight';
+  import { actionName, holdKind, movesMachine } from '../lib/preflight';
 
   let { initial, onclose }: { initial: PreflightReview | PostflightReview; onclose: () => void } = $props();
   let review = $state<PreflightReview | PostflightReview>(untrack(() => initial));
@@ -118,14 +119,14 @@
   }
 </script>
 
-<Modal {title} onclose={() => { if (!submitting) close(); }}>
+<Modal {title} dismissable={!submitting && !busy} onclose={() => { if (!submitting) close(); }}>
   {#snippet actions()}<button class="btn btn-ghost" aria-label={`Edit ${title.toLowerCase()}`} disabled={submitting || busy || loading} onclick={edit}>Edit</button>{/snippet}
   <div class="preflight-progress"><span>{postflight ? postflight.notice.name : preflight?.intent === 'resume' ? 'Before resuming' : preflight?.dry_run ? 'Dry run · laser off' : 'Machine and material'}</span><strong>{done} / {total}</strong></div>
   <div class="preflight-checks">
     {#each review.steps as step, i}
       <div class="preflight-check" class:checked={allChecked.includes(i)} class:motion={movesMachine(step.action)}>
         <label><input type="checkbox" checked={allChecked.includes(i)} disabled={submitting || busy || loading || satisfied.includes(i)} onchange={(event) => toggle(i, event.currentTarget.checked)}><span>{step.text}{#if movesMachine(step.action)}<small class="motion-label">Moves machine</small>{/if}{#if satisfied.includes(i)}<small>Auto-checked</small>{/if}</span></label>
-        {#if step.action}<button class="btn" class:btn-move={movesMachine(step.action)} class:btn-ghost={!movesMachine(step.action)} disabled={busy || loading || submitting || !server.link} onclick={() => action(i)} title={movesMachine(step.action) ? 'Moves the machine' : step.action.kind === 'gas_test' ? 'Opens the gas briefly, then closes it' : 'Changes the job origin'}>{actionName(step.action)}</button>{/if}
+        {#if step.action}<HoldButton class="btn {movesMachine(step.action) ? 'btn-move' : 'btn-ghost'}" kind={holdKind(step.action)} disabled={busy || loading || submitting || !server.link} onhold={() => action(i)} title={movesMachine(step.action) ? 'Moves the machine' : step.action.kind === 'gas_test' || step.action.kind === 'job_gas_test' ? 'Opens the gas briefly, then closes it' : 'Changes the job origin'}>{actionName(step.action)}</HoldButton>{/if}
       </div>
     {/each}
     {#if preflight?.confirm_gas}
@@ -135,7 +136,11 @@
   {#if error}<p class="warn-text" role="alert">{error}</p>{:else if !readiness.ok && !submitting && readiness.reason !== 'a manual output is active'}<p class="muted">{diagnosticText(readiness.reason ?? '')}</p>{/if}
   <div class="preflight-footer">
     {#if busy}<button class="btn btn-stop" onclick={stop}>Stop motion</button>{:else}<button class="btn btn-ghost" onclick={close} disabled={submitting}>{postflight || preflight?.intent === 'resume' ? 'Close' : 'Cancel'}</button>{/if}
-    <button class="btn lg" class:btn-start={!!preflight} class:btn-primary={!!postflight} disabled={!complete || !readiness.ok || !server.link || submitting || busy || loading} onclick={start}>{submitting ? postflight ? 'Closing…' : 'Starting…' : button}</button>
+    {#if preflight}
+      <HoldButton class="btn lg btn-start" disabled={!complete || !readiness.ok || !server.link || submitting || busy || loading} onhold={start}>{submitting ? 'Starting…' : button}</HoldButton>
+    {:else}
+      <button class="btn lg btn-primary" disabled={!complete || !readiness.ok || !server.link || submitting || busy || loading} onclick={start}>{submitting ? 'Closing…' : button}</button>
+    {/if}
   </div>
 </Modal>
 

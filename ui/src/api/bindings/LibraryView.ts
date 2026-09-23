@@ -3,6 +3,7 @@ import type { Folder } from "./Folder";
 import type { JobView } from "./JobView";
 import type { PartView } from "./PartView";
 import type { RecipeView } from "./RecipeView";
+import type { SkippedView } from "./SkippedView";
 
 /**
  * The library, summarised.
@@ -23,4 +24,8 @@ recipes: Array<RecipeView>,
 /**
  * Every job.
  */
-jobs: Array<JobView>, };
+jobs: Array<JobView>, 
+/**
+ * Library files left out when it opened, untouched on disk.
+ */
+skipped: Array<SkippedView>, };

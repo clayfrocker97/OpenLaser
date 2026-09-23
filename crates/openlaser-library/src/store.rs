@@ -89,30 +89,35 @@ pub(crate) fn read_optional<T: DeserializeOwned>(path: &Path) -> Result<Option<T
     if path.exists() { read(path).map(Some) } else { Ok(None) }
 }
 
-/// Reads every `.json` item in a directory, keyed by id.
-pub(crate) fn read_all<T: DeserializeOwned + HasId>(dir: &Path) -> Result<BTreeMap<crate::Id, T>> {
+/// Reads every `.json` item in `root/kind`, keyed by id. A file that cannot
+/// be read as an item is left where it is and listed in `skipped`; only a
+/// directory that cannot be listed fails the read.
+pub(crate) fn read_all<T: DeserializeOwned + HasId>(
+    root: &Path,
+    kind: &str,
+    skipped: &mut Vec<crate::Skipped>,
+) -> Result<BTreeMap<crate::Id, T>> {
+    let dir = root.join(kind);
     let mut items = BTreeMap::new();
-    let entries = std::fs::read_dir(dir).map_err(|e| io(dir, &e))?;
+    let entries = std::fs::read_dir(&dir).map_err(|e| io(&dir, &e))?;
     for entry in entries {
-        let path = entry.map_err(|e| io(dir, &e))?.path();
-        if path.extension().is_some_and(|x| x == "json") {
-            let item: T = read(&path)?;
-            crate::validation::id(item.id()).map_err(|e| Error::Format {
-                path: path.display().to_string(),
-                reason: e.to_string(),
-            })?;
+        let path = entry.map_err(|e| io(&dir, &e))?.path();
+        if path.extension().is_none_or(|x| x != "json") {
+            continue;
+        }
+        let file = format!("{kind}/{}", path.file_name().unwrap_or_default().to_string_lossy());
+        let item = read::<T>(&path).and_then(|item| {
+            crate::validation::id(item.id())?;
             if path.file_stem().and_then(|s| s.to_str()) != Some(item.id().as_str()) {
-                return Err(Error::Format {
-                    path: path.display().to_string(),
-                    reason: "file name and item id differ".into(),
-                });
+                return Err(Error::Invalid("file name and item id differ".into()));
             }
-            if items.insert(item.id().clone(), item).is_some() {
-                return Err(Error::Format {
-                    path: path.display().to_string(),
-                    reason: "duplicate item id".into(),
-                });
+            Ok(item)
+        });
+        match item {
+            Ok(item) => {
+                items.insert(item.id().clone(), item);
             }
+            Err(error) => skipped.push(crate::Skipped { file, reason: error.to_string() }),
         }
     }
     Ok(items)

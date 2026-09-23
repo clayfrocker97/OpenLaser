@@ -2,6 +2,7 @@
   import MachineFiles from './MachineFiles.svelte';
   import { api } from '../api/client';
   import { server } from '../stores/server.svelte';
+  import { ui } from '../stores/ui.svelte';
   import { settingsEdits } from '../lib/settings-edits.svelte';
   import { osk } from '../lib/osk.svelte';
   import { explain } from '../lib/format';
@@ -97,6 +98,16 @@
     if (draft) await save();
     else if (data) await api.writeMachineSettings(data.sha256);
   }
+  /** Writing replaces the controller's parameters: say what, then ask. */
+  function confirmWrite(): Promise<boolean> {
+    return ui.confirm({
+      title: 'Write the controller?',
+      body: changed
+        ? `${changed} changed value${changed === 1 ? ' is' : 's are'} saved, then every machine setting is written to the controller and read back to verify it.`
+        : 'Every machine setting from the backup is written to the controller and read back to verify it.',
+      confirm: 'Write controller',
+    });
+  }
 </script>
 
 <div class="xml-settings">
@@ -107,14 +118,14 @@
     <div class="xml-actions">
       <MachineFiles disabled={busy || machineBusy} />
       <button class="btn btn-ghost" disabled={busy || machineBusy || !connected} onclick={() => run(api.readMachineSettings)}>Read controller</button>
-      <button class="btn btn-primary" disabled={busy || machineBusy || !data || !connected || stale} onclick={() => run(write)}>{busy ? 'Working…' : changed ? 'Save & write controller' : 'Write controller'}</button>
+      <button class="btn btn-primary" disabled={busy || machineBusy || !data || !connected || stale} onclick={async () => { if (await confirmWrite()) run(write); }}>{busy ? 'Working…' : changed ? 'Save & write controller' : 'Write controller'}</button>
     </div>
   </div>
   {#if error}<p class="error" role="alert">{error}</p>{/if}
   {#if data?.problem}<details class="xml-problem"><summary>Controller comparison details</summary><p>{data.problem}</p></details>{/if}
   {#if changed}
     <div class="draft-bar"><div><strong>{changed} edited {changed === 1 ? 'value' : 'values'}</strong><small>{stale ? 'Backup changed; review your edits.' : connected ? 'Save applies changes to the controller.' : 'Applied on next connection.'}</small></div>
-      <div class="xml-actions"><button class="btn btn-ghost" disabled={busy} onclick={() => run(() => settingsEdits.discard('xml'))}>Discard edits</button><button class="btn btn-primary" disabled={busy || machineBusy || stale} onclick={() => run(save)}>{connected ? 'Save & apply' : 'Save XML'}</button></div>
+      <div class="xml-actions"><button class="btn btn-ghost" disabled={busy} onclick={async () => { if (await ui.confirm({ title: 'Discard these edits?', body: `${changed} edited machine ${changed === 1 ? 'value is' : 'values are'} thrown away.`, confirm: 'Discard edits', danger: true })) run(() => settingsEdits.discard('xml')); }}>Discard edits</button><button class="btn btn-primary" disabled={busy || machineBusy || stale} onclick={async () => { if (!connected || await confirmWrite()) run(save); }}>{connected ? 'Save & apply' : 'Save XML'}</button></div>
     </div>
   {/if}
   <div class="xml-tools">

@@ -103,8 +103,10 @@ impl Operation for Calibrate {
                         Ok(Step::Wait)
                     }
                     (Phase::Running, false) => {
+                        // A bad quality is still a finished calibration: the
+                        // head is idle and the result is recorded, so only
+                        // what needs a good calibration is refused.
                         match Quality::from_status_byte(snapshot.head.status_byte()) {
-                            Some(Quality::Bad) => Err("the head reported a bad calibration".into()),
                             Some(quality) => {
                                 self.phase = Phase::Done(quality);
                                 Ok(Step::Finish(Vec::new()))
@@ -130,7 +132,7 @@ mod tests {
     use crate::snapshot::tests::snapshot_with;
 
     /// The calibration sends 107, waits for the head to report it running,
-    /// then reads the quality when the command clears; bad quality fails.
+    /// then reads the quality when the command clears, bad quality included.
     #[test]
     fn calibration_follows_the_head_command_and_reads_quality() {
         let now = Instant::now();
@@ -147,7 +149,13 @@ mod tests {
         let mut bad = Calibrate::new();
         bad.step(&idle, None, now).unwrap();
         bad.step(&running, None, now).unwrap();
-        assert!(bad.step(&snapshot_with(&[], &[], &[(2, 0x8000_0012)]), None, now).is_err());
+        let finished = bad.step(&snapshot_with(&[], &[], &[(2, 0x8000_0012)]), None, now);
+        assert_eq!(finished, Ok(Step::Finish(Vec::new())));
+        assert_eq!(bad.quality(), Some(Quality::Bad));
+        let mut silent = Calibrate::new();
+        silent.step(&idle, None, now).unwrap();
+        silent.step(&running, None, now).unwrap();
+        assert!(silent.step(&snapshot_with(&[], &[], &[(2, 0x8000_0000)]), None, now).is_err());
         let mut unreferenced = Calibrate::new();
         assert!(unreferenced.step(&snapshot_with(&[], &[], &[]), None, now).is_err());
         assert_eq!(calibrate.cancel(), vec![requests::head_cancel()]);

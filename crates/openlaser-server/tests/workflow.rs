@@ -335,6 +335,16 @@ async fn a_held_job_resumes_from_its_checkpoint() {
     assert!(document.postflight.is_none(), "Pause is not job completion");
     let configuration = document.machine.configuration;
     let original = shared.lock().await.held.clone().unwrap();
+    for refused in [
+        machine::run_reviewed(&shared, None).await.expect_err("a new run would replace the hold"),
+        machine::frame(&shared).await.expect_err("framing would replace the hold"),
+    ] {
+        assert!(refused.to_string().contains("resume or stop"), "{refused}");
+    }
+    let readiness = shared.lock().await.document().readiness;
+    assert!(!readiness.run.ok && !readiness.frame.ok, "{readiness:?}");
+    assert!(readiness.resume.ok, "{readiness:?}");
+    assert!(std::sync::Arc::ptr_eq(&shared.lock().await.held.clone().unwrap().job, &original.job));
     let id = document.execution.unwrap().id;
     let parked = [checkpoint.position_mm[0] + 20., checkpoint.position_mm[1] + 15.];
     machine::go_xy(&shared, parked).await.unwrap();

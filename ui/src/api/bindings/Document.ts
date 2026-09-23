@@ -5,6 +5,7 @@ import type { DraftView } from "./DraftView";
 import type { ExecutionView } from "./ExecutionView";
 import type { FilesView } from "./FilesView";
 import type { HistoryStatus } from "./HistoryStatus";
+import type { HoldTimes } from "./HoldTimes";
 import type { LaserMode } from "./LaserMode";
 import type { LibraryView } from "./LibraryView";
 import type { LinkView } from "./LinkView";
@@ -48,6 +49,10 @@ alarm_history: HistoryStatus,
  * Active host process overrides.
  */
 soft: SoftView, 
+/**
+ * How long held controls must be held, the same on every screen.
+ */
+hold: HoldTimes, 
 /**
  * Changes with every publication.
  */

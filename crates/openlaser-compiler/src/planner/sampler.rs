@@ -70,9 +70,11 @@ impl Walk {
                 time = self.emit(shape.value(phase, time), time)?;
             }
         }
+        // The carry is the time since the last sample. A profile that ends
+        // before the next sample is due adds its whole duration to it.
         match self.last {
             Some(last) => finite(total - last),
-            None => finite(carry - total),
+            None => finite(carry + total),
         }
     }
 }
@@ -211,6 +213,18 @@ mod tests {
         assert_eq!(samples.len(), 374);
         assert_eq!(samples[..3], [0.0, 1.666666666666667e-7, 1.3333333333333336e-6]);
         assert_eq!(samples[372..], [3.9785300428563137, 3.9935305181808665]);
+    }
+
+    /// A profile that falls wholly between two samples passes its duration
+    /// on, so the cadence stays uniform across it: at a steady 100 mm/s and
+    /// 1 ms samples every step is 0.1 mm, including the one spanning 0.05 mm.
+    #[test]
+    fn a_profile_between_samples_keeps_the_cadence() {
+        let steady =
+            [profile(1.03, 100., 100.), profile(0.05, 100., 100.), profile(1., 100., 100.)];
+        let samples = sample(&steady, 1., 1000).unwrap();
+        assert!(samples.windows(2).all(|w| (w[1] - w[0] - 0.1).abs() < 1e-9), "{samples:?}");
+        assert_eq!(samples.len(), 21);
     }
 
     /// A zero or negative interval and an exhausted budget are refused.

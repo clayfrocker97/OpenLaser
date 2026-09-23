@@ -7,6 +7,7 @@
   import { ui } from '../stores/ui.svelte';
   import { explain } from '../lib/format';
   import { access } from '../lib/access.svelte';
+  import HoldButton from './HoldButton.svelte';
 
   let { compact = false }: { compact?: boolean } = $props();
 
@@ -46,11 +47,12 @@
     <div class="position-title"><strong>Sheet position</strong><span>{draft.anchor === 'front_left' ? 'Bottom left' : draft.anchor.replaceAll('_', ' ')}</span>{#if !placement.saved && (draft.job || fixed) && !completed}<button class="text-button save-position" disabled={disabled || !draft.recipe} onclick={save}>Save job</button>{/if}</div>
     <div class="position-method" role="group" aria-label="Positioning method">
       <button aria-pressed={!fixed} disabled={disabled} title="Set the origin at the head for each new run" onclick={() => change({ kind: 'head' })}>Each run</button>
-      <button aria-pressed={fixed} disabled={disabled || !doc.readiness.set_origin.ok} title="Save the head's absolute position for a fixture" onclick={() => change({ kind: 'fixed_head' })}>Absolute</button>
+      <HoldButton class="position-absolute" kind="zero" aria-pressed={fixed} disabled={disabled || !doc.readiness.set_origin.ok} title="Save the head's absolute position for a fixture" onhold={() => change({ kind: 'fixed_head' })}>Absolute</HoldButton>
     </div>
     <div class="origin-state" class:captured={placement.captured}>{placement.captured ? 'Origin set' : 'Origin not set'}{#if !placement.captured && !fixed}<small>Set at head for this job</small>{/if}</div>
     {#if position}<div class="position-state"><strong>{placement.captured ? '' : 'Head · '}X {distance(position[0])} · Y {distance(position[1])} {unitLabel('mm')}</strong></div>{/if}
-    {#if !completed}<button class="set-origin" disabled={disabled || !doc.readiness.set_origin.ok} title={doc.readiness.set_origin.reason ?? 'Set origin at the head'} onclick={() => change({ kind: 'set_origin' })}>Set origin</button>{/if}
+    {#if !completed}<HoldButton class="set-origin" kind="zero" disabled={disabled || !doc.readiness.set_origin.ok} title={doc.readiness.set_origin.reason ?? 'Set origin at the head'} onhold={() => change({ kind: 'set_origin' })}>Set origin</HoldButton>
+    {#if !disabled && !doc.readiness.set_origin.ok && doc.readiness.set_origin.reason}<p class="gate-reason origin-reason">{doc.readiness.set_origin.reason}</p>{/if}{/if}
   </section>
 {/if}
 
@@ -59,16 +61,17 @@
   .position-title { display:flex; justify-content:space-between; gap:8px; align-items:center; min-height:28px; margin-bottom:5px; font-size:12px; }
   .position-title span { color:var(--ink-3); font-size:11px; text-transform:capitalize; }
   .position-method { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
-  button { min-height:44px; border:1px solid var(--line); border-radius:9px; background:var(--panel); color:var(--ink); font:inherit; font-size:13px; cursor:pointer; }
-  button[aria-pressed="true"] { border-color:var(--accent); background:var(--accent-soft); color:var(--accent); }
-  button:disabled { opacity:.4; cursor:default; }
+  .sheet-position :global(button) { min-height:44px; border:1px solid var(--line); border-radius:9px; background:var(--panel); color:var(--ink); font:inherit; font-size:13px; cursor:pointer; }
+  .sheet-position :global(button[aria-pressed="true"]) { border-color:var(--accent); background:var(--accent-soft); color:var(--accent); }
+  .sheet-position :global(button:disabled) { opacity:.4; cursor:default; }
   .position-state { display:flex; align-items:center; padding-top:5px; min-height:32px; }
   .origin-state { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:8px; color:var(--ink-3); font-size:12px; }
   .origin-state.captured { color:var(--accent); }
   .origin-state small { font-size:10px; }
-  .set-origin { width:100%; min-height:48px; margin-top:6px; padding:0 12px; border-color:var(--accent); color:var(--accent); }
+  .sheet-position :global(.set-origin) { width:100%; min-height:48px; margin-top:6px; padding:0 12px; border-color:var(--accent); color:var(--accent); }
+  .origin-reason { grid-column:1 / -1; font-size:11px; }
   .position-state strong { font-size:12px; font-weight:550; font-variant-numeric:tabular-nums; }
-  .text-button { padding:0 6px; color:var(--accent); border:0; background:transparent; font-size:12px; }
+  .sheet-position .text-button { padding:0 6px; color:var(--accent); border:0; background:transparent; font-size:12px; }
   .save-position { margin-block:-8px; }
   .compact { display:grid; grid-template-columns:minmax(0,2fr) minmax(0,1fr); gap:6px; }
   .compact .position-title { grid-column:1 / -1; margin:0; min-height:22px; }
@@ -77,6 +80,6 @@
   .compact .position-state { grid-row:2; grid-column:1 / -1; justify-content:flex-end; padding:0; min-height:26px; }
   .compact .position-state strong { font-size:11px; }
   .compact .position-method { grid-row:3; }
-  .compact .position-method button { min-height:46px; font-size:12px; }
-  .compact .set-origin { grid-row:3; margin:0; min-height:46px; padding:0 6px; font-size:12px; }
+  .compact .position-method :global(button) { min-height:46px; font-size:12px; }
+  .compact :global(.set-origin) { grid-row:3; margin:0; min-height:46px; padding:0 6px; font-size:12px; }
 </style>

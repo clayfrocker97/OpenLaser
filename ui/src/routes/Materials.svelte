@@ -65,8 +65,11 @@
       return false;
     }
   }
-  function discard(): void {
-    if (recipe) recipeEdits.discard(recipe.id);
+  async function discard(): Promise<void> {
+    if (!recipe) return;
+    const count = recipeEdits.count(recipe.id);
+    const confirmed = await ui.confirm({ title: 'Discard these recipe edits?', body: `${count} edited ${count === 1 ? 'value is' : 'values are'} thrown away; ${recipe.name} keeps its saved values.`, confirm: 'Discard edits', danger: true });
+    if (confirmed) recipeEdits.discard(recipe.id);
   }
   /** Another thickness of the recipe: a copy of its values. */
   function copy(): void {

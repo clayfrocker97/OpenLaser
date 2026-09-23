@@ -1,4 +1,4 @@
-import type { Document, PreflightPreferences } from '../api';
+import type { Document, HoldTimes, PreflightPreferences } from '../api';
 import { ui } from '../stores/ui.svelte';
 import { fieldId, type XmlField } from './machine-settings';
 
@@ -9,6 +9,7 @@ type Entries = {
   route?: Partial<Record<RouteKey, Entry<string>>>;
   preflight?: Entry<PreflightPreferences>;
   theme?: Entry<'light' | 'dark'>;
+  hold?: Entry<HoldTimes>;
   backup?: Import;
   soft?: Import;
   xml?: { base: string; edits: Record<string, XmlField & { original: string }> };
@@ -118,6 +119,19 @@ class SettingsEdits {
     if (value === base) delete this.entries.theme;
     else this.entries.theme = { base, value };
     ui.previewTheme(value);
+    await this.persist();
+  }
+  /** Stages hold times against the ones every screen uses now. */
+  async hold(value: HoldTimes, saved: HoldTimes): Promise<void> {
+    await this.ready;
+    const base = this.entries.hold?.base ?? saved;
+    if (same(value, base)) delete this.entries.hold;
+    else this.entries.hold = { base: { ...base }, value: { ...value } };
+    await this.persist();
+  }
+  /** Keeps the staged hold times over ones saved elsewhere since. */
+  async rebaseHold(saved: HoldTimes): Promise<void> {
+    if (this.entries.hold) this.entries.hold.base = { ...saved };
     await this.persist();
   }
   async preflight(base: PreflightPreferences, value: PreflightPreferences): Promise<void> {

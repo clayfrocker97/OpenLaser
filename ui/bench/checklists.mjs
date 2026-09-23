@@ -16,12 +16,27 @@ const wait = async test => { const start = performance.now(); while (!await test
 const check = (ok, reason) => { if (!ok) throw Error(reason); };
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const buttons = root => [...(root ?? document).querySelectorAll('button')];
+// A held control's label, without its "Hold" mark.
+const label = b => [...b.childNodes].filter(n => !n.classList?.contains('hold-hint')).map(n => n.textContent).join('').trim();
+// Machine actions act only after a held press (ui/DESIGN.md, Touch rules).
+const hold = async (name, root) => {
+  const b = buttons(root).find(b => label(b) === name); check(b && !b.disabled, `Available button: ${name}`);
+  const box = b.getBoundingClientRect();
+  const at = { bubbles: true, pointerId: 1, button: 0, clientX: box.x + box.width / 2, clientY: box.y + box.height / 2 };
+  b.dispatchEvent(new PointerEvent('pointerdown', at));
+  await new Promise(resolve => setTimeout(resolve, 1100));
+  b.dispatchEvent(new PointerEvent('pointerup', at)); await frames();
+};
 const click = async (name, root) => { const b = buttons(root).find(b => b.textContent.trim() === name); check(b && !b.disabled, `Available button: ${name}`); b.click(); await frames(); };
 const dialog = () => document.querySelector('[role="dialog"]');
 const text = (input, value) => { input.value = value; input.dispatchEvent(new Event('input', { bubbles: true })); };
 const close = async kind => {
   if (kind === 'footer') await click('Close', dialog());
-  else if (kind === 'backdrop') document.querySelector('.modal-backdrop').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+  else if (kind === 'backdrop') {
+    // A dialog closes only on a tap that starts and ends on the backdrop.
+    const backdrop = document.querySelector('.modal-backdrop');
+    for (const type of ['pointerdown', 'pointerup']) backdrop.dispatchEvent(new PointerEvent(type, { bubbles: true }));
+  }
   else dialog().querySelector('button[aria-label="Close"]').click();
   await wait(() => !dialog());
 };
@@ -128,7 +143,7 @@ button.addEventListener('click', async () => {
       await api.machine('run', { preflight: { token: review.token, checked: review.steps.map((_, i) => i), gas_ready: true } });
       await wait(() => dialog()?.querySelector('h2')?.textContent === 'Postflight');
       check(dialog().querySelector('.preflight-progress strong')?.textContent === '0 / 2', 'Postflight progress is numeric');
-      await click('Move to 5, 5', dialog());
+      await hold('Move to 5, 5', dialog());
       await wait(() => dialog()?.textContent.includes('Auto-checked'));
       const inputs = dialog().querySelectorAll('.preflight-check input');
       inputs[1].click(); await frames();

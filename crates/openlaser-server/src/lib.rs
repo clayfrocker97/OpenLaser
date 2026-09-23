@@ -43,6 +43,7 @@ pub mod setup;
 pub mod sheets;
 pub mod soft_settings;
 pub mod stock_store;
+pub mod touch;
 pub mod ui;
 pub mod workspace;
 

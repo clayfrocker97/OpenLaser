@@ -1,6 +1,6 @@
 # Preparing an OpenLaser release
 
-The current version is **0.1.0-alpha.1**, published as source and documentation.
+The current version is **0.1.0-alpha.2**, published as source and documentation.
 No prebuilt binaries are published. The following steps produce local review
 packages; they do not push a branch, create a remote tag or publish a release.
 Binary publication requires separate maintainer approval.

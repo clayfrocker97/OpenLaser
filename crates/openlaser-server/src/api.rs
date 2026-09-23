@@ -50,6 +50,7 @@ pub fn router(shared: Shared, ui_dir: std::path::PathBuf) -> Router {
             get(preflight_preferences).post(save_preflight_preferences),
         )
         .route("/api/preflight/action", post(preflight_action))
+        .route("/api/touch", post(save_touch))
         .route("/api/postflight", get(postflight_review))
         .route("/api/postflight/action", post(postflight_action))
         .route("/api/postflight/dismiss", post(dismiss_postflight))
@@ -894,6 +895,19 @@ async fn save_preflight_preferences(
     Json(preferences): Json<crate::preflight::PreflightPreferences>,
 ) -> Reply {
     shared.lock().await.save_preflight_preferences(preferences)?;
+    Ok(ok())
+}
+
+/// New hold times for every screen, from the ones the caller last read.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TouchChange {
+    hold: crate::touch::HoldTimes,
+    expected: crate::touch::HoldTimes,
+}
+
+async fn save_touch(State(shared): State<Shared>, Json(change): Json<TouchChange>) -> Reply {
+    shared.lock().await.save_hold_times(change.hold, change.expected)?;
     Ok(ok())
 }
 

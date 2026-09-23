@@ -37,7 +37,8 @@
     onclose();
   }
 
-  function choose(kind: JobPreflight['kind']): void {
+  async function choose(kind: JobPreflight['kind']): Promise<void> {
+    if (kind === 'off' && choice !== 'off' && !await ui.confirm({ title: 'Turn this job’s checklist off?', body: 'Start will run this job without asking for any preflight checks.', confirm: 'Turn checklist off', danger: true })) return;
     if (kind === 'custom' && !custom.length && preferences) custom = structuredClone($state.snapshot(preferences[mode].steps));
     choice = kind;
   }

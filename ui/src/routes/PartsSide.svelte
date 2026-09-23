@@ -40,7 +40,15 @@
     });
   }
 
-  function remove(): void {
+  async function remove(): Promise<void> {
+    const what = job ? 'job' : 'part';
+    const confirmed = await ui.confirm({
+      title: `Delete this ${what}?`,
+      body: `“${(job ?? part)?.name ?? ''}” leaves the library. Library history can undo it.`,
+      confirm: `Delete ${what}`,
+      danger: true,
+    });
+    if (!confirmed) return;
     if (job) run(() => api.removeJob(job.id), () => { ui.selected = null; ui.say('Job deleted.'); });
     else if (part) run(() => api.removePart(part.id), () => { ui.selected = null; ui.say('Part deleted.'); });
   }
