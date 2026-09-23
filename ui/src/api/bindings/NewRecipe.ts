@@ -5,23 +5,23 @@ import type { Values } from "./Values";
 /**
  * A recipe to add.
  */
-export type NewRecipe = {
+export type NewRecipe = { 
 /**
  * The material.
  */
-name: string,
+name: string, 
 /**
  * Which laser.
  */
-laser: LaserMode,
+laser: LaserMode, 
 /**
  * The sheet thickness.
  */
-thickness_mm: number,
+thickness_mm: number, 
 /**
  * Where its values come from.
  */
-values: Values,
+values: Values, 
 /**
  * The gas selection, 0 to 5, when it should differ from the source's.
  */

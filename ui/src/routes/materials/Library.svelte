@@ -3,11 +3,12 @@
   // The library tree: materials under their laser, one opened to its
   // recipes by gas, then thickness. Importing the vendor's process library
   // folder adds every recipe file and the photo of the same name beside it.
-  import Modal from '../../components/Modal.svelte';
-  import { api } from '../../api/client';
+  import MaterialSummary from '../../components/MaterialSummary.svelte';
   import { ui } from '../../stores/ui.svelte';
   import { explain, laserLabel } from '../../lib/format';
   import { pictureOf, materialsOf, materialKey, type Material } from '../../lib/materials';
+  import { droppedFiles, picked, type Picked } from '../../lib/recipe-import';
+  import ImportRecipes from './ImportRecipes.svelte';
   import type { RecipeView } from '../../api';
 
   let { recipes, selected, onselect, onadd, selectOnExpand = true }: { recipes: RecipeView[]; selected: RecipeView | null; /** Whether the selection took. */ onselect: (recipe: RecipeView) => boolean; onadd: () => void; selectOnExpand?: boolean } = $props();
@@ -36,37 +37,30 @@
     if (onselect(m.recipes[0]!)) open = m.key;
   }
 
-  // Every recipe file of the folder, then the photo with the same name.
-  let importing = $state<{ done: number; total: number } | null>(null);
-  let failed = $state<string[]>([]);
-  async function importFiles(event: Event): Promise<void> {
+  // Import: recipe files, a whole folder, or files and folders dropped on
+  // the library. Each recipe file brings the photo of the same name beside
+  // it, and everything is reviewed before it is saved.
+  let importing = $state<Picked[] | null>(null);
+  let dragging = $state(false);
+  function chosen(event: Event): void {
     const input = event.currentTarget as HTMLInputElement;
-    const files = [...(input.files ?? [])];
+    const files = picked(input.files ?? []);
     input.value = '';
-    const stem = (f: File) => f.name.replace(/\.[^.]+$/, '');
-    const xml = files.filter((f) => /\.xml$/i.test(f.name));
-    const photos = new Map(files.filter((f) => /\.png$/i.test(f.name)).map((f) => [stem(f), f]));
-    if (!xml.length) { ui.say('No recipe files (.xml) in the folder.', true); return; }
-    importing = { done: 0, total: xml.length };
-    const tally = { added: 0, known: 0, failed: [] as string[] };
-    for (const file of xml) {
-      try {
-        const { id, existing } = await api.importRecipe(file.name, await file.arrayBuffer());
-        if (existing) tally.known += 1; else tally.added += 1;
-        const photo = photos.get(stem(file));
-        if (photo) await api.setPhoto(id, await photo.arrayBuffer());
-      } catch (error) {
-        tally.failed.push(`${file.name}: ${explain(error)}`);
-      }
-      importing.done += 1;
-    }
-    importing = null;
-    failed = tally.failed;
-    ui.say(`${count(tally.added, 'recipe')} added, ${tally.known} already in the library${tally.failed.length ? `, ${tally.failed.length} failed` : ''}.`);
+    if (files.length) importing = files;
   }
+  function drop(event: DragEvent): void {
+    event.preventDefault();
+    dragging = false;
+    if (!event.dataTransfer) return;
+    droppedFiles(event.dataTransfer).then((files) => { if (files.length) importing = files; }).catch((error) => ui.say(explain(error), true));
+  }
+  const carriesFiles = (event: DragEvent) => event.dataTransfer?.types.includes('Files') ?? false;
 </script>
 
-<aside class="panel library">
+<aside class="panel library" class:dragging aria-label="Material library"
+  ondragover={(e) => { if (carriesFiles(e)) { e.preventDefault(); dragging = true; } }}
+  ondragleave={(e) => { if (e.currentTarget === e.target) dragging = false; }}
+  ondrop={drop}>
   <div class="library-head"><h2>Materials</h2><button class="btn btn-primary icon-only" onclick={onadd} aria-label="New recipe"><i class="ic ic-plus"></i></button></div>
   <div class="search"><i class="ic ic-search"></i><input placeholder="Find a material…" bind:value={search}></div>
   <div class="tree" bind:this={tree}>
@@ -82,7 +76,7 @@
           {#each gasesOf(m) as gas (gas)}
             <span class="gas">{gas}</span>
             {#each m.recipes.filter((r) => r.gas === gas) as r (r.id)}
-              <button class="rec" class:on={r.id === selected?.id} aria-pressed={r.id === selected?.id} onclick={() => onselect(r)}><strong>{r.thickness_mm > 0 ? quantity(r.thickness_mm, 'mm') : 'No thickness'}</strong>{#if r.attributes['OpenLaserNozzleDiameter']}<small>Ø {quantity(Number(r.attributes['OpenLaserNozzleDiameter']), 'mm')}{r.attributes['OpenLaserNozzleType'] === 'double' ? ' · Double' : r.attributes['OpenLaserNozzleType'] === 'single' ? ' · Single' : ''}</small>{/if}</button>
+              <button class="rec" class:on={r.id === selected?.id} aria-pressed={r.id === selected?.id} onclick={() => onselect(r)}><strong>{r.thickness_mm > 0 ? quantity(r.thickness_mm, 'mm') : 'No thickness'}</strong><MaterialSummary source={r} variant="line" /></button>
             {/each}
           {/each}
         {/if}
@@ -92,14 +86,14 @@
     {/each}
   </div>
   <div class="library-foot">
-    <label class="btn btn-ghost block">{importing ? `Importing ${importing.done} of ${importing.total}…` : 'Import library'}<input type="file" multiple webkitdirectory accept=".xml,.png" hidden onchange={importFiles} disabled={!!importing}></label>
-    <span class="muted">{count(materials.length, 'material')} · {count(recipes.length, 'recipe')}</span>
+    <div class="import-buttons">
+      <label class="btn btn-ghost">Import files<input type="file" multiple accept=".xml,.png,.jpg,.jpeg" hidden onchange={chosen}></label>
+      <label class="btn btn-ghost">Import folder<input type="file" multiple webkitdirectory hidden onchange={chosen}></label>
+    </div>
+    <span class="muted">{dragging ? 'Drop recipe files or folders to review them' : `${count(materials.length, 'material')} · ${count(recipes.length, 'recipe')} · or drop files here`}</span>
   </div>
 </aside>
 
-{#if failed.length}
-  <Modal title="Files that did not import" onclose={() => (failed = [])}>
-    <div class="import-log">{failed.join('\n')}</div>
-    <button class="btn btn-primary block" onclick={() => (failed = [])}>OK</button>
-  </Modal>
+{#if importing}
+  <ImportRecipes files={importing} onclose={() => (importing = null)} />
 {/if}

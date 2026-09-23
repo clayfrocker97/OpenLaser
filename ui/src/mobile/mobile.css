@@ -71,6 +71,7 @@ html[data-layout="mobile"] .toast { max-width:calc(100vw - 32px); bottom:calc(14
 .phone-secondary-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px; }
 .phone-secondary-actions > button { min-height:46px; border-radius:12px; }
 .phone-job-material { margin:5px 0 0; font-size:var(--t-sm); line-height:1.45; color:var(--ink-3); }
+.phone-job-summary { margin:4px 0 0; }.phone-material .summary-line, .phone-material-picker .summary-line { display:block; margin-top:3px; }
 .phone-review-restart { width:100%; display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:54px; margin-top:12px; padding:12px 14px; background:var(--hold-soft); color:var(--hold); border:1px solid var(--line); border-radius:13px; font-size:var(--t-sm); }
 .phone-detail-header { flex:none; display:flex; align-items:center; gap:12px; padding:8px 16px 4px; }
 .phone-detail-header h1 { min-width:0; font-size:var(--t-lg); line-height:1.2; letter-spacing:-.025em; }

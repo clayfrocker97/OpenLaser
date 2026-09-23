@@ -4,15 +4,15 @@ import type { Id } from "./Id";
 /**
  * One numbered entry in the sheet switcher.
  */
-export type SheetTab = {
+export type SheetTab = { 
 /**
  * One-based sheet number.
  */
-number: number,
+number: number, 
 /**
  * Physical part count, absent when opening a saved job without preparation.
  */
-parts: number | null,
+parts: number | null, 
 /**
  * Saved job identity, absent until the set is saved.
  */

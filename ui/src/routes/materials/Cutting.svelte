@@ -1,9 +1,9 @@
 <script lang="ts">
   // The Cutting page: the six controls along the path, in the vendor's
   // pairs, then a line on what else the recipe does. What the machine
-  // cannot set is not offered: a nozzle gap without height control, a
-  // pressure without a proportional output, a peak output the laser
-  // control does not take.
+  // cannot set is not offered: a cut height without height control, a
+  // pressure without a proportional output, a power (peak power) setting
+  // the laser control does not take.
   import Field from './Field.svelte';
   import { cutStart, modeName, type Editor } from '../../lib/recipe';
 
@@ -18,14 +18,14 @@
   {#if ed.a.height}
     <Field {ed} key="CutHeight" big />
   {:else}
-    <div class="fld big"><span class="lbl">Nozzle gap</span><div class="box static"><b>Set by hand</b><span class="unit">no height control</span></div></div>
+    <div class="fld big"><span class="lbl">Cut height</span><div class="box static"><b>Set by hand</b><span class="unit">no height control</span></div></div>
   {/if}
   <Field {ed} key={duty} big />
   {#if ed.a.gas}<Field {ed} key="CutAirPressure" big />{/if}
   <Field {ed} key="CutFreq" big />
   {#if ed.a.peak}<Field {ed} key="CutPeakCurrent" big />{/if}
 </div>
-<div class="section-head"><div><h2>Head setup</h2><p class="muted">Fit the nozzle and set optical focus at the head.</p></div></div>
+<div class="section-head"><div><h2>Head setup</h2><p class="muted">Fit the nozzle and lens, and set optical focus at the head.</p></div></div>
 <div class="fields big head-setup">
   <Field {ed} key="OpenLaserNozzleDiameter" big />
   <div class="fld big" class:changed={'OpenLaserNozzleType' in ed.edits}>
@@ -36,6 +36,7 @@
     </div>
   </div>
   <Field {ed} key="OpenLaserManualFocus" big />
+  <Field {ed} key="OpenLaserLens" big />
   {#if ed.a.gas || ed.laser === 'co2'}
     <Field {ed} key="CutGasType" big />
   {:else}

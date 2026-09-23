@@ -7,37 +7,37 @@ import type { LaserMode } from "./LaserMode";
  * the recipe editor offers only what is wired, and shows the operating
  * settings the passes depend on.
  */
-export type CapabilitiesView = {
+export type CapabilitiesView = { 
 /**
  * Which laser.
  */
-laser: LaserMode,
+laser: LaserMode, 
 /**
  * Whether the head's height is controlled: nozzle gap, piercing,
  * cleaning and following need it.
  */
-height_control: boolean,
+height_control: boolean, 
 /**
  * The six gas selections, low air, oxygen, nitrogen, then high.
  */
-gases: Array<GasRouteView>,
+gases: Array<GasRouteView>, 
 /**
  * Whether the laser takes a peak output level.
  */
-peak_output: boolean,
+peak_output: boolean, 
 /**
  * How many contours a pre-pierce batch takes (`SoftParam.GP.PreDrillMaxNum`).
  */
-pre_pierce_batch: number | null,
+pre_pierce_batch: number | null, 
 /**
  * How many contours a film batch takes; zero is the whole job
  * (`ManuParam.MC.ClearUpFilmNum_Pre`).
  */
-film_batch: number | null,
+film_batch: number | null, 
 /**
  * The short-transfer distance in millimetres (`ManuParam.FC.ShortNoUpMaxLength`).
  */
-short_transfer_mm: number | null,
+short_transfer_mm: number | null, 
 /**
  * The gas delays in milliseconds: after a switch, before the first
  * gas, and on a change.

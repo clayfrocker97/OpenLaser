@@ -6,19 +6,19 @@ import type { NestCopy } from "./NestCopy";
  * or compacting: each copy clear of the others, not yet checked against the
  * stock's own curves, and never applied.
  */
-export type NestLive = {
+export type NestLive = { 
 /**
  * One-based number of the sheet shown: the one the search last changed.
  */
-sheet: number,
+sheet: number, 
 /**
  * The shown sheet's outer boundary.
  */
-stock_outline: Array<[number, number]>,
+stock_outline: Array<[number, number]>, 
 /**
  * Material already removed from the shown sheet.
  */
-stock_cutouts: Array<Array<[number, number]>>,
+stock_cutouts: Array<Array<[number, number]>>, 
 /**
  * Every copy on the shown sheet.
  */

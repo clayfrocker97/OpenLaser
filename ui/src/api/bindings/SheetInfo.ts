@@ -4,15 +4,15 @@ import type { Id } from "./Id";
 /**
  * Stable grouping for individual sheet jobs saved together.
  */
-export type SheetInfo = {
+export type SheetInfo = { 
 /**
  * Identity of the set's original folder.
  */
-set: Id,
+set: Id, 
 /**
  * One-based sheet number.
  */
-number: number,
+number: number, 
 /**
  * Total sheets when saved.
  */

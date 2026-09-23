@@ -4,19 +4,19 @@ import type { NestRotation } from "./NestRotation";
 /**
  * Minimum distances in millimetres, independent of machining clearance.
  */
-export type NestSettings = {
+export type NestSettings = { 
 /**
  * Extra distance from old cutouts and the outer edge for manual remnant alignment.
  */
-remnant_clearance: number,
+remnant_clearance: number, 
 /**
  * Minimum distance between part edges.
  */
-spacing: number,
+spacing: number, 
 /**
  * Minimum distance from stock edges.
  */
-margin: number,
+margin: number, 
 /**
  * Grain/orientation constraint.
  */

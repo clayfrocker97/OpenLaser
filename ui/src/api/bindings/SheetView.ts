@@ -7,67 +7,67 @@ import type { SheetState } from "./SheetState";
 /**
  * An inspected sheet or completion record, with display geometry only.
  */
-export type SheetView = {
+export type SheetView = { 
 /**
  * Stable sheet identity.
  */
-id: string,
+id: string, 
 /**
  * Concurrency token for edits.
  */
-revision: number,
+revision: number, 
 /**
  * Completed, interrupted or inspected state.
  */
-state: SheetState,
+state: SheetState, 
 /**
  * Already reserved by a later cut; cannot be selected as stock again.
  */
-used: boolean,
+used: boolean, 
 /**
  * Operator's name.
  */
-name: string,
+name: string, 
 /**
  * Original saved job, when one exists.
  */
-job: Id | null,
+job: Id | null, 
 /**
  * Process used on this sheet.
  */
-mode: LaserMode,
+mode: LaserMode, 
 /**
  * Material name.
  */
-material: string,
+material: string, 
 /**
  * Thickness in millimetres.
  */
-thickness_mm: number,
+thickness_mm: number, 
 /**
  * Recording time in Unix seconds.
  */
-at: number,
+at: number, 
 /**
  * Marked cut by an operator instead of a controller completion.
  */
-reported: boolean,
+reported: boolean, 
 /**
  * Whether a stock outline was specified before the job.
  */
-boundary_known: boolean,
+boundary_known: boolean, 
 /**
  * Outer stock extent.
  */
-bounds: Bounds,
+bounds: Bounds, 
 /**
  * Outer boundary for the sheet viewer.
  */
-outline: Array<[number, number]>,
+outline: Array<[number, number]>, 
 /**
  * Reserved removed regions for the viewer.
  */
-cutouts: Array<Array<[number, number]>>,
+cutouts: Array<Array<[number, number]>>, 
 /**
  * Inherited minimum margin for prior kerf and leads, in millimetres.
  */

@@ -3,11 +3,11 @@
 /**
  * Where a held program stopped within the current remainder.
  */
-export type Checkpoint = {
+export type Checkpoint = { 
 /**
  * Pass index in this execution, distinct from its original ordinal.
  */
-pass: number,
+pass: number, 
 /**
  * Distance fraction of its execution path; a point is before or after.
  */

@@ -5,19 +5,19 @@ import type { PreviewContour } from "./PreviewContour";
 /**
  * The prepared toolpath as polylines.
  */
-export type Preview = {
+export type Preview = { 
 /**
  * The contours in cutting order, as polylines in drawing coordinates.
  */
-contours: Array<PreviewContour>,
+contours: Array<PreviewContour>, 
 /**
  * The extent of the placed part.
  */
-bounds: Bounds | null,
+bounds: Bounds | null, 
 /**
  * Total cut length in millimetres.
  */
-length_mm: number,
+length_mm: number, 
 /**
  * Preparation warnings.
  */

@@ -4,35 +4,35 @@ import type { Anchor } from "./Anchor";
 /**
  * The only machine operations a checklist can offer.
  */
-export type CheckAction = { "kind": "home", } | { "kind": "origin", } | { "kind": "set_origin", } | { "kind": "set_origin_at",
+export type CheckAction = { "kind": "home", } | { "kind": "origin", } | { "kind": "set_origin", } | { "kind": "set_origin_at", 
 /**
  * Point on both the job and bed bounds.
  */
-point: Anchor, } | { "kind": "move_to",
+point: Anchor, } | { "kind": "move_to", 
 /**
  * Point on the bed bounds.
  */
-point: Anchor, } | { "kind": "move_xy",
+point: Anchor, } | { "kind": "move_xy", 
 /**
  * X coordinate in millimetres.
  */
-x: number,
+x: number, 
 /**
  * Y coordinate in millimetres.
  */
-y: number, } | { "kind": "calibrate", } | { "kind": "job_gas_test",
+y: number, } | { "kind": "calibrate", } | { "kind": "job_gas_test", 
 /**
  * Maximum time for each test, 50 to 2000 milliseconds.
  */
-duration_ms: number, } | { "kind": "gas_test",
+duration_ms: number, } | { "kind": "gas_test", 
 /**
  * Native gas selector, 0 to 5.
  */
-selector: number,
+selector: number, 
 /**
  * Pressure in bar for a proportional valve.
  */
-pressure: number,
+pressure: number, 
 /**
  * Maximum on time, 50 to 2000 milliseconds.
  */

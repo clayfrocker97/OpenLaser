@@ -5,39 +5,39 @@ import type { Spot } from "./Spot";
 /**
  * One prepared contour.
  */
-export type PreviewContour = {
+export type PreviewContour = { 
 /**
  * Stable placed-source location for this contour's lead edits.
  */
-lead_target: Spot | null,
+lead_target: Spot | null, 
 /**
  * Corresponding contour in repeated parts, before placement transforms.
  */
-matching_contour: number | null,
+matching_contour: number | null, 
 /**
  * Whether it is closed.
  */
-closed: boolean,
+closed: boolean, 
 /**
  * The nesting depth: zero for an outer contour.
  */
-depth: number,
+depth: number, 
 /**
  * The drawing layer it came from.
  */
-layer: string,
+layer: string, 
 /**
  * The drawing contours it was made from.
  */
-sources: Array<number>,
+sources: Array<number>, 
 /**
  * The path in cutting order, split where the process changes.
  */
-paths: Array<Path>,
+paths: Array<Path>, 
 /**
  * Where the cooling stops are.
  */
-cooling: Array<[number, number]>,
+cooling: Array<[number, number]>, 
 /**
  * The start of the cut, after the lead-in.
  */

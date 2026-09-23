@@ -5,19 +5,19 @@ import type { Quality } from "./Quality";
 /**
  * The authority facts of the connection.
  */
-export type SessionView = {
+export type SessionView = { 
 /**
  * Whether Go Origin established the XY reference on this connection.
  */
-homed: boolean,
+homed: boolean, 
 /**
  * The mode applied on this connection.
  */
-mode: LaserMode | null,
+mode: LaserMode | null, 
 /**
  * Whether the parameter banks were read back and matched.
  */
-parameters_verified: boolean,
+parameters_verified: boolean, 
 /**
  * The head calibration made on this connection.
  */

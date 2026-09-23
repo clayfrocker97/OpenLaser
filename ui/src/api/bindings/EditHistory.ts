@@ -4,15 +4,15 @@ import type { Edit } from "./Edit";
 /**
  * Saved changes that can be undone or redone, oldest first.
  */
-export type EditHistory = {
+export type EditHistory = { 
 /**
  * Changes on every edit, undo and redo.
  */
-revision: number,
+revision: number, 
 /**
  * Applied edits, latest last.
  */
-past: Array<Edit>,
+past: Array<Edit>, 
 /**
  * Undone edits, next redo last.
  */

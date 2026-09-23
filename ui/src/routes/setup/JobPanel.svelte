@@ -1,13 +1,14 @@
 <script lang="ts">
   import { displayNumber, quantity, unitLabel } from '../../lib/units.svelte';
   import MaterialSheet from './MaterialSheet.svelte';
+  import MaterialSummary from '../../components/MaterialSummary.svelte';
   import PreflightEditor from '../../components/PreflightEditor.svelte';
   import { pictureOf } from '../../lib/materials';
   import { api } from '../../api/client';
   import { server } from '../../stores/server.svelte';
   import { ui } from '../../stores/ui.svelte';
   import { osk } from '../../lib/osk.svelte';
-  import { ago, explain, laserLabel, seconds, size, value } from '../../lib/format';
+  import { ago, explain, laserLabel, seconds, size } from '../../lib/format';
   import { TOOLS, isOn } from '../../lib/features';
   import AddParts from '../../components/AddParts.svelte';
   import CreateText from '../../components/CreateText.svelte';
@@ -71,12 +72,7 @@
   {#if recipe}
     {@const art = pictureOf(recipe.name, recipe.photo)}
     <div class="mat-line">{#if art}<img class="swatch lg" src={art} alt="">{:else}<span class="swatch lg" style="background:var(--panel-2)"></span>{/if}<div><div class="big">{recipe.name}</div><div class="muted">{quantity(recipe.thickness_mm, 'mm')} · {recipe.gas} · {laserLabel(recipe.laser)}</div></div></div>
-    <div class="stats four">
-      <div><b>{displayNumber(recipe.summary.speed, 'mm/s')}</b><span>{unitLabel('mm/s')}</span></div>
-      <div><b>{value(recipe.summary.power)}</b><span>% power</span></div>
-      <div><b>{displayNumber(recipe.summary.pressure, 'bar')}</b><span>{unitLabel('bar')}</span></div>
-      <div><b>{displayNumber(recipe.summary.height, 'mm')}</b><span>{unitLabel('mm')} height</span></div>
-    </div>
+    <MaterialSummary source={recipe} />
   {:else}
     <div class="mat-line"><span class="swatch lg" style="background:var(--warn-soft)"></span><div><div class="big warn-text">Choose a material</div><div class="muted">Required before running</div></div></div>
   {/if}

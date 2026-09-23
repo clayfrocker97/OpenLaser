@@ -11,51 +11,51 @@ import type { SessionView } from "./SessionView";
 /**
  * The published state.
  */
-export type State = {
+export type State = { 
 /**
  * Changes on alarm transitions or a controller link fault.
  */
-alarm_revision: number,
+alarm_revision: number, 
 /**
  * Changes with every publication.
  */
-revision: number,
+revision: number, 
 /**
  * The connection.
  */
-connection: Connection,
+connection: Connection, 
 /**
  * The controller's identity, once read.
  */
-identity: Identity | null,
+identity: Identity | null, 
 /**
  * The mode the bindings are for, once configured.
  */
-configured_mode: LaserMode | null,
+configured_mode: LaserMode | null, 
 /**
  * The feedback, while connected.
  */
-feedback: Feedback | null,
+feedback: Feedback | null, 
 /**
  * The authority facts.
  */
-session: SessionView,
+session: SessionView, 
 /**
  * The alarm rows.
  */
-alarms: Array<AlarmView>,
+alarms: Array<AlarmView>, 
 /**
  * Why operations are refused right now, if they are.
  */
-blocked: string | null,
+blocked: string | null, 
 /**
  * The active operation.
  */
-operation: OperationView | null,
+operation: OperationView | null, 
 /**
  * The last program.
  */
-program: ProgramView | null,
+program: ProgramView | null, 
 /**
  * The last failure, until the next successful command.
  */

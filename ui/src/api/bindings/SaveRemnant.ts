@@ -4,15 +4,15 @@ import type { Bounds } from "./Bounds";
 /**
  * Operator confirmation and optional corrected rectangular stock size.
  */
-export type SaveRemnant = {
+export type SaveRemnant = { 
 /**
  * Revision being inspected.
  */
-revision: number,
+revision: number, 
 /**
  * Name on the stock card.
  */
-name: string,
+name: string, 
 /**
  * Replace an inferred boundary with the actual rectangular sheet bounds.
  */

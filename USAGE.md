@@ -345,15 +345,40 @@ library plus a basswood CO₂ recipe. These are starting recipes whose suitabili
 must be checked for your machine, laser power, optics, nozzle and stock.
 
 Material cards open the recipe editor. The header contains material, thickness,
-mode and recipe actions. Under **Cutting → Head setup**, edit nozzle diameter,
-single/double nozzle type and manual optical focus. Gas selection is beside the
-head setup controls. Cutting and piercing process values remain separate.
+mode and recipe actions, and under it the recipe's summary. Under
+**Cutting → Head setup**, edit nozzle diameter, single/double nozzle type,
+manual optical focus and lens focal length. Gas selection is beside the head
+setup controls. Cutting and piercing process values remain separate.
 
-Nozzle and optical focus are operator setup values. Editing them does not move a
-focus motor or command Z. Original MLaser XML files still import without these
-optional fields; enter the nozzle/focus afterward when absent. Source process
-values are retained on import. If description notes disagree with XML pressure
-values, inspect both rather than assuming the note overwrote the process value.
+Every screen summarises a recipe the same way: Speed, Power, Duty, Frequency,
+Gas with its pressure, Nozzle, Focus, Lens, Cut height and Pierce. **Power** is
+the laser's peak power setting in percent; **Duty** is the duty cycle, the part
+of each pulse period the beam is on.
+
+Nozzle, optical focus and lens are operator setup values. Editing them does not
+move a focus motor or command Z. Source process values are retained on import.
+If description notes disagree with XML pressure values, inspect both rather
+than assuming the note overwrote the process value.
+
+### Importing recipe files
+
+**Import files**, **Import folder** or dropping files and folders on the
+material list reads MLaser recipe files (`.xml`, with a sample photo of the same
+name beside them) without saving anything, then lists them for review:
+
+- Each file is filed under a library material, matched by name (`SS` matches
+  Stainless steel) and thickness. Choose another material or **New material…**,
+  and correct the thickness when the file name does not state it.
+- Nozzle diameter and single/double type, focus and lens are read from the
+  note, the layer name and the file name (`NOZZLE---SINGLE-2.0`, `1.5S`, `2.0D`,
+  `nozzle 1.2 double`, `F-3`, `focus -2`, `FOCAL LENGTH---(-1)`, `F150`,
+  `lens 150`). Check them; tap a value to correct it, or enter nothing to clear
+  it.
+- A recipe the library already has at the same material, thickness and gas is
+  marked with the library's values beside it. Choose **Replace** (the file's
+  values replace the recipe's; its name, star, photo and film process stay),
+  **Keep both** or **Skip** for each, or for every duplicate at once. Import
+  waits until every duplicate has a choice and asks before replacing.
 
 Use the recipe editor to rename a material, change thickness, inspect imported
 values or delete a recipe. Changes affect the material library; review any

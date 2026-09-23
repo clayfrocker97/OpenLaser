@@ -5,11 +5,11 @@ import type { Millimeters } from "./Millimeters";
 /**
  * Bridges: two contours joined through a channel so they cut as one.
  */
-export type Bridges = {
+export type Bridges = { 
 /**
  * The channel width.
  */
-width: Millimeters,
+width: Millimeters, 
 /**
  * The connections, applied in order.
  */

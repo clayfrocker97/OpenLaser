@@ -3,15 +3,15 @@
 /**
  * An adapter as the operator sees it.
  */
-export type AdapterView = {
+export type AdapterView = { 
 /**
  * The interface name.
  */
-name: string,
+name: string, 
 /**
  * What the computer calls the hardware.
  */
-description: string,
+description: string, 
 /**
  * Its addresses.
  */

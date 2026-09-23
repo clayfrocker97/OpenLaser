@@ -4,19 +4,19 @@ import type { NestSettings } from "./NestSettings";
 /**
  * Simple operator choices for one search.
  */
-export type NestRequest = {
+export type NestRequest = { 
 /**
  * Selected contour identities; quantity requires one complete group.
  */
-contours: Array<number>,
+contours: Array<number>, 
 /**
  * Required copies of the selected part, including the original.
  */
-quantity: number,
+quantity: number, 
 /**
  * Distances and rotation constraint.
  */
-settings: NestSettings,
+settings: NestSettings, 
 /**
  * Bounded search duration, between one and thirty seconds.
  */

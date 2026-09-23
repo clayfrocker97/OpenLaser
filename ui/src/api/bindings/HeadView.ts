@@ -3,19 +3,19 @@
 /**
  * The head controller as last read.
  */
-export type HeadView = {
+export type HeadView = { 
 /**
  * Whether the head holds a reference.
  */
-referenced: boolean,
+referenced: boolean, 
 /**
  * The head height in millimetres.
  */
-height_mm: number,
+height_mm: number, 
 /**
  * The command in progress, zero when idle.
  */
-command: number,
+command: number, 
 /**
  * The head status byte.
  */

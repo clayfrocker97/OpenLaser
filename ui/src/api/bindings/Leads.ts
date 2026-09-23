@@ -6,23 +6,23 @@ import type { Side } from "./Side";
 /**
  * Entry and exit leads.
  */
-export type Leads = {
+export type Leads = { 
 /**
  * The lead-in, if any.
  */
-entry: Lead | null,
+entry: Lead | null, 
 /**
  * The lead-out, if any.
  */
-exit: Lead | null,
+exit: Lead | null, 
 /**
  * Which side of the contour the leads lie on.
  */
-side: Side,
+side: Side, 
 /**
  * Leave open contours without leads.
  */
-closed_only: boolean,
+closed_only: boolean, 
 /**
  * Leads edited on the drawing. Locations name placed contours and
  * distinguish pieces created by a bridge split.

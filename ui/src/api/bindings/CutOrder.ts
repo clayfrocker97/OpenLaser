@@ -4,19 +4,19 @@ import type { OrderStrategy } from "./OrderStrategy";
 /**
  * The cutting order.
  */
-export type CutOrder = {
+export type CutOrder = { 
 /**
  * The base order.
  */
-strategy: OrderStrategy,
+strategy: OrderStrategy, 
 /**
  * Cut holes before the outline around them.
  */
-inner_first: boolean,
+inner_first: boolean, 
 /**
  * Cut circles before other shapes.
  */
-circles_first: boolean,
+circles_first: boolean, 
 /**
  * Keep consecutive cuts apart to spread heat.
  */

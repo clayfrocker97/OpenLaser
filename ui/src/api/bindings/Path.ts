@@ -4,11 +4,11 @@ import type { PathKind } from "./PathKind";
 /**
  * A polyline and the process it is cut with.
  */
-export type Path = {
+export type Path = { 
 /**
  * What the laser does along it.
  */
-kind: PathKind,
+kind: PathKind, 
 /**
  * The polyline in drawing coordinates.
  */

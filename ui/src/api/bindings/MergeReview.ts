@@ -4,15 +4,15 @@ import type { EditConflict } from "./EditConflict";
 /**
  * A merge review bound to both the current working copy and saved job.
  */
-export type MergeReview = {
+export type MergeReview = { 
 /**
  * Changes if either input changes.
  */
-token: string,
+token: string, 
 /**
  * Name after merging the nonconflicting values.
  */
-name: string,
+name: string, 
 /**
  * Only values requiring an operator choice.
  */

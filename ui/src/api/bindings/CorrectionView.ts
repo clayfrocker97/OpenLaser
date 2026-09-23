@@ -7,31 +7,31 @@ import type { Profile } from "./Profile";
 /**
  * Current measurements and the profile that new DXF jobs will receive.
  */
-export type CorrectionView = {
+export type CorrectionView = { 
 /**
  * Concurrency token for saving this form.
  */
-revision: number,
+revision: number, 
 /**
  * Laser being calibrated.
  */
-mode: LaserMode,
+mode: LaserMode, 
 /**
  * Current machine dimensions.
  */
-bed: Bounds,
+bed: Bounds, 
 /**
  * Coupon centres in bottom-to-top row order.
  */
-positions: [[number, number], [number, number], [number, number], [number, number], [number, number], [number, number], [number, number], [number, number], [number, number]],
+positions: [[number, number], [number, number], [number, number], [number, number], [number, number], [number, number], [number, number], [number, number], [number, number]], 
 /**
  * Measurements for this bed; unfinished cells are null.
  */
-measurements: [Measurement | null, Measurement | null, Measurement | null, Measurement | null, Measurement | null, Measurement | null, Measurement | null, Measurement | null, Measurement | null],
+measurements: [Measurement | null, Measurement | null, Measurement | null, Measurement | null, Measurement | null, Measurement | null, Measurement | null, Measurement | null, Measurement | null], 
 /**
  * Applied snapshot, which may belong to an older bed.
  */
-active: Profile | null,
+active: Profile | null, 
 /**
  * Automatically apply the active snapshot to new DXF jobs.
  */

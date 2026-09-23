@@ -3,11 +3,11 @@
 /**
  * A held W/table jog at an operator-selected speed.
  */
-export type TableRequest = {
+export type TableRequest = { 
 /**
  * Positive or negative W travel.
  */
-positive: boolean,
+positive: boolean, 
 /**
  * A speed above zero and at most 100 mm/s.
  */

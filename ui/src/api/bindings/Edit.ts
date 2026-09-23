@@ -4,15 +4,15 @@ import type { Id } from "./Id";
 /**
  * One saved library edit.
  */
-export type Edit = {
+export type Edit = { 
 /**
  * Stable edit identity.
  */
-id: Id,
+id: Id, 
 /**
  * What changed.
  */
-label: string,
+label: string, 
 /**
  * Time in seconds since the epoch.
  */

@@ -1,6 +1,6 @@
 // The typed fetch client and the event stream. Every physical action is a
 // POST the server admits; the UI only asks.
-import type { PostflightReview, ExecutionView, RecoveryChange, TableRequest, Preview, EditHistory, PendingDraft, MergeReview, PreflightConfirmation, PreflightIntent, PreflightPreferences, PreflightReview, JobPreflight, HistoryPage, HoldTimes, Document, DraftView, Lease, Features, LeadOverride, ItemChange, JogRequest, LaserMode, NewRecipe, OutputRequest, Anchor, PickView, RecipeChange, RouteChange, Transform } from './index';
+import type { PostflightReview, ExecutionView, RecoveryChange, TableRequest, Preview, EditHistory, PendingDraft, MergeReview, PreflightConfirmation, PreflightIntent, PreflightPreferences, PreflightReview, JobPreflight, HistoryPage, HoldTimes, Document, DraftView, Lease, Features, LeadOverride, ItemChange, JogRequest, LaserMode, NewRecipe, RecipeImport, RecipePreview, OutputRequest, Anchor, PickView, RecipeChange, RouteChange, Transform } from './index';
 import { server } from '../stores/server.svelte';
 import type { SheetPage, SheetView, SaveRemnant, NestSheetPreview, CorrectionView, CorrectionChange, NestRequest, NestView, StockChoice } from './index';
 import type { PlacementChange, SimplifyView } from './index';
@@ -12,6 +12,11 @@ export class ApiError extends Error {
   constructor(readonly status: number, message: string) {
     super(message);
   }
+}
+
+/** The query of a reviewed import: every option that is set. */
+export function importQuery(options: RecipeImport): string {
+  return Object.entries(options).filter(([, v]) => v !== undefined && v !== null && v !== false).map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`).join('&');
 }
 
 async function request<T>(method: 'GET' | 'POST' | 'DELETE', path: string, body?: unknown, raw?: BodyInit): Promise<T> {
@@ -136,7 +141,10 @@ export const api = {
   removeFolder: (id: string) => del(`/api/folders/${id}`),
   addRecipe: (recipe: NewRecipe) => post<{ ok: true; id: string }>('/api/recipes', recipe),
   /** A vendor recipe file; `existing` when the same file was imported before. */
-  importRecipe: (name: string, bytes: ArrayBuffer) => request<{ ok: true; id: string; existing: boolean }>('POST', `/api/recipes/import?name=${encodeURIComponent(name)}`, undefined, bytes),
+  /** Saves a vendor recipe file as the operator reviewed it; `existing` when the same file was already there. */
+  importRecipe: (options: RecipeImport, bytes: ArrayBuffer) => request<{ ok: true; id: string; existing: boolean }>('POST', `/api/recipes/import?${importQuery(options)}`, undefined, bytes),
+  /** What a vendor recipe file would add; nothing is saved. */
+  previewRecipe: (name: string, bytes: ArrayBuffer) => request<{ ok: true; preview: RecipePreview }>('POST', `/api/recipes/import/preview?name=${encodeURIComponent(name)}`, undefined, bytes).then((r) => r.preview),
   setPhoto: (id: string, bytes: ArrayBuffer) => request<{ ok: true }>('POST', `/api/recipes/${id}/photo`, undefined, bytes),
   photoUrl: (sha256: string) => `/api/photos/${sha256}`,
   updateRecipe: (id: string, change: RecipeChange) => post(`/api/recipes/${id}`, change),

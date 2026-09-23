@@ -5,19 +5,19 @@
  * several, or another address for the controller or the computer. Kept
  * for the next Connect.
  */
-export type RouteChange = {
+export type RouteChange = { 
 /**
  * Saved field values from which these edits started.
  */
-expected?: { [key in string]: string },
+expected?: { [key in string]: string }, 
 /**
  * The adapter to use, by name.
  */
-adapter?: string,
+adapter?: string, 
 /**
  * The controller's endpoint, `ip:port`.
  */
-controller?: string,
+controller?: string, 
 /**
  * The computer's address on the controller's network, `ip/prefix`.
  */

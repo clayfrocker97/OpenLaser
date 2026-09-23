@@ -3,19 +3,19 @@
 /**
  * A compact summary in a nesting preview's sheet switcher.
  */
-export type NestSheetSummary = {
+export type NestSheetSummary = { 
 /**
  * One-based sheet number.
  */
-number: number,
+number: number, 
 /**
  * Physical copies on this sheet.
  */
-parts: number,
+parts: number, 
 /**
  * Area fraction used on this sheet.
  */
-coverage: number,
+coverage: number, 
 /**
  * Fresh stock instead of the original remnant.
  */

@@ -13,6 +13,7 @@
   import { onlyPart } from '../lib/job-parts';
   import AddParts from '../components/AddParts.svelte';
   import CreateText from '../components/CreateText.svelte';
+  import MaterialSummary from '../components/MaterialSummary.svelte';
 
   let { edit }: { edit: (tool:FeatureId | 'copy' | 'nest' | 'layout') => void } = $props();
   const doc = $derived(server.doc!);
@@ -61,7 +62,7 @@
         <Preview {outline} />
         <div class="phone-job-spec"><span>{size(draft.preview?.bounds ?? part?.bounds ?? null)}</span><button class="phone-text-action" disabled={blocked} onclick={() => edit('layout')}>Edit layout</button></div>
       </section>
-      <button class="phone-material" disabled={blocked} onclick={() => material = true}><i class="ic ic-layers"></i><span><small>Material</small><strong>{draft.recipe ? recipeLabel(draft.recipe) : 'Choose a material'}</strong></span><i class="ic ic-arrow-right"></i></button>
+      <button class="phone-material" disabled={blocked} onclick={() => material = true}><i class="ic ic-layers"></i><span><small>Material</small><strong>{draft.recipe ? recipeLabel(draft.recipe) : 'Choose a material'}</strong>{#if draft.recipe}<MaterialSummary source={draft.recipe} variant="line" />{/if}</span><i class="ic ic-arrow-right"></i></button>
       <div class="phone-action-list phone-setup-options">
         <button disabled={blocked} onclick={() => adding = true}><span>Parts<small>{draft.parts.length === 1 ? '1 part · Add more to cut them together' : `${draft.parts.length} parts side by side · Add more`}</small></span><i class="ic ic-plus"></i></button>
         <button disabled={blocked} onclick={() => texting = true}><span>Add text<small>Letters welded into cutting outlines</small></span><i class="ic ic-plus"></i></button>
@@ -77,7 +78,7 @@
   </div>{/if}
 </div>
 
-{#if material}<Modal title="Material" onclose={() => material = false}><div class="phone-material-picker"><input type="search" aria-label="Search materials" placeholder="Search materials" bind:value={search} />{#each recipes as recipe}<button disabled={busy} onclick={() => perform(async () => { await api.setRecipe(recipe.id); material = false; })}><strong>{recipeLabel(recipe)}</strong><small>{recipe.laser === 'co2' ? 'CO₂' : 'Fiber'}</small></button>{:else}<p>No matching materials.</p>{/each}</div></Modal>{/if}
+{#if material}<Modal title="Material" onclose={() => material = false}><div class="phone-material-picker"><input type="search" aria-label="Search materials" placeholder="Search materials" bind:value={search} />{#each recipes as recipe}<button disabled={busy} onclick={() => perform(async () => { await api.setRecipe(recipe.id); material = false; })}><strong>{recipeLabel(recipe)}</strong><small>{recipe.laser === 'co2' ? 'CO₂' : 'Fiber'}</small><MaterialSummary source={recipe} variant="line" /></button>{:else}<p>No matching materials.</p>{/each}</div></Modal>{/if}
 {#if tools}<Modal title="Machining" onclose={() => tools = false}><div class="phone-action-list">{#each TOOLS as tool}<button onclick={() => { tools = false; edit(tool.id as FeatureId); }}><span>{tool.name}<small>{draft ? stateOf(draft.features,tool.id) : ''}</small></span><i class="ic ic-arrow-right"></i></button>{/each}<button onclick={() => { tools = false; edit('nest'); }}>Nest parts<i class="ic ic-arrow-right"></i></button><button onclick={() => { tools = false; edit('copy'); }}>Copy machining from job<i class="ic ic-arrow-right"></i></button></div></Modal>{/if}
 {#if preflight}<PreflightEditor scope="job" onclose={() => preflight = false} />{/if}
 {#if adding}<AddParts onclose={() => adding = false} />{/if}

@@ -4,16 +4,16 @@ import type { Id } from "./Id";
 /**
  * One part of the job being set up and its contours in the job's drawing.
  */
-export type DraftPart = {
+export type DraftPart = { 
 /**
  * The library part.
  */
-id: Id,
+id: Id, 
 /**
  * Its first contour: placed contours with sources from `first` to
  * `first + contours` are this part's.
  */
-first: number,
+first: number, 
 /**
  * How many contours its drawing has.
  */
