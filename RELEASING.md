@@ -27,30 +27,21 @@ just ui-install
 just check
 ```
 
-Build both macOS slices on a Mac with the Xcode command-line tools:
+Build all three release binaries with the release build script. It builds the
+UI, both macOS slices and Windows (`cargo build` on Windows, `cargo xwin build`
+elsewhere), rewrites home-folder paths such as `/Users/<name>/.cargo/...` to
+neutral prefixes with `--remap-path-prefix`, and fails if any home-folder path
+is left in a binary:
 
 ```sh
-rustup target add aarch64-apple-darwin x86_64-apple-darwin
-MACOSX_DEPLOYMENT_TARGET=11.0 cargo build --release --locked -p openlaser \
-  --features desktop --target aarch64-apple-darwin
-MACOSX_DEPLOYMENT_TARGET=11.0 cargo build --release --locked -p openlaser \
-  --features desktop --target x86_64-apple-darwin
+rustup target add aarch64-apple-darwin x86_64-apple-darwin x86_64-pc-windows-msvc
+python3 scripts/build_release.py
 ```
 
-On Windows with the MSVC toolchain:
-
-```powershell
-node scripts/prepare-webview2.mjs --force
-cargo build --release --locked -p openlaser --features desktop --target x86_64-pc-windows-msvc
-```
-
-Alternatively, cross-compile with LLVM and cargo-xwin configured on macOS/Linux:
-
-```sh
-node scripts/prepare-webview2.mjs --force
-cargo xwin build --release --locked -p openlaser --features desktop \
-  --target x86_64-pc-windows-msvc
-```
+Pass `--target <triple>` (repeatable) to build only some targets, and
+`--check-only <binary>...` to check existing binaries. Do not build release
+binaries with plain `cargo build`: the packager rejects binaries that contain
+the builder's home folder.
 
 MSVC builds statically link the C runtime and WebView2 loader. GNU builds require
 an adjacent loader DLL and are not the Windows release package.

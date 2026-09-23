@@ -48,6 +48,10 @@ ui-build:
 standalone: windows-bootstrapper ui-build
     cargo build --release -p openlaser --features desktop --locked
 
+# Release binaries for every target, with home-folder paths removed.
+release-build:
+    python3 scripts/build_release.py
+
 # Windows builds fetch the verified Microsoft installer locally, outside Git.
 windows-bootstrapper:
     node scripts/prepare-webview2.mjs
