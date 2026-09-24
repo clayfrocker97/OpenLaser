@@ -8,8 +8,8 @@ const summary: RecipeSummary = { speed: '20', peak: '90', duty: '100', frequency
 const recipe = (id: string, name: string, thickness_mm: number, gas = 'N2', laser: 'fiber' | 'co2' = 'fiber'): RecipeView => ({ id, name, laser,
   thickness_mm, gas, layer: 1, key: id, film: null, summary, attributes: {}, note: '', tags: [], file_name: null, photo: null, favourite: false,
   updated: 0 });
-const preview = (name: string, thickness_mm: number, gas = 'N2', existing: string | null = null): RecipePreview => ({ file_name: `${name}-${thickness_mm}MM_${gas} CUTTING.xml`,
-  name, laser: 'fiber', thickness_mm, gas, layer: 1, tags: [], note: '',
+const preview = (name: string, thickness_mm: number, gas = 'N2', existing: string | null = null): RecipePreview => ({
+  file_name: `${name}-${thickness_mm}MM_${gas} CUTTING.xml`, name, laser: 'fiber', thickness_mm, gas, layer: 1, tags: [], note: '',
   setup: { nozzle_diameter_mm: '1.5', nozzle: 'single', focus_mm: '-2', lens_mm: null }, summary, sha256: 'x', existing });
 const file = (path: string) => new File(['<ParameterRoot/>'], path.split('/').pop()!);
 
