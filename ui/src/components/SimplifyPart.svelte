@@ -45,10 +45,16 @@
       saving = false;
     }
   }
+  /** What else was taken out: repeated contours and specks. */
+  function dropped(view: SimplifyView): string {
+    return [view.repeats ? `${view.repeats} repeated` : '', view.specks ? `${view.specks} too small` : ''].filter(Boolean).join(' · ');
+  }
 </script>
 
 <Modal title="Simplify drawing" onclose={() => { if (!saving) onclose(); }}>
-  <p class="muted">Joins runs of short lines, as CAD exports flatten curves, into the arcs and lines they follow, removes contours that repeat another on the same layer, and drops specks. Nothing moves further than the tolerance. It is saved as a new part; {part.name} stays as it is for the jobs that use it.</p>
+  <p class="muted">Joins runs of short lines, as CAD exports flatten curves, into the arcs and lines they follow, removes contours that repeat
+    another on the same layer, and drops specks. Nothing moves further than the tolerance. It is saved as a new part; {part.name} stays as it is
+    for the jobs that use it.</p>
   <div class="tolerances" role="group" aria-label="Tolerance">
     {#each TOLERANCES as [label, value]}
       <button aria-pressed={tolerance === value} disabled={saving} onclick={() => (tolerance = value)}><strong>{label}</strong><small>{quantity(value, 'mm', 3)}</small></button>
@@ -57,7 +63,8 @@
   <dl class="outcome" aria-live="polite">
     {#if result}
       <dt>Lines and arcs</dt><dd>{count(result.curves_before)} → <strong>{count(result.curves_after)}</strong></dd>
-      <dt>Contours</dt><dd>{count(result.contours_before)} → <strong>{count(result.contours_after)}</strong>{#if result.repeats || result.specks}<small>{[result.repeats ? `${result.repeats} repeated` : '', result.specks ? `${result.specks} too small` : ''].filter(Boolean).join(' · ')}</small>{/if}</dd>
+      <dt>Contours</dt><dd>{count(result.contours_before)} → <strong>{count(result.contours_after)}</strong>{#if result.repeats || result.specks}<small
+        >{dropped(result)}</small>{/if}</dd>
     {:else if checking}
       <dt>Checking…</dt><dd></dd>
     {/if}

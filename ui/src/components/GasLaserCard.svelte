@@ -45,6 +45,7 @@
     ui.tab = 'machine';
   }
   const unpriced = $derived(!!estimate && estimate.cost === null);
+  const costNote = $derived(perRun === null ? 'Set the nozzle in the recipe, or a manual flow, to estimate gas.' : 'Enter gas prices to see costs.');
 </script>
 
 <div class="card2 gas-card">
@@ -67,7 +68,7 @@
       · {estimate.pierces * runs} pierces · {quantity(estimate.cut * runs / 1000, 'm', 1)} cut
     </p>
     {#if perRun === null || unpriced}
-      <p class="note">{perRun === null ? 'Set the nozzle in the recipe, or a manual flow, to estimate gas.' : 'Enter gas prices to see costs.'}{#if settingsPage !== undefined} <button class="link-btn" onclick={openSettings}>Gas costs</button>{/if}</p>
+      <p class="note">{costNote}{#if settingsPage !== undefined} <button class="link-btn" onclick={openSettings}>Gas costs</button>{/if}</p>
     {/if}
   {:else}
     <p class="note">{draft?.recipe ? 'Estimates appear once the job is compiled.' : 'Choose a material to estimate gas and laser time.'}</p>

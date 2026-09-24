@@ -219,10 +219,15 @@
 </script>
 
 <div class="canvas {variant}">
-  <svg bind:this={svg} viewBox={view.viewBox} preserveAspectRatio="xMidYMid meet" role="application" aria-label="Drawing" onpointerdown={down} onpointermove={move} onpointerup={up} onpointercancel={cancel} onlostpointercapture={(e) => { if (pointers.has(e.pointerId)) cancel(); }} onwheel={wheel} oncontextmenu={(e) => e.preventDefault()}>
+  <svg
+    bind:this={svg} viewBox={view.viewBox} preserveAspectRatio="xMidYMid meet" role="application" aria-label="Drawing"
+    onpointerdown={down} onpointermove={move} onpointerup={up} onpointercancel={cancel}
+    onlostpointercapture={(e) => { if (pointers.has(e.pointerId)) cancel(); }} onwheel={wheel} oncontextmenu={(e) => e.preventDefault()}>
     <defs>
       <pattern id="fine-{uid}" width={grid} height={grid} patternUnits="userSpaceOnUse"><path d="M{grid} 0H0V{grid}" fill="none" stroke="var(--grid)" stroke-width={view.mmPerPixel * 0.5}/></pattern>
-      <pattern id="coarse-{uid}" width={coarseGrid} height={coarseGrid} patternUnits="userSpaceOnUse"><rect width={coarseGrid} height={coarseGrid} fill="url(#fine-{uid})"/><path d="M{coarseGrid} 0H0V{coarseGrid}" fill="none" stroke="var(--grid-strong)" stroke-width={view.mmPerPixel}/></pattern>
+      <pattern id="coarse-{uid}" width={coarseGrid} height={coarseGrid} patternUnits="userSpaceOnUse"><rect
+        width={coarseGrid} height={coarseGrid} fill="url(#fine-{uid})"/><path
+        d="M{coarseGrid} 0H0V{coarseGrid}" fill="none" stroke="var(--grid-strong)" stroke-width={view.mmPerPixel}/></pattern>
     </defs>
     <rect x={view.x} y={view.y} width={view.w} height={view.h} fill="url(#coarse-{uid})"/>
     <g transform="scale(1 -1)">

@@ -319,7 +319,11 @@
   .xml-switch { justify-self: start; }
   .xml-body { display: grid; grid-template-columns: 176px minmax(0, 1fr); gap: 22px; align-items: start; }
   .xml-nav { display: grid; gap: 3px; max-height: 67vh; overflow: auto; padding-right: 5px; position: sticky; top: 0; }
-  .xml-nav > button { background: transparent; cursor: pointer; width: 100%; min-height: 44px; text-align: left; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px; color: var(--ink-3); border: 1px solid transparent; border-radius: 6px; font-size: var(--t-sm); line-height: 1.4; }
+  .xml-nav > button {
+    background: transparent; cursor: pointer; width: 100%; min-height: 44px; text-align: left; display: flex; align-items: center;
+    justify-content: space-between; gap: 10px; padding: 10px; color: var(--ink-3); border: 1px solid transparent; border-radius: 6px;
+    font-size: var(--t-sm); line-height: 1.4;
+  }
   .xml-nav > button.active { color: var(--ink); background: color-mix(in srgb, var(--accent) 9%, transparent); border-color: color-mix(in srgb, var(--accent) 20%, transparent); font-weight: 600; }
   .xml-nav > button:hover { background: color-mix(in srgb, var(--accent) 6%, transparent); }
   .xml-nav small { font-size: var(--t-sm); opacity: .75; }
@@ -332,13 +336,21 @@
   .xml-label { min-width: 0; } .xml-label strong { font-size: var(--t-base); line-height: 1.5; display: block; font-weight: 600; }
   .xml-label code { display: block; margin-top: 3px; font-size: var(--t-sm); color: var(--ink-3); overflow-wrap: anywhere; }
   .xml-label small { display: block; font-size: var(--t-sm); color: var(--accent); margin-top: 5px; overflow-wrap: anywhere; }
-  .xml-value { background: var(--panel-2); cursor: pointer; min-width: 0; display: flex; gap: 8px; align-items: center; justify-content: space-between; min-height: 44px; border: 1px solid var(--line); border-radius: 6px; padding: 9px 10px; text-align: left; font-size: var(--t-sm); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+  .xml-value {
+    background: var(--panel-2); cursor: pointer; min-width: 0; display: flex; gap: 8px; align-items: center; justify-content: space-between;
+    min-height: 44px; border: 1px solid var(--line); border-radius: 6px; padding: 9px 10px; text-align: left; font-size: var(--t-sm);
+    font-variant-numeric: tabular-nums; overflow-wrap: anywhere;
+  }
   .xml-value:hover { border-color: var(--accent); } .xml-value > span:first-child { min-width: 0; max-height: 76px; overflow: auto; } .edit-mark { color: var(--ink-3); flex: none; }
   .xml-readback { min-width: 0; font-size: var(--t-sm); display: grid; gap: 4px; line-height: 1.4; } .xml-readback strong { font-weight: 600; } .xml-readback small { font-size: var(--t-sm); color: var(--ink-3); }
   .xml-readback summary { cursor: pointer; color: var(--ink-3); padding: 5px 0; font-size: var(--t-sm); }
   .word { display: grid; gap: 3px; margin: 6px 0; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
   .word code { font-size: var(--t-sm); }
   .xml-empty { padding: 45px 15px; color: var(--ink-3); text-align: center; }
-  @media (max-width: 1120px) { .xml-body { grid-template-columns: 150px minmax(0, 1fr); gap: 12px; } .xml-row { grid-template-columns: minmax(100px, 1fr) minmax(90px, 1fr); gap: 8px; } .xml-readback { grid-column: 1 / -1; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; } }
+  @media (max-width: 1120px) {
+    .xml-body { grid-template-columns: 150px minmax(0, 1fr); gap: 12px; }
+    .xml-row { grid-template-columns: minmax(100px, 1fr) minmax(90px, 1fr); gap: 8px; }
+    .xml-readback { grid-column: 1 / -1; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  }
   @media (max-width: 700px) { .xml-body { grid-template-columns: 1fr; } .xml-nav { max-height: 200px; grid-template-columns: repeat(2, 1fr); position: static; }  }
 </style>

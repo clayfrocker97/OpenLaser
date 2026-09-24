@@ -7,7 +7,7 @@
   import { server } from '../stores/server.svelte';
   import { ui } from '../stores/ui.svelte';
   import { explain } from '../lib/format';
-  import type { PreflightReview, PostflightReview } from '../api';
+  import type { CheckAction, PreflightReview, PostflightReview } from '../api';
   import { actionName, holdKind, movesMachine } from '../lib/preflight';
 
   let { initial, onclose }: { initial: PreflightReview | PostflightReview; onclose: () => void } = $props();
@@ -117,6 +117,11 @@
   async function stop(): Promise<void> {
     try { await api.machine('stop'); } catch (e) { error = explain(e); }
   }
+
+  function actionTitle(action: CheckAction): string {
+    if (movesMachine(action)) return 'Moves the machine';
+    return action.kind === 'gas_test' || action.kind === 'job_gas_test' ? 'Opens the gas briefly, then closes it' : 'Changes the job origin';
+  }
 </script>
 
 <Modal {title} dismissable={!submitting && !busy} onclose={() => { if (!submitting) close(); }}>
@@ -125,8 +130,14 @@
   <div class="preflight-checks">
     {#each review.steps as step, i}
       <div class="preflight-check" class:checked={allChecked.includes(i)} class:motion={movesMachine(step.action)}>
-        <label><input type="checkbox" checked={allChecked.includes(i)} disabled={submitting || busy || loading || satisfied.includes(i)} onchange={(event) => toggle(i, event.currentTarget.checked)}><span>{step.text}{#if movesMachine(step.action)}<small class="motion-label">Moves machine</small>{/if}{#if satisfied.includes(i)}<small>Auto-checked</small>{/if}</span></label>
-        {#if step.action}<HoldButton class="btn {movesMachine(step.action) ? 'btn-move' : 'btn-ghost'}" kind={holdKind(step.action)} disabled={busy || loading || submitting || !server.link} onhold={() => action(i)} title={movesMachine(step.action) ? 'Moves the machine' : step.action.kind === 'gas_test' || step.action.kind === 'job_gas_test' ? 'Opens the gas briefly, then closes it' : 'Changes the job origin'}>{actionName(step.action)}</HoldButton>{/if}
+        <label><input
+            type="checkbox" checked={allChecked.includes(i)} disabled={submitting || busy || loading || satisfied.includes(i)}
+            onchange={(event) => toggle(i, event.currentTarget.checked)}><span>{step.text}{#if movesMachine(step.action)}<small
+            class="motion-label">Moves machine</small>{/if}{#if satisfied.includes(i)}<small>Auto-checked</small>{/if}</span></label>
+        {#if step.action}<HoldButton
+            class="btn {movesMachine(step.action) ? 'btn-move' : 'btn-ghost'}" kind={holdKind(step.action)}
+            disabled={busy || loading || submitting || !server.link} onhold={() => action(i)} title={actionTitle(step.action)}
+          >{actionName(step.action)}</HoldButton>{/if}
       </div>
     {/each}
     {#if preflight?.confirm_gas}

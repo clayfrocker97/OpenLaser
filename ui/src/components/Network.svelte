@@ -1,13 +1,18 @@
 <script lang="ts">
   import Modal from './Modal.svelte';
   import { access } from '../lib/access.svelte';
+
+  const discovery = $derived(access.info?.discovery.error ?? (
+    access.info?.discovery.ready ? 'Open this address on any phone, tablet or computer connected to the same network.'
+    : access.info?.discovery.enabled ? 'Announcing the local address…'
+    : 'Local network sharing is off.'));
 </script>
 
 <Modal title="Local network" onclose={() => access.manage = false}>
   <div class="network-address">
     <span>OpenLaser on your network</span>
     <strong>{access.info?.address.replace('http://', '')}</strong>
-    <p>{access.info?.discovery.error ?? (access.info?.discovery.ready ? 'Open this address on any phone, tablet or computer connected to the same network.' : access.info?.discovery.enabled ? 'Announcing the local address…' : 'Local network sharing is off.')}</p>
+    <p>{discovery}</p>
   </div>
 </Modal>
 

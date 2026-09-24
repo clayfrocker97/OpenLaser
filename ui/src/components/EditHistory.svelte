@@ -10,6 +10,7 @@
   let error = $state('');
   async function load(): Promise<void> { try { history = await api.editHistory(); } catch (e) { error = explain(e); } }
   onMount(() => { void load(); });
+  const editTime = (at: number): string => new Date(at * 1000).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
   async function step(back: boolean): Promise<void> {
     if (!history || busy) return;
     busy = true; error = '';
@@ -25,7 +26,8 @@
   {#if error}<p class="warn-text" role="alert">{error}</p>{/if}
   <div class="edits">
     {#each [...(history?.future ?? [])].reverse() as edit (edit.id)}<div class="edit undone"><span>{edit.label}</span><small>undone</small></div>{/each}
-    {#each [...(history?.past ?? [])].reverse() as edit (edit.id)}<div class="edit"><span>{edit.label}</span><small>{new Date(edit.at * 1000).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</small></div>{:else}<p class="muted">No saved edits yet.</p>{/each}
+    {#each [...(history?.past ?? [])].reverse() as edit (edit.id)}<div class="edit"><span>{edit.label}</span><small>{editTime(edit.at)}</small></div>
+    {:else}<p class="muted">No saved edits yet.</p>{/each}
   </div>
 </Modal>
 <style>

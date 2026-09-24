@@ -61,7 +61,10 @@
   .search { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
   .search input { flex: 1; min-width: 0; min-height: 48px; }
   .add-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; max-height: min(52vh, 520px); overflow-y: auto; padding: 2px; }
-  .add-row { display: grid; grid-template-columns: 32px 64px minmax(0, 1fr); align-items: center; gap: 10px; min-height: 76px; padding: 6px 10px; text-align: left; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); color: var(--ink); cursor: pointer; }
+  .add-row {
+    display: grid; grid-template-columns: 32px 64px minmax(0, 1fr); align-items: center; gap: 10px; min-height: 76px; padding: 6px 10px;
+    text-align: left; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); color: var(--ink); cursor: pointer;
+  }
   .add-row.on { border-color: var(--accent); background: var(--accent-soft); }
   .add-row:disabled { opacity: .5; cursor: default; }
   .mark { width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--ink-3); display: grid; place-items: center; font-weight: 700; font-size: var(--t-sm); }

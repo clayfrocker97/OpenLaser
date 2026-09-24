@@ -16,7 +16,9 @@
 
 {#if ui.toast}
   <div class="toast" class:error={ui.toast.error} role={ui.toast.error ? 'alert' : 'status'}>
-    <span>{ui.toast.text}{#if technicalDetail(ui.toast.text)}<details class="toast-detail"><summary>Details</summary><code>{technicalDetail(ui.toast.text)}</code></details>{/if}</span>{#if ui.toast.error}<button class="toast-close" onclick={() => ui.dismissToast()}>OK</button>{/if}
+    <span>{ui.toast.text}{#if technicalDetail(ui.toast.text)}<details
+      class="toast-detail"><summary>Details</summary><code>{technicalDetail(ui.toast.text)}</code></details>{/if}</span>{#if ui.toast.error}<button
+      class="toast-close" onclick={() => ui.dismissToast()}>OK</button>{/if}
   </div>
 {/if}
 

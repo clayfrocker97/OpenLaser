@@ -70,7 +70,10 @@
   .seg { display: flex; }
   .seg button { flex: 1; }
   .fields { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .field { display: grid; grid-template-columns: auto 1fr auto; align-items: baseline; gap: 8px; min-height: 64px; padding: 0 14px; border: 1px solid var(--line-2); border-radius: 12px; background: var(--panel); color: var(--ink); font: inherit; cursor: pointer; text-align: right; }
+  .field {
+    display: grid; grid-template-columns: auto 1fr auto; align-items: baseline; gap: 8px; min-height: 64px; padding: 0 14px;
+    border: 1px solid var(--line-2); border-radius: 12px; background: var(--panel); color: var(--ink); font: inherit; cursor: pointer; text-align: right;
+  }
   .field span { color: var(--ink-3); font-weight: 700; text-align: left; }
   .field strong { font-size: var(--t-xl); font-variant-numeric: tabular-nums; }
   .field small { color: var(--ink-3); }

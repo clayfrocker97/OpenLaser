@@ -77,7 +77,10 @@
         <CheckEditor bind:steps={preferences[mode].steps} />
       {/if}
     {:else}
-      <div class="seg block"><button class:on={choice === 'inherit'} onclick={() => choose('inherit')}>Use defaults</button><button class:on={choice === 'custom'} onclick={() => choose('custom')}>Custom</button><button class:on={choice === 'off'} onclick={() => choose('off')}>Off</button></div>
+      <div class="seg block"><button
+          class:on={choice === 'inherit'} onclick={() => choose('inherit')}>Use defaults</button><button
+          class:on={choice === 'custom'} onclick={() => choose('custom')}>Custom</button><button
+          class:on={choice === 'off'} onclick={() => choose('off')}>Off</button></div>
       {#if choice === 'custom'}
         <CheckEditor bind:steps={custom} />
       {:else if choice === 'inherit'}
