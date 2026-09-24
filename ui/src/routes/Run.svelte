@@ -8,7 +8,7 @@
   import Recovery from '../components/Recovery.svelte';
   import RunSide from './RunSide.svelte';
   import RunControls from '../components/RunControls.svelte';
-  import StatusLine from '../components/StatusLine.svelte';
+  import RunChip from '../components/RunChip.svelte';
   import type { NamedGate } from '../lib/plain';
   import { access } from '../lib/access.svelte';
   import MaterialSummary from '../components/MaterialSummary.svelte';
@@ -26,8 +26,6 @@
   import { restartAt } from '../lib/recovery';
   import { beginRun } from '../lib/run-actions';
   import { cutHistory } from '../lib/cut-history';
-  import { nextStep } from '../lib/next-step';
-  import { isSetupAlarm } from '../lib/setup-alarms';
 
   let { compact = false, recoveryEditor = false }: { compact?: boolean; recoveryEditor?: boolean } = $props();
   const doc = $derived(server.doc!);
@@ -160,14 +158,9 @@
   let showLayers = $state(false);
   let layersOpen = $state(false);
   let valuesOpen = $state(false);
-  const step = $derived(nextStep(doc));
   let preflight = $state<PreflightReview | null>(null);
   let reviewing = $state(false);
   let choosingRun = $state(false);
-  // The chip never speaks for alarms: the bell does. Blocked only by alarms, it says Not ready.
-  const alarmReason = (reason: string | null | undefined) => !!reason && (/alarms? (are|is) active/.test(reason) || isSetupAlarm(reason));
-  const chipText = $derived(step ?? (choosingRun ? 'Preparing…' : !running && !paused && alarmReason(doc.readiness.run.reason) ? 'Not ready' : message));
-  const chipGates = $derived(statusGates.filter(([, gate]) => !alarmReason(gate.reason)));
   async function chooseRun(dryRun: boolean): Promise<void> {
     if (choosingRun || draft?.dry_run === dryRun) return;
     choosingRun = true;
@@ -288,7 +281,7 @@
           {#if !execution?.frame}<span>{execution && !recovering && program?.state === 'completed' ? 'done' : eta}</span>{/if}
         </div>
         <span class="float-spacer"></span>
-        <div class="run-chip"><StatusLine status={chipText} gates={running || paused || step ? [] : chipGates} tone={step ? 'warn' : statusTone} alarms={false} /></div>
+        <RunChip message={choosingRun ? 'Preparing…' : message} gates={statusGates} tone={statusTone} />
       </div>
       <div class="run-layers">
         {#if canRecover && !recoveryEditor}
@@ -370,8 +363,6 @@
 .run-layers { position:absolute; left:14px; bottom:14px; display:flex; flex-wrap:wrap; gap:6px; align-items:center; max-width:calc(100% - 260px); }
 .run-layers .seg, .run-layers .legend-chip { background:var(--panel); }
 .run-layers .spacer { display:none; }
-.run-chip { min-width:0; max-width:420px; }
-.run-chip :global(.status-summary) { min-height:52px; border:0; border-radius:12px; background:var(--panel); }
 .run-float .run-meta { min-height:52px; padding:0 12px; border:1px solid var(--line); border-radius:12px; background:var(--panel); }
 .float-spacer { flex:1; }
 .run-float { position:absolute; left:14px; right:14px; top:14px; display:flex; flex-wrap:wrap; gap:8px; align-items:center; }

@@ -110,7 +110,7 @@
       <button class="phone-material" disabled={blocked} onclick={() => material = true}>
         <i class="ic ic-layers"></i>
         <span>
-          <small>Material</small><strong>{materialName}</strong>{#if draft.recipe}<MaterialSummary source={draft.recipe} variant="line" />{/if}
+          <small>Material</small><strong>{materialName}</strong>
         </span>
         <i class="ic ic-arrow-right"></i>
       </button>

@@ -12,7 +12,7 @@
   import Preview from './Preview.svelte';
   import FlightChecklist from '../components/FlightChecklist.svelte';
   import RunControls from '../components/RunControls.svelte';
-  import StatusLine from '../components/StatusLine.svelte';
+  import RunChip from '../components/RunChip.svelte';
   import HoldButton from '../components/HoldButton.svelte';
   import { onlyPart } from '../lib/job-parts';
   import { withBusy } from '../lib/busy';
@@ -57,6 +57,11 @@
     if (program?.state === 'failed') return 'Interrupted';
     return compiled.dry_run ? 'Dry run' : 'Cut';
   });
+  // Without a setup step, the chip says what the loaded program is doing or why Start waits.
+  const chipMessage = $derived(!compiled ? (draft?.error ?? doc.readiness.run.reason ?? '')
+    : running || paused || completed || ['stopped', 'failed'].includes(program?.state ?? '') ? modeLabel
+    : doc.readiness.run.ok ? 'Ready. Hold Start to run.' : doc.readiness.run.reason ?? '');
+  let valuesOpen = $state(false);
   let busy = $state(false);
   let preflight = $state<PreflightReview | null>(null);
   const blocked = $derived(!access.canControl || busy || !server.link);
@@ -75,7 +80,7 @@
 
 <div class="phone-run">
   <div class="phone-run-scroll">
-    <div class="phone-page-title"><h1>Run</h1>{#if compiled}<span class="phone-mode">{modeLabel}</span>{/if}</div>
+    <div class="phone-page-title phone-run-title"><h1>Run</h1>{#if draft}<RunChip message={chipMessage} gates={[['Start', doc.readiness.run], ['Frame', doc.readiness.frame]]} tone={doc.readiness.run.ok ? 'ready' : 'info'} />{/if}</div>
     {#if draft}
       {#if !running && !recovering}
         <div class="seg phone-run-choice" role="group" aria-label="Run type">
@@ -87,8 +92,11 @@
         <div class="phone-job-heading">
           <div>
             <h2>{name}</h2>
-            <p class="phone-job-material">{material ? recipeLabel(material) : 'No material'}</p>
-            {#if material}<p class="phone-job-summary"><MaterialSummary source={material} variant="line" /></p>{/if}
+            <p class="phone-job-material">
+              {material ? recipeLabel(material) : 'No material'}
+              {#if material}<button class="values-toggle" aria-expanded={valuesOpen} onclick={() => (valuesOpen = !valuesOpen)}>{valuesOpen ? 'Hide values' : 'Values'}</button>{/if}
+            </p>
+            {#if material && valuesOpen}<p class="phone-job-summary"><MaterialSummary source={material} variant="line" /></p>{/if}
           </div>
         </div>
         <button class="phone-preview-button" aria-label="View toolpath" onclick={() => review()}><Preview {outline} /></button>
@@ -122,14 +130,6 @@
   <div class="phone-run-footer">
     {#if draft}
       <RunControls onaction={act} {busy} showStop={false} explain={false} />
-      {#if !draft.recipe && !recovering}<button class="phone-text-action phone-setup-link" onclick={() => ui.tab = 'setup'}>Choose material</button>
-      {:else if !running && !completed && !recovering}
-        <StatusLine
-          status={draft.error ?? doc.readiness.run.reason ?? 'Ready. Hold Start to run.'}
-          gates={[['Start', doc.readiness.run], ['Frame', doc.readiness.frame]]}
-          tone={doc.readiness.run.ok ? 'ready' : 'info'}
-        />
-      {/if}
     {/if}
     <div class="phone-run-tools">
       <button onclick={controls}><i class="ic ic-target"></i>Controls</button>
@@ -141,4 +141,4 @@
 </div>
 {#if preflight}<FlightChecklist initial={preflight} onclose={() => preflight = null} />{/if}
 
-<style>.phone-run-choice { display:flex; margin-bottom:12px; }.phone-run-choice button { flex:1; min-height:44px; }.phone-pause-position { padding:12px; border:1px solid var(--hold); border-radius:9px; font-size:var(--t-sm); line-height:1.5; }</style>
+<style>.phone-run-title { display:flex; align-items:center; justify-content:space-between; gap:12px; }.phone-run-title :global(.run-chip) { flex:0 1 auto; min-width:0; }.values-toggle { min-height:44px; min-width:44px; padding:0 8px; border:0; background:transparent; color:var(--accent); font:inherit; font-size:var(--t-sm); cursor:pointer; }.phone-run-choice { display:flex; margin-bottom:12px; }.phone-run-choice button { flex:1; min-height:44px; }.phone-pause-position { padding:12px; border:1px solid var(--hold); border-radius:9px; font-size:var(--t-sm); line-height:1.5; }</style>

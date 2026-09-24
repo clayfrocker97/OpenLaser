@@ -338,7 +338,8 @@
 
 <style>
   .settings-page { grid-column: 1 / -1; display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 0; padding: 0; overflow: hidden; }
-  .settings-page.section-only { grid-template-columns: minmax(0, 1fr); }
+  .settings-page.section-only { grid-template-columns: minmax(0, 1fr); border: 0; background: transparent; box-shadow: none; }
+  .section-only .settings-content { padding: 0; overflow: visible; }
   .settings-sidebar { display: flex; flex-direction: column; gap: 4px; padding: 16px 12px; border-right: 1px solid var(--line); overflow-y: auto; }
   .settings-title { display: flex; align-items: baseline; gap: 8px; padding: 0 8px 8px; }
   .settings-title span { font-size: var(--t-sm); color: var(--ink-3); }
