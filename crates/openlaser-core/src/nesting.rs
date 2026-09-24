@@ -126,7 +126,7 @@ impl Nesting {
                     || bounds.width() <= 0.
                     || bounds.height() <= 0.
                 {
-                    return Err("stock needs a positive width and height within 100000 mm".into());
+                    return Err("a sheet needs a positive width and height within 100000 mm".into());
                 }
             }
             NestStock::Remnant { reference, name, outline, cutouts, clearance } => {
@@ -144,7 +144,7 @@ impl Nesting {
             }
             NestStock::Outline { contour } => {
                 if contour.source >= source_count || !contour.transform.is_similarity() {
-                    return Err("the stock outline no longer matches its drawing".into());
+                    return Err("the sheet outline no longer matches its drawing".into());
                 }
             }
         }

@@ -17,7 +17,7 @@
   const status = $derived(
     !sheet ? ''
     : sheet.used ? 'Used by a later job'
-    : sheet.state === 'remnant' ? 'Available stock'
+    : sheet.state === 'remnant' ? 'Ready to nest'
     : sheet.reported ? 'Marked cut by operator'
     : sheet.state === 'completed' ? 'Job completed'
     : 'Unfinished cut');
@@ -91,7 +91,7 @@
             <strong>{name}</strong>
           </button>
           {#if !sheet.boundary_known}
-            <p class="missing">This job had no stock boundary. Enter the actual sheet size and its front-left corner in the drawing shown.</p>
+            <p class="missing">This job had no sheet boundary. Enter the actual sheet size and its front-left corner in the drawing shown.</p>
             <div class="dimensions">
               {#each dimensions as [label, value]}
                 <button class="field" disabled={busy} onclick={() => editDimension(label, value)}>

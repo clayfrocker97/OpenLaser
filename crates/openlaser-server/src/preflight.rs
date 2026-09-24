@@ -262,7 +262,7 @@ impl Coordinator {
                 let defaults = self.preflight.pause.checklist(recovery.original.configuration.mode);
                 let mut steps = if defaults.enabled { defaults.steps.clone() } else { Vec::new() };
                 if recovery.state != openlaser_controller::state::ProgramState::Held {
-                    steps.insert(0, Check { text: "The retained job still matches the stock position and the selected restart path is clear".into(), action: None, auto_check: false });
+                    steps.insert(0, Check { text: "The retained job still matches the sheet position and the selected restart path is clear".into(), action: None, auto_check: false });
                 }
                 (&recovery.original.job, recovery.original.dry_run, steps)
             }

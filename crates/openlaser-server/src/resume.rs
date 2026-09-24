@@ -684,7 +684,7 @@ impl Coordinator {
     pub fn prepare_recovery(&mut self, revision: u64, clearance: bool) -> Result<()> {
         self.idle()?;
         if !clearance {
-            return Err(Error::Refused("confirm the stock position and restart clearance".into()));
+            return Err(Error::Refused("confirm the sheet position and restart clearance".into()));
         }
         let configuration = self.acceptance()?;
         let state = self.machine.state();

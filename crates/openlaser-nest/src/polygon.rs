@@ -28,7 +28,7 @@ const COMPILED_ROUNDING: f64 = 0.001;
 pub fn polygon(contour: &Contour) -> Result<Vec<[f64; 2]>, Error> {
     if !contour.is_closed() || contour.signed_area().abs() < MIN_OUTLINE_AREA {
         return Err(Error(
-            "nesting needs closed part and stock outlines with positive area".into(),
+            "nesting needs closed part and sheet outlines with positive area".into(),
         ));
     }
     let mut points = Vec::new();
@@ -162,7 +162,7 @@ impl Containment {
         kind: PathKind,
     ) -> Result<Self, Error> {
         if !margin.is_finite() || margin < 0. {
-            return Err(Error("stock margin must be finite and nonnegative".into()));
+            return Err(Error("the sheet edge margin must be finite and nonnegative".into()));
         }
         let boundary = polygon(stock)?.into_iter().map(Into::into).collect();
         let margin = margin
@@ -186,7 +186,7 @@ impl Containment {
             self.boundary.len() + self.cutouts.iter().map(Vec::len).sum::<usize>(),
         ));
         if self.work > 50_000_000 {
-            return Err(Error("stock containment check exceeds its geometry limit".into()));
+            return Err(Error("the sheet containment check exceeds its geometry limit".into()));
         }
         let Some(mut previous) = points.next() else { return Ok(()) };
         for point in points {
@@ -202,7 +202,7 @@ impl Containment {
             || !contains(&self.boundary, a)
             || !contains(&self.boundary, b)
         {
-            return Err(self.kind.error("extends outside the stock outline"));
+            return Err(self.kind.error("extends outside the sheet outline"));
         }
         for hole in &self.cutouts {
             if contains(hole, a) || contains(hole, b) {
@@ -218,7 +218,7 @@ impl Containment {
             let c = self.boundary[i];
             let d = self.boundary[(i + 1) % self.boundary.len()];
             if crossing(a, b, c, d) || segment_distance(a, b, c, d) + 1e-7 < self.margin {
-                return Err(self.kind.error("reaches the stock edge margin"));
+                return Err(self.kind.error("reaches the sheet edge margin"));
             }
         }
         Ok(())
