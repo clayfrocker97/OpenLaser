@@ -47,7 +47,7 @@
   $effect(() => {
     if (compact) { cap = tools.length; return; }
     if (!head) return;
-    const measure = () => { cap = Math.max(1, Math.floor((head!.clientWidth - 110) / 126)); };
+    const measure = () => { cap = Math.max(1, Math.floor((head!.clientWidth - 176) / 126)); };
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(head);
@@ -102,10 +102,12 @@
         {@const t = tile(id)}
         <div class="slot" animate:flip={{ duration: 180 }}>{@render feature(id, t)}</div>
       {/each}
-      {#if ui.editBar}<button class="feature done-btn" onclick={() => (ui.editBar = false)}><span>Done</span><span class="state">editing bar</span></button>{/if}
     </div>
     <div class="all-tools">
       <button class="feature all-btn" onclick={() => (menu = !menu)} hidden={ui.editBar}><span>All tools</span><span class="state">browse</span></button>
+      <!-- As on the drawing bar: Order, then drag the tools into place. -->
+      <button class="feature order-btn" class:on={ui.editBar} title={ui.editBar ? 'Finish arranging' : 'Drag the tools into your order'}
+        onclick={() => (ui.editBar = !ui.editBar)}><i class="ic {ui.editBar ? 'ic-check' : 'ic-grip'}"></i><span class="state">{ui.editBar ? 'Done' : 'Order'}</span></button>
 
     </div>
   </div>
@@ -146,7 +148,7 @@
 
 {#if menu}
   <Modal title="All tools" onclose={() => (menu = false)}>
-    <div class="tools-heading"><span>Starred tools are on the bar</span><button class="btn btn-ghost" onclick={() => { ui.editBar = true; menu = false; }}>Edit bar</button></div>
+    <div class="tools-heading"><span>Starred tools are on the bar; Order arranges them.</span></div>
     <div class="tool-choices">
       {#each [...TOOLS.map(t => ({ id: t.id, name: t.name, meta: draft ? stateOf(draft.features, t.id) : '' })), ...EXTRA.map(t => ({ id: t.id, name: t.name, meta: '' }))] as t}
         {@const starred = ui.favTools.includes(t.id)}
