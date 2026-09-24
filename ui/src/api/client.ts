@@ -1,6 +1,11 @@
 // The typed fetch client and the event stream. Every physical action is a
 // POST the server admits; the UI only asks.
-import type { PostflightReview, ExecutionView, RecoveryChange, TableRequest, Preview, EditHistory, PendingDraft, MergeReview, PreflightConfirmation, PreflightIntent, PreflightPreferences, PreflightReview, JobPreflight, HistoryPage, HoldTimes, Document, DraftView, Lease, Features, LeadOverride, ItemChange, JogRequest, LaserMode, NewRecipe, RecipeImport, RecipePreview, OutputRequest, Anchor, PickView, RecipeChange, RouteChange, Transform } from './index';
+import type {
+  PostflightReview, ExecutionView, RecoveryChange, TableRequest, Preview, EditHistory, PendingDraft, MergeReview, PreflightConfirmation,
+  PreflightIntent, PreflightPreferences, PreflightReview, JobPreflight, HistoryPage, HoldTimes, Document, DraftView, Lease, Features,
+  LeadOverride, ItemChange, JogRequest, LaserMode, NewRecipe, RecipeImport, RecipePreview, OutputRequest, Anchor, PickView, RecipeChange,
+  RouteChange, Transform,
+} from './index';
 import { server } from '../stores/server.svelte';
 import type { SheetPage, SheetView, SaveRemnant, NestSheetPreview, CorrectionView, CorrectionChange, NestRequest, NestView, StockChoice } from './index';
 import type { PlacementChange, SimplifyView, ImportOptions, ImportReview } from './index';
@@ -63,8 +68,29 @@ async function openDraft(path: string, body?: unknown): Promise<DraftReply> {
 const partImportQuery = (name: string, options?: ImportOptions): string =>
   `name=${encodeURIComponent(name)}${options && (options.layers || options.scale) ? `&options=${encodeURIComponent(JSON.stringify(options))}` : ''}`;
 
+const machineFileQuery = (name: string, expected?: string): string =>
+  `name=${encodeURIComponent(name)}${expected === undefined ? '' : `&expected=${encodeURIComponent(expected)}`}`;
+
 /** The machine actions the server accepts. */
-export type MachineAction = 'pulse' | 'gas-test' | 'gas-calibration' | 'table' | 'connect' | 'cancel' | 'disconnect' | 'home' | 'calibrate' | 'jog' | 'go-origin' | 'go-xy' | 'frame' | 'release' | 'heartbeat' | 'outputs' | 'mode' | 'relieve' | 'run' | 'resume' | 'hold' | 'stop';
+export type MachineAction =
+  | 'pulse' | 'gas-test' | 'gas-calibration' | 'table' | 'connect' | 'cancel' | 'disconnect' | 'home' | 'calibrate' | 'jog' | 'go-origin'
+  | 'go-xy' | 'frame' | 'release' | 'heartbeat' | 'outputs' | 'mode' | 'relieve' | 'run' | 'resume' | 'hold' | 'stop';
+
+/** What a machine action may carry. */
+type MachineBody = {
+  pulse?: { duration_ms: number; power: number };
+  gas_test?: { selector: number; pressure: number; duration_ms: number };
+  gas_calibration?: { selector: number; pressure: number };
+  table?: TableRequest;
+  preflight?: PreflightConfirmation;
+  lease?: Lease;
+  jog?: JogRequest;
+  output?: OutputRequest;
+  mode?: LaserMode;
+  alarm?: number | null;
+  xy?: [number, number];
+  fast?: boolean;
+};
 
 export interface TextOptions {
   value: string;
@@ -165,7 +191,8 @@ export const api = {
   duplicateRecipe: (id: string, thickness_mm: number) => post<{ ok: true; id: string }>(`/api/recipes/${id}/duplicate`, { thickness_mm }),
   removeRecipe: (id: string) => del(`/api/recipes/${id}`),
   /** The vendor's machine backup, 1390backup.xml; it replaces the last one. */
-  importMachineFile: (name: string, bytes: ArrayBuffer, expected?: string) => request<{ ok: true }>('POST', `/api/machine/files?name=${encodeURIComponent(name)}${expected === undefined ? '' : `&expected=${encodeURIComponent(expected)}`}`, undefined, bytes),
+  importMachineFile: (name: string, bytes: ArrayBuffer, expected?: string) =>
+    request<{ ok: true }>('POST', `/api/machine/files?${machineFileQuery(name, expected)}`, undefined, bytes),
   updateJob: (id: string, change: ItemChange) => post(`/api/jobs/${id}`, change),
   removeJob: (id: string) => del(`/api/jobs/${id}`),
 
@@ -188,7 +215,8 @@ export const api = {
   undo: () => draftPost('/api/draft/undo'),
   redo: () => draftPost('/api/draft/redo'),
   /** A tap on the drawing snapped to a contour within `tolerance` millimetres, or `null`. */
-  pick: (point: [number, number], tolerance: number, bridging: boolean, revision: number, features?: Features) => post<{ ok: true; pick: PickView | null; revision: number }>(`/api/draft/pick?revision=${revision}`, { point, tolerance, bridging, features }),
+  pick: (point: [number, number], tolerance: number, bridging: boolean, revision: number, features?: Features) =>
+    post<{ ok: true; pick: PickView | null; revision: number }>(`/api/draft/pick?revision=${revision}`, { point, tolerance, bridging, features }),
   previewFeatures: (features: Features, revision: number) => post<{ preview: Preview; revision: number }>(`/api/draft/preview?revision=${revision}`, features),
   /** Which point of the part the origin stands for. */
   setAnchor: (anchor: Anchor) => draftPost('/api/draft/anchor', { anchor }),
@@ -199,7 +227,7 @@ export const api = {
 
   /** The adapter, controller address or computer address the next Connect uses. */
   setRoute: (change: RouteChange) => post('/api/machine/route', change),
-  machine: (action: MachineAction, body: { pulse?: { duration_ms: number; power: number }; gas_test?: { selector: number; pressure: number; duration_ms: number }; gas_calibration?: { selector: number; pressure: number }; table?: TableRequest; preflight?: PreflightConfirmation; lease?: Lease; jog?: JogRequest; output?: OutputRequest; mode?: LaserMode; alarm?: number | null; xy?: [number, number]; fast?: boolean } = {}) => post(`/api/machine/${action}`, body),
+  machine: (action: MachineAction, body: MachineBody = {}) => post(`/api/machine/${action}`, body),
 };
 
 /**
