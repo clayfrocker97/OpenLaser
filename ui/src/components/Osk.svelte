@@ -59,7 +59,9 @@
   // Only editable fields use our keyboard. Set inputmode before focus so
   // the browser does not request a second, native touch keyboard.
   $effect(() => {
-    const editable = (t: EventTarget | null): t is HTMLInputElement | HTMLTextAreaElement => (t instanceof HTMLTextAreaElement || t instanceof HTMLInputElement && ['text', 'search', 'email', 'url', 'tel', 'password', 'number'].includes(t.type)) && !t.readOnly && !t.disabled;
+    const editable = (t: EventTarget | null): t is HTMLInputElement | HTMLTextAreaElement =>
+      (t instanceof HTMLTextAreaElement || t instanceof HTMLInputElement && ['text', 'search', 'email', 'url', 'tel', 'password', 'number'].includes(t.type))
+      && !t.readOnly && !t.disabled;
     const configure = (root: ParentNode) => { root.querySelectorAll('input, textarea').forEach(input => { if (editable(input)) input.inputMode = 'none'; }); };
     configure(document);
     const observer = new MutationObserver(records => { for (const record of records) for (const node of record.addedNodes) if (node instanceof HTMLElement) { if (editable(node)) node.inputMode = 'none'; configure(node); } });
@@ -79,7 +81,14 @@
     document.addEventListener('input', input);
     window.addEventListener('keydown', keydown, true);
     addEventListener('resize', clamp);
-    return () => { observer.disconnect(); document.removeEventListener('focusin', focus); document.removeEventListener('pointerdown', tap, true); document.removeEventListener('input', input); window.removeEventListener('keydown', keydown, true); removeEventListener('resize', clamp); };
+    return () => {
+      observer.disconnect();
+      document.removeEventListener('focusin', focus);
+      document.removeEventListener('pointerdown', tap, true);
+      document.removeEventListener('input', input);
+      window.removeEventListener('keydown', keydown, true);
+      removeEventListener('resize', clamp);
+    };
   });
 
   const label = (k: string) => k === 'bs' ? '<i class="ic ic-backspace"></i>' : k === 'done' ? 'Done' : k === 'clear' ? 'Clear' : k === 'shift' ? 'Shift' : k === ' ' ? 'Space' : (osk.shift ? k.toUpperCase() : k);
@@ -107,7 +116,11 @@
             {#if i === 3}<button class="osk-key wide" aria-label="Backspace" onclick={() => osk.key('bs')}><i class="ic ic-backspace"></i></button>{/if}
           </div>
         {/each}
-        <div class="osk-row"><button class="osk-key wide" onclick={() => osk.key('clear')}>Clear</button><button class="osk-key space" onclick={() => osk.key(' ')}>Space</button>{#if osk.multiline}<button class="osk-key wide" onclick={() => osk.key('\n')}>New line</button>{/if}<button class="osk-key done wide" onclick={() => osk.key('done')}>Done</button></div>
+        <div class="osk-row"><button
+            class="osk-key wide" onclick={() => osk.key('clear')}>Clear</button><button
+            class="osk-key space" onclick={() => osk.key(' ')}>Space</button>{#if osk.multiline}<button
+            class="osk-key wide" onclick={() => osk.key('\n')}>New line</button>{/if}<button
+            class="osk-key done wide" onclick={() => osk.key('done')}>Done</button></div>
       {/if}
     </div>
   </div>

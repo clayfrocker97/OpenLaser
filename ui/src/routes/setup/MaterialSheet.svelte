@@ -14,7 +14,14 @@
   const recipes = $derived(doc.library.recipes);
   const recent = $derived.by(() => {
     const seen = new Set<string>();
-    return [...doc.library.jobs].sort((a, b) => b.updated - a.updated).map((j) => j.recipe).filter((r) => { const live = recipes.find((x) => x.key === r.key); if (!live || seen.has(live.id)) return false; seen.add(live.id); return true; }).map((r) => recipes.find((x) => x.key === r.key)!).slice(0, 5);
+    return [...doc.library.jobs].sort((a, b) => b.updated - a.updated).map((j) => j.recipe)
+      .filter((r) => {
+        const live = recipes.find((x) => x.key === r.key);
+        if (!live || seen.has(live.id)) return false;
+        seen.add(live.id);
+        return true;
+      })
+      .map((r) => recipes.find((x) => x.key === r.key)!).slice(0, 5);
   });
   const materials = $derived(materialsOf(recipes));
 
@@ -25,6 +32,8 @@
   const gases = $derived(group.filter((r) => r.thickness_mm === pick?.thickness_mm));
 
   function choose(r: RecipeView): void { pick = r; }
+  const thicknessList = (rs: RecipeView[]): string => [...new Set(rs.map((r) => r.thickness_mm))].sort((a, b) => a - b).map(t => distance(t)).join(', ');
+  const gasList = (rs: RecipeView[]): string => [...new Set(rs.map((r) => r.gas))].join(' / ');
   function use(): void {
     if (!pick) return;
     api.setRecipe(pick.id).then(() => { ui.say(`Job material: ${recipeLabel(pick)}`); onclose(); }).catch((error) => ui.say(explain(error), true));
@@ -40,7 +49,8 @@
         {@const picture = pictureOf(m.name, m.recipes.find((r) => r.photo)?.photo)}
         <div class="mat-row" class:on={pick && materialKey(pick) === m.key} role="button" tabindex="0" onclick={() => choose(m.recipes[0]!)} onkeydown={(e) => { if (e.key === 'Enter') choose(m.recipes[0]!); }}>
           {#if picture}<img class="swatch" src={picture} alt="">{:else}<div class="swatch" style="background:var(--panel-2)"></div>{/if}
-          <div><div class="name">{m.recipes.some((r) => r.favourite) ? '★ ' : ''}{m.name}</div><div class="meta">{laserLabel(m.recipes[0]!.laser)} · {[...new Set(m.recipes.map((r) => r.thickness_mm))].sort((a, b) => a - b).map(t => distance(t)).join(', ')} {unitLabel('mm')} · {[...new Set(m.recipes.map((r) => r.gas))].join(' / ')}</div></div>
+          <div><div class="name">{m.recipes.some((r) => r.favourite) ? '★ ' : ''}{m.name}</div><div
+            class="meta">{laserLabel(m.recipes[0]!.laser)} · {thicknessList(m.recipes)} {unitLabel('mm')} · {gasList(m.recipes)}</div></div>
           <span class="tag">{m.recipes.length}</span>
         </div>
       {:else}
@@ -50,8 +60,11 @@
     <div class="sheet-side">
       {#if pick}
         {@const picture = pictureOf(pick.name, pick.photo)}
-        <div class="side-title">{#if picture}<img class="swatch" src={picture} alt="">{:else}<div class="swatch" style="background:var(--panel-2)"></div>{/if}<div><h2>{pick.name}</h2><div class="muted">{laserLabel(pick.laser)}</div></div></div>
-        <div class="field"><h3>Thickness</h3><div class="chips">{#each thicknesses as t}<button class="chip" class:on={t === pick.thickness_mm} onclick={() => choose(group.find((r) => r.thickness_mm === t)!)}>{quantity(t, 'mm')}</button>{/each}</div></div>
+        <div class="side-title">{#if picture}<img class="swatch" src={picture} alt="">{:else}<div
+          class="swatch" style="background:var(--panel-2)"></div>{/if}<div><h2>{pick.name}</h2><div class="muted">{laserLabel(pick.laser)}</div></div></div>
+        <div class="field"><h3>Thickness</h3><div class="chips">{#each thicknesses as t}<button
+          class="chip" class:on={t === pick.thickness_mm} onclick={() => choose(group.find((r) => r.thickness_mm === t)!)}
+        >{quantity(t, 'mm')}</button>{/each}</div></div>
         <div class="field"><h3>Assist gas</h3><div class="chips">{#each gases as r}<button class="chip" class:on={r.id === pick.id} onclick={() => choose(r)}>{r.gas}</button>{/each}</div></div>
         <MaterialSummary source={pick} />
         <button class="btn btn-primary lg block" onclick={use}>Use {pick.name} {quantity(pick.thickness_mm, 'mm')}</button>

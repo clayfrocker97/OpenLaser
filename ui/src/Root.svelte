@@ -14,6 +14,7 @@
   }
   // The shell follows the window; the pages' state lives in stores and survives the switch.
   const shell = $derived(loadShell(layout.current));
+  const openingTitle = $derived(access.error ? 'Waiting for OpenLaser' : 'Connecting to your machine…');
   $effect(() => { document.documentElement.dataset.layout = layout.current; });
   // Unsaved jobs change with the draft and the library; recount after each, on both shells.
   const draftRevision = $derived(server.doc?.draft_revision ?? 0);
@@ -28,7 +29,8 @@
 </script>
 
 {#if !access.info}
-  <div class="opening"><img src="/logo.svg" alt="OpenLaser" /><h1>{access.error ? 'Waiting for OpenLaser' : 'Connecting to your machine…'}</h1>{#if access.error}<p>{access.error}</p><button class="btn btn-primary" onclick={() => access.refresh()}>Try again</button>{/if}</div>
+  <div class="opening"><img src="/logo.svg" alt="OpenLaser" /><h1>{openingTitle}</h1>{#if access.error}<p>{access.error}</p><button
+    class="btn btn-primary" onclick={() => access.refresh()}>Try again</button>{/if}</div>
 {:else}
   <div class="interface-shell" inert={!access.canControl}>{#await shell}<div class="opening">Opening OpenLaser…</div>{:then { default: Shell }}<Shell />{/await}</div>
 {/if}

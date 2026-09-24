@@ -19,6 +19,9 @@
   async function run(action: () => Promise<unknown>): Promise<void> {
     try { await action(); } catch (error) { ui.say(explain(error), true); }
   }
+  function editPressure(): void {
+    osk.number('Test pressure', pressure, 'bar', v => { if (v > 0 && v <= 100) pressure = v; });
+  }
 </script>
 
 <div class="setting-group manual-tests"><h3>Manual tests</h3>
@@ -29,9 +32,12 @@
     <HoldButton class="btn btn-danger" disabled={!doc.readiness.jog.ok} onhold={() => run(() => api.machine('pulse', { pulse: { duration_ms: pulseDuration, power: pulsePower } }))}>Pulse laser</HoldButton>
   </div>
   <div class="setting gas-label"><div class="lbl">Gas test<small>Timed valve test.</small></div></div>
-  <div class="gas-choices" role="group" aria-label="Gas test route">{#each gases as { name, selector }}<button class="btn" class:btn-primary={gas === selector} aria-pressed={gas === selector} disabled={!doc.bindings?.outputs.gas[selector]} onclick={() => (gas = selector)}>{name}</button>{/each}</div>
+  <div class="gas-choices" role="group" aria-label="Gas test route">{#each gases as { name, selector }}<button
+      class="btn" class:btn-primary={gas === selector} aria-pressed={gas === selector} disabled={!doc.bindings?.outputs.gas[selector]}
+      onclick={() => (gas = selector)}>{name}</button>{/each}</div>
   <div class="test-fields gas-fields">
-    {#if route?.pressure}<button class="test-value" onclick={() => osk.number('Test pressure', pressure, 'bar', v => { if (v > 0 && v <= 100) pressure = v; })}><span>Pressure</span><strong>{quantity(pressure, 'bar')}</strong></button>{:else}<div class="test-value"><span>Pressure</span><strong>At regulator</strong></div>{/if}
+    {#if route?.pressure}<button class="test-value" onclick={editPressure}><span>Pressure</span><strong>{quantity(pressure, 'bar')}</strong></button>{:else}<div
+      class="test-value"><span>Pressure</span><strong>At regulator</strong></div>{/if}
     <button class="test-value" onclick={() => osk.number('Gas test duration', gasDuration, 'ms', v => { if (v >= 50 && v <= 2000) gasDuration = Math.round(v); })}><span>Duration</span><strong>{gasDuration} ms</strong></button>
     <HoldButton class="btn btn-warn" disabled={!doc.readiness.outputs.ok || !doc.bindings?.outputs.gas[gas]} onhold={() => run(() => api.machine('gas-test', { gas_test: { selector: gas, pressure, duration_ms: gasDuration } }))}>Test gas</HoldButton>
   </div>

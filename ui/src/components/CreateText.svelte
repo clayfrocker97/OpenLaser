@@ -75,7 +75,9 @@
     <label class="text-label">Text<textarea aria-label="Text to cut" rows="4" bind:value disabled={creating} placeholder="Type or paste your text…"></textarea></label>
     <div class="text-controls">
       <div class="text-fonts"><FontPicker bind:family bind:font bind:importing disabled={creating} onimport={() => fontRevision++} /></div>
-      <div class="text-size-row"><span>Font size</span><button class="text-number" data-numpad aria-label="Font size" disabled={creating} onclick={() => osk.number('Font size', size, 'mm', (next) => (size = next))}>{displayNumber(size, 'mm')} <small>{unitLabel('mm')}</small></button></div>
+      <div class="text-size-row"><span>Font size</span><button
+        class="text-number" data-numpad aria-label="Font size" disabled={creating}
+        onclick={() => osk.number('Font size', size, 'mm', (next) => (size = next))}>{displayNumber(size, 'mm')} <small>{unitLabel('mm')}</small></button></div>
       {#if !font}<div class="text-choices text-weight">
         <button class:on={!bold} aria-pressed={!bold} disabled={creating} onclick={() => (bold = false)}>Regular</button>
         <button class:on={bold} aria-pressed={bold} disabled={creating} onclick={() => (bold = true)}>Bold</button>
@@ -94,7 +96,8 @@
     </div>
     {#if error}<p class="warn-text" role="alert">{error}</p>{/if}
     {#each preview?.warnings ?? [] as warning}<p class="warn-text" role="status">{warning}</p>{/each}
-    <div class="text-footer"><span class="muted">Overlapping letters are welded into cutting outlines.</span><button class="btn btn-primary" disabled={creating || importing || pending || !preview} onclick={create}>{creating ? 'Adding…' : 'Add text'}</button></div>
+    <div class="text-footer"><span class="muted">Overlapping letters are welded into cutting outlines.</span><button
+      class="btn btn-primary" disabled={creating || importing || pending || !preview} onclick={create}>{creating ? 'Adding…' : 'Add text'}</button></div>
   </div>
 </Modal>
 

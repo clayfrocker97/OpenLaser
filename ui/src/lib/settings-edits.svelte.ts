@@ -16,7 +16,8 @@ type Entries = {
 };
 export type SettingKey = keyof Entries;
 export const same = (a: unknown, b: unknown): boolean => JSON.stringify(a) === JSON.stringify(b);
-const preferenceKeys = ['fiber.enabled', 'fiber.steps', 'co2.enabled', 'co2.steps', 'pause.fiber.enabled', 'pause.fiber.steps', 'pause.co2.enabled', 'pause.co2.steps', 'postflight.fiber.enabled', 'postflight.fiber.steps', 'postflight.co2.enabled', 'postflight.co2.steps'] as const;
+const preferenceKeys = ['fiber.enabled', 'fiber.steps', 'co2.enabled', 'co2.steps', 'pause.fiber.enabled', 'pause.fiber.steps', 'pause.co2.enabled',
+  'pause.co2.steps', 'postflight.fiber.enabled', 'postflight.fiber.steps', 'postflight.co2.enabled', 'postflight.co2.steps'] as const;
 type PreferenceKey = typeof preferenceKeys[number];
 /** Older browser drafts predate postflight; they must not override new defaults. */
 export function withPostflight(value: PreflightPreferences, saved: PreflightPreferences): PreflightPreferences {

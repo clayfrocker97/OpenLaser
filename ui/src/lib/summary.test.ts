@@ -5,7 +5,8 @@ import { units } from './units.svelte';
 
 afterEach(() => units.set('metric'));
 
-const values = { CutSpeed: '25', CutPeakCurrent: '90', CutPower: '80', CutFreq: '5000', CutGasType: '5', CutAirPressure: '12', CutHeight: '0.8', OpenLaserNozzleDiameter: '1.5', OpenLaserNozzleType: 'double', OpenLaserManualFocus: '-2', OpenLaserLens: '150', ManuType: '3' };
+const values = { CutSpeed: '25', CutPeakCurrent: '90', CutPower: '80', CutFreq: '5000', CutGasType: '5', CutAirPressure: '12', CutHeight: '0.8',
+  OpenLaserNozzleDiameter: '1.5', OpenLaserNozzleType: 'double', OpenLaserManualFocus: '-2', OpenLaserLens: '150', ManuType: '3' };
 
 describe('the material summary', () => {
   it('lists every value in one order under one set of names', () => {

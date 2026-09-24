@@ -17,7 +17,10 @@
 </script>
 
 {#if sheets && sheets.pages.length > 1}
-  <div class="sheet-strip"><span class="sheet-label">Sheets <small>{sheets.active + 1} / {sheets.pages.length}</small></span><div class="sheet-pages" role="group" aria-label="Numbered sheets">{#each sheets.pages as page, i}<button class:on={sheets.active === i} aria-pressed={sheets.active === i} disabled={busy || ui.nestShown} onclick={() => choose(i)}>Sheet {page.number}<small>{page.parts === null ? 'Saved job' : plural(page.parts, 'part')}</small></button>{/each}</div></div>
+  <div class="sheet-strip"><span class="sheet-label">Sheets <small>{sheets.active + 1} / {sheets.pages.length}</small></span><div
+      class="sheet-pages" role="group" aria-label="Numbered sheets">{#each sheets.pages as page, i}<button
+        class:on={sheets.active === i} aria-pressed={sheets.active === i} disabled={busy || ui.nestShown} onclick={() => choose(i)}
+      >Sheet {page.number}<small>{page.parts === null ? 'Saved job' : plural(page.parts, 'part')}</small></button>{/each}</div></div>
 {/if}
 
 <style>

@@ -102,8 +102,11 @@ const FIELDS: Record<string, Field> = {
   WithFilm: flag('Film removal'),
   EnableContourShift: flag('Contour shift'), ContourShiftXDist: n('Shift X', 'mm', -100000), ContourShiftYDist: n('Shift Y', 'mm', -100000),
   CleanResidue_Enable: flag('Slag removal'), CleanResidue_WorkH: n('Nozzle height', 'mm', 0, 1000), CleanResidue_WorkV: n('Movement speed', 'mm/s', 0.01), CleanResidue_GasType: gas('Gas'), CleanResidue_GasP: n('Gas pressure', 'bar', 0, 100),
-  CleanResidue_PeakCurrent: percent('Power', POWER_HELP), CleanResidue_Power: percent('Duty', DUTY_HELP), CleanResidue_Freq: hertz('Frequency'), CleanResidue_WorkR: n('Spiral radius', 'mm'), CleanResidue_SpiralTimes: whole('Spiral turns', '', 1, 4096),
-  PowerAdjustWithSpeed: flag('Adjust duty with speed'), FreqAdjustWithSpeed: flag('Adjust frequency with speed'), PWMCurveNodes: text('Duty curve'), FreqCurveNodes: text('Frequency curve'), PowerCurveSmoothType: whole('Duty graph style', '', 0, 10), FreqCurveSmoothType: whole('Frequency graph style', '', 0, 10),
+  CleanResidue_PeakCurrent: percent('Power', POWER_HELP), CleanResidue_Power: percent('Duty', DUTY_HELP), CleanResidue_Freq: hertz('Frequency'),
+  CleanResidue_WorkR: n('Spiral radius', 'mm'), CleanResidue_SpiralTimes: whole('Spiral turns', '', 1, 4096),
+  PowerAdjustWithSpeed: flag('Adjust duty with speed'), FreqAdjustWithSpeed: flag('Adjust frequency with speed'), PWMCurveNodes: text('Duty curve'),
+  FreqCurveNodes: text('Frequency curve'), PowerCurveSmoothType: whole('Duty graph style', '', 0, 10),
+  FreqCurveSmoothType: whole('Frequency graph style', '', 0, 10),
   ZFVibAbatType: whole('Suppression type', '', 0, 3), ZFVibAbat_Level: whole('Thin plate', '', 0, 255), ZFVibAbat_Level_Thick: whole('Thick plate', '', 0, 255),
   // Kept as the file holds them: optical focus this machine sets by hand, and switches nothing reads.
   CutFocusPos: n('Optical focus', 'mm', -1000, 1000), DrillFocusPos: n('Optical focus', 'mm', -1000, 1000), EnableFocusGradual: flag('Progressive focus'), FocusGradualEndPos: n('Focus end position', 'mm', -1000, 1000),
@@ -112,7 +115,11 @@ const FIELDS: Record<string, Field> = {
   LayerFileName: text('Layer name'), ManuType: whole('Machining type', '', 0, 7), Note: text('Note'),
 };
 
-const STAGE_KEY = /^(DrillHeight|DrillPower|DrillFreq|DrillPeakCurrent|DrillGasType|DrillGasPressure|DrillDelay|DrillFocusPos|DrillTime|EnableGradualDrill|GradualTime|EnableFocusGradual|FocusGradualEndPos|FocusGradualTime|BeforeLaserOffDelay|AfterLaserOffDelay)(\d+)$|^BoltDrill_(Enable|Power|Freq)_(\d+)$/;
+const STAGE_FIELDS = [
+  'DrillHeight', 'DrillPower', 'DrillFreq', 'DrillPeakCurrent', 'DrillGasType', 'DrillGasPressure', 'DrillDelay', 'DrillFocusPos', 'DrillTime',
+  'EnableGradualDrill', 'GradualTime', 'EnableFocusGradual', 'FocusGradualEndPos', 'FocusGradualTime', 'BeforeLaserOffDelay', 'AfterLaserOffDelay',
+];
+const STAGE_KEY = new RegExp(`^(${STAGE_FIELDS.join('|')})(\\d+)$|^BoltDrill_(Enable|Power|Freq)_(\\d+)$`);
 /** The keys this machine cannot act on: manual optical focus, and the switches nothing reads. */
 const UNAVAILABLE = new Set(policy.stored_fields);
 const UNAVAILABLE_STAGE = new Set(policy.stored_stage_fields);

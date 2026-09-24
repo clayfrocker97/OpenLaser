@@ -43,7 +43,12 @@ export function readable(name: string, path = ''): string {
     const known = recipeField(name).label;
     if (known !== name) {
       const stage = stageOf(name);
-      const prefix = stage !== null ? `Pierce stage ${stage + 1} · ` : name.startsWith('CleanResidue_') ? 'Slag removal · ' : name.startsWith('SmoothPierce') ? 'Smooth piercing · ' : name.startsWith('UD_Up') ? 'Cut start · ' : name.startsWith('UD_Down') ? 'Cut end · ' : '';
+      const prefix = stage !== null ? `Pierce stage ${stage + 1} · `
+        : name.startsWith('CleanResidue_') ? 'Slag removal · '
+        : name.startsWith('SmoothPierce') ? 'Smooth piercing · '
+        : name.startsWith('UD_Up') ? 'Cut start · '
+        : name.startsWith('UD_Down') ? 'Cut end · '
+        : '';
       return `${prefix}${known}`;
     }
   }
@@ -88,7 +93,10 @@ const unitFields: Record<string, Record<string, string[]>> = {
   },
   PZFParam: { mm: ['ZFDockHeight'], 'mm/s': ['ZFFollowSpeed', 'ZFJogSpeed', 'ZFFastJogSpeed', 'ZFUpSpeed'] },
   PManuParam: {
-    mm: ['XAxisGapCompensate', 'YAxisGapCompensate', 'VerCorrectABLength', 'VerCorrectACLength', 'VerCorrectL1Length', 'VerCorrectL2Length', 'DirectDrillMaxHeight', 'DirectSecondDrillMaxHeight', 'PlatformExchangeLength', 'ZFSafeHeight', 'SingleRollSheetLength', 'ManuCrashProtectUpHeight', 'EnableManuCrashProtectMinHeight', 'SingleForwardRollLength', 'SingleBackwardLength', 'StepLength', 'ForwardBackwardLength', 'ResumeBackLength', 'ContourShiftXDist', 'ContourShiftYDist', 'ShortNoUpMaxLength'],
+    mm: ['XAxisGapCompensate', 'YAxisGapCompensate', 'VerCorrectABLength', 'VerCorrectACLength', 'VerCorrectL1Length', 'VerCorrectL2Length',
+      'DirectDrillMaxHeight', 'DirectSecondDrillMaxHeight', 'PlatformExchangeLength', 'ZFSafeHeight', 'SingleRollSheetLength',
+      'ManuCrashProtectUpHeight', 'EnableManuCrashProtectMinHeight', 'SingleForwardRollLength', 'SingleBackwardLength', 'StepLength',
+      'ForwardBackwardLength', 'ResumeBackLength', 'ContourShiftXDist', 'ContourShiftYDist', 'ShortNoUpMaxLength'],
     'mm/s': ['PlatformExchangeSpeed', 'SingleRollSheetSpeed', 'ECAxisMaxSpeed', 'JogFastSpeed', 'JogSlowSpeed', 'ForwardBackwardSpeed', 'BoundSpeed', 'XFastMoveSpeed'],
     'mm/s²': ['XFastMoveAcc', 'ManuAcc'], bar: ['DefaultGasPressure'],
     ms: ['AccTime', 'EmptyMoveAccTime', 'PtLaserTime_ms', 'GasDelay', 'DirectGasDelay', 'ChangeGasDelay', 'iProportionalOpenSleep'],
@@ -103,7 +111,18 @@ const unitFields: Record<string, Record<string, string[]>> = {
   PAFParam: { mm: ['OriginOffset'], 'mm/s': ['AFPosSpeed'] },
   PECParam: { mm: ['ECStepLength'], 'mm/s': ['ECFastSpeed'] },
   PGraphParam: {
-    mm: ['GuideLineLength', 'GuideArcRadius', 'LoopGapOverCutLength', 'MicroLinkLength', 'RowGapVct', 'ColGapVct', 'AutoMicroLinkStep', 'MinEnableMicoLinkGraphSize', 'BridgeWidth', 'SmoothAccuracy', 'OffsetDist', 'ArcRoundRadius', 'UnloadAngleRadius', 'AlphaMinEdgeLen', 'AlphaLen', 'CircleFlyMaxLen', 'LineFlyCollineTol', 'LineFlyMaxLinkLen', 'LineFlyMaxLen', 'FillCircleRadius', 'FillCircleStock', 'FillCircleSpace', 'MaxSizeError', 'MinSizeError', 'StdSheetHeight', 'StdSheetWidth', 'OverlapGate', 'ManualConnectGate', 'BallArmGuideLineLength', 'BallArmCircleRadius', 'AdvTextOffset', 'BrushUpZVal', 'BrushDiveHeight', 'CleanStartXPos', 'CleanStartYPos', 'CleanMoveLength', 'EdgeSeekFollowHeight', 'EdgeSeekUpHeight', 'FastEdgeSeekMoveOutTolerance', 'SlowEdgeSeekMoveOutTolerance', 'EdgeSeekXYPointDist', 'EdgeOffsetX', 'EdgeOffsetY', 'EdgeSeekMoveInDestHeight', 'EdgeSeekSafeUpHeight', 'DualServoCalibMaxLength', 'DualServoCalibAdjustOffset', 'DualServoCalibAdjustTolerance', 'RotatePlatformManuPtStepLength0', 'RotatePlatformManuPtStepLength1', 'AfterCleanZFCalibXPos', 'AfterCleanZFCalibYPos', 'PerRollSheetOffset', 'BeforeManuDockPtX', 'BeforeManuDockPtY', 'RollSheetWidth', 'CutOffRollSheetX_LeftEdge', 'CutOffRollSheetX_RightEdge', 'RollSheetWidth_btnCmd', 'CutOffOutEdgeCheckTol', 'CutOffHeadUpHWorkDone', 'BatchCutX_LeftEdge', 'BatchCutX_RightEdge', 'EdgeSeekXPointDist', 'EdgeSeekYPointDist', 'EdgeBoardSizeX', 'EdgeBoardSizeY', 'EdgeSeekStartPointX', 'EdgeSeekStartPointY', 'minHorizontalLineGap', 'minScanLineLength', 'scanSideLineLength'],
+    mm: ['GuideLineLength', 'GuideArcRadius', 'LoopGapOverCutLength', 'MicroLinkLength', 'RowGapVct', 'ColGapVct', 'AutoMicroLinkStep',
+      'MinEnableMicoLinkGraphSize', 'BridgeWidth', 'SmoothAccuracy', 'OffsetDist', 'ArcRoundRadius', 'UnloadAngleRadius', 'AlphaMinEdgeLen',
+      'AlphaLen', 'CircleFlyMaxLen', 'LineFlyCollineTol', 'LineFlyMaxLinkLen', 'LineFlyMaxLen', 'FillCircleRadius', 'FillCircleStock',
+      'FillCircleSpace', 'MaxSizeError', 'MinSizeError', 'StdSheetHeight', 'StdSheetWidth', 'OverlapGate', 'ManualConnectGate',
+      'BallArmGuideLineLength', 'BallArmCircleRadius', 'AdvTextOffset', 'BrushUpZVal', 'BrushDiveHeight', 'CleanStartXPos', 'CleanStartYPos',
+      'CleanMoveLength', 'EdgeSeekFollowHeight', 'EdgeSeekUpHeight', 'FastEdgeSeekMoveOutTolerance', 'SlowEdgeSeekMoveOutTolerance',
+      'EdgeSeekXYPointDist', 'EdgeOffsetX', 'EdgeOffsetY', 'EdgeSeekMoveInDestHeight', 'EdgeSeekSafeUpHeight', 'DualServoCalibMaxLength',
+      'DualServoCalibAdjustOffset', 'DualServoCalibAdjustTolerance', 'RotatePlatformManuPtStepLength0', 'RotatePlatformManuPtStepLength1',
+      'AfterCleanZFCalibXPos', 'AfterCleanZFCalibYPos', 'PerRollSheetOffset', 'BeforeManuDockPtX', 'BeforeManuDockPtY', 'RollSheetWidth',
+      'CutOffRollSheetX_LeftEdge', 'CutOffRollSheetX_RightEdge', 'RollSheetWidth_btnCmd', 'CutOffOutEdgeCheckTol', 'CutOffHeadUpHWorkDone',
+      'BatchCutX_LeftEdge', 'BatchCutX_RightEdge', 'EdgeSeekXPointDist', 'EdgeSeekYPointDist', 'EdgeBoardSizeX', 'EdgeBoardSizeY',
+      'EdgeSeekStartPointX', 'EdgeSeekStartPointY', 'minHorizontalLineGap', 'minScanLineLength', 'scanSideLineLength'],
     'mm/s': ['CleanMoveSpeed', 'EdgeSeekDownSpeed', 'EdgeSeekXYFastSpeed', 'EdgeSeekXYSlowSpeed', 'CutOffRollSheetSpeed', 'EdgeSeekOutSpeed'],
   },
   PNestParam: { mm: ['SheetWidth', 'SheetHeight', 'EdgeStock', 'PartSpace', 'ShareEdgeMinLen', 'NestAccuracy'] },

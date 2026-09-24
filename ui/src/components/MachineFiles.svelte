@@ -28,8 +28,14 @@
   <input bind:this={picker} type="file" accept=".xml" hidden {disabled} onchange={importBackup} />
 {:else}
   <div class="setting-group"><h3>Process settings</h3>
-    <div class="setting"><div class="lbl">Process INI<small>{doc.soft.name ?? 'Default process timing'}</small></div><button class="btn btn-ghost" {disabled} onclick={() => picker?.click()}>Import INI</button><input bind:this={picker} type="file" accept=".ini" hidden {disabled} onchange={importSoft} /></div>
-    <details class="process-details"><summary>Details</summary><div class="setting"><div class="lbl">Follow / retract</div><span class="val">{doc.soft.follow_ms} ms</span></div><div class="setting"><div class="lbl">Pierce-height move</div><span class="val">{doc.soft.section_drill_ms} ms</span></div><div class="setting"><div class="lbl">Analog minimum</div><span class="val">{doc.soft.analog_minimum}</span></div>{#if doc.soft.name}<a class="btn btn-ghost" href="/api/machine/soft" download>Download original INI</a>{/if}</details>
+    <div class="setting"><div class="lbl">Process INI<small>{doc.soft.name ?? 'Default process timing'}</small></div><button
+        class="btn btn-ghost" {disabled} onclick={() => picker?.click()}>Import INI</button><input
+        bind:this={picker} type="file" accept=".ini" hidden {disabled} onchange={importSoft} /></div>
+    <details class="process-details"><summary>Details</summary><div
+        class="setting"><div class="lbl">Follow / retract</div><span class="val">{doc.soft.follow_ms} ms</span></div><div
+        class="setting"><div class="lbl">Pierce-height move</div><span class="val">{doc.soft.section_drill_ms} ms</span></div><div
+        class="setting"><div class="lbl">Analog minimum</div><span class="val">{doc.soft.analog_minimum}</span></div>{#if doc.soft.name}<a
+        class="btn btn-ghost" href="/api/machine/soft" download>Download original INI</a>{/if}</details>
   </div>
 {/if}
 <style>

@@ -205,7 +205,10 @@
   .path-choice { background:transparent; border:0; color:var(--ink); padding:10px 0; cursor:pointer; min-height:76px; display:grid; gap:6px; }
   .path-choice strong { font-size:var(--t-lg); font-weight:650; } .path-choice span { font-size:var(--t-sm); color:var(--ink-3); }
   .position { font-variant-numeric:tabular-nums; text-align:center; margin:12px 0 0; color:var(--ink-3); font-size:var(--t-sm); }
-  .row-action { width:100%; min-height:60px; display:flex; align-items:center; justify-content:space-between; gap:14px; padding:13px 4px; background:transparent; color:var(--ink); border:0; border-bottom:1px solid var(--line); text-align:left; cursor:pointer; font:inherit; font-size:var(--t-base); }
+  .row-action {
+    width:100%; min-height:60px; display:flex; align-items:center; justify-content:space-between; gap:14px; padding:13px 4px; background:transparent;
+    color:var(--ink); border:0; border-bottom:1px solid var(--line); text-align:left; cursor:pointer; font:inherit; font-size:var(--t-base);
+  }
   .row-action small { display:block; color:var(--ink-3); margin-top:6px; line-height:1.5; font-size:var(--t-sm); }
   .row-action > span:last-child { flex:none; } .group { display:grid; gap:4px; }
   .recovery-content :global(.btn),.recovery-footer :global(.btn) { min-height:56px; font-size:var(--t-base); }

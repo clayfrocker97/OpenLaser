@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import type { Document } from '../api';
 import { nextStep } from './next-step';
 
-type State = { program?: string; recovery?: string; resumable?: boolean; connected?: boolean; age?: number; homed?: boolean; head?: boolean; headHomed?: boolean; calibrated?: boolean; quality?: string | null; stale?: string | null; draft?: boolean; captured?: boolean; mode?: 'head' | 'fixed' };
+type State = { program?: string; recovery?: string; resumable?: boolean; connected?: boolean; age?: number; homed?: boolean; head?: boolean;
+  headHomed?: boolean; calibrated?: boolean; quality?: string | null; stale?: string | null; draft?: boolean; captured?: boolean;
+  mode?: 'head' | 'fixed' };
 
 // Only the fields nextStep reads; the rest of the document is irrelevant here.
 function doc(s: State = {}): Document {

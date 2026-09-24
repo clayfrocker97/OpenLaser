@@ -105,12 +105,16 @@
     {#if step === 'setup'}
       <p class="muted">Fit the nozzle, keep the head clear of the sheet and nothing else on this gas. Then note the supply before opening the valve.</p>
       {#if routes.length > 1}
-        <div class="choices" role="group" aria-label="Valve">{#each routes as r (r.selector)}<button class="btn" class:btn-primary={r.selector === selector} aria-pressed={r.selector === selector} onclick={() => (selector = r.selector)}>{r.name}</button>{/each}</div>
+        <div class="choices" role="group" aria-label="Valve">{#each routes as r (r.selector)}<button
+            class="btn" class:btn-primary={r.selector === selector} aria-pressed={r.selector === selector}
+            onclick={() => (selector = r.selector)}>{r.name}</button>{/each}</div>
       {/if}
       <div class="fields">
         <button class="field" onclick={() => num('Test pressure', pressure, 'bar', v => { if (v > 0 && v <= 100) pressure = v; })}><span>{route?.pressure ? 'Pressure' : 'Regulator pressure'}</span><strong>{quantity(pressure, 'bar')}</strong></button>
         <button class="field" onclick={() => num('Nozzle diameter', diameter, 'mm', v => { if (v > 0 && v <= 20) diameter = v; })}><span>Nozzle</span><strong>{quantity(diameter, 'mm', 1)}</strong></button>
-        <div class="field seg-field"><span>Nozzle type</span><div class="seg"><button class:on={nozzleType === 'single'} onclick={() => (nozzleType = 'single')}>Single</button><button class:on={nozzleType === 'double'} onclick={() => (nozzleType = 'double')}>Double</button></div></div>
+        <div class="field seg-field"><span>Nozzle type</span><div class="seg"><button
+              class:on={nozzleType === 'single'} onclick={() => (nozzleType = 'single')}>Single</button><button
+              class:on={nozzleType === 'double'} onclick={() => (nozzleType = 'double')}>Double</button></div></div>
       </div>
       <div class="seg methods" role="group" aria-label="How you measure">{#each METHODS as m (m.id)}<button class:on={method === m.id} aria-pressed={method === m.id} onclick={() => (method = m.id)}>{m.label}</button>{/each}</div>
       <p class="muted">{METHODS.find(m => m.id === method)?.hint}{method === 'pressure' ? '. Let the gauge settle for a few minutes after the test.' : '.'}</p>

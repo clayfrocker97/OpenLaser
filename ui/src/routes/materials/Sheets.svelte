@@ -31,7 +31,10 @@
   const caps = $derived(ed.a.caps);
   const head = $derived(headMode(v));
   const start = $derived(cutStart(v));
-  const TITLES: Record<string, string> = { mode: 'Piercing mode', review: 'Review changes', inspector: 'Imported values', start: 'Cut start', end: 'Cut end', timing: 'Timing', head: 'Head movement', curves: 'Speed compensation', residue: 'Slag removal', pre: 'Batch pre-piercing', film: 'Film removal', shift: 'Contour shift' };
+  const TITLES: Record<string, string> = {
+    mode: 'Piercing mode', review: 'Review changes', inspector: 'Imported values', start: 'Cut start', end: 'Cut end', timing: 'Timing',
+    head: 'Head movement', curves: 'Speed compensation', residue: 'Slag removal', pre: 'Batch pre-piercing', film: 'Film removal', shift: 'Contour shift',
+  };
   const title = $derived(which === 'refine' ? `Stage ${Math.min(visible, Math.max(0, count - 1)) + 1} refinements` : TITLES[which] ?? which);
   const stages = $derived(Math.max(1, count));
   const setMode = (to: Mode, n = stages) => ed.setMany(modeEdits(v, to, n));
@@ -74,7 +77,8 @@
     {:else if which === 'inspector'}
       <Inspector {ed} {recipe} />
     {:else if which === 'start'}
-      <div class="toggle-row"><div><strong>Cut start</strong><small>A slower region at the start of every contour.</small></div><button class="switch" class:on={start.enabled} onclick={() => ed.setMany(cutStartEdits(v, { enabled: !start.enabled }))} aria-label="Cut start"></button></div>
+      <div class="toggle-row"><div><strong>Cut start</strong><small>A slower region at the start of every contour.</small></div><button
+        class="switch" class:on={start.enabled} onclick={() => ed.setMany(cutStartEdits(v, { enabled: !start.enabled }))} aria-label="Cut start"></button></div>
       {#if start.legacy}<div class="notice info">Editing replaces the legacy slow-start settings.</div>{/if}
       <div class="fields">
         <Field {ed} key="UD_UpLen" value={start.length} oncommit={(t) => ed.setMany(cutStartEdits(v, { length: t }))} />
@@ -92,7 +96,10 @@
       <div class="fields"><Field {ed} key="LaserOnDelay" /><Field {ed} key="LaserOffBeforeDelay" /><Field {ed} key="LaserOffAfterDelay" /></div>
     {:else if which === 'head'}
       {#if ed.a.height}
-        <div class="field"><span class="lbl">Head mode</span><div class="seg block"><button class:on={head === 'follow'} onclick={() => setHead('follow')}>Follow the sheet</button><button class:on={head === 'fixed'} onclick={() => setHead('fixed')}>Fixed height</button><button class:on={head === 'absolute'} onclick={() => setHead('absolute')}>Absolute height</button></div></div>
+        <div class="field"><span class="lbl">Head mode</span><div class="seg block"><button
+            class:on={head === 'follow'} onclick={() => setHead('follow')}>Follow the sheet</button><button
+            class:on={head === 'fixed'} onclick={() => setHead('fixed')}>Fixed height</button><button
+            class:on={head === 'absolute'} onclick={() => setHead('absolute')}>Absolute height</button></div></div>
         {#if head !== 'follow'}<p class="muted">A fixed or absolute head does not pierce in stages.</p>{/if}
         <div class="fields"><Field {ed} key="UpHeight" />{#if head === 'absolute'}<Field {ed} key="AdvFixHeightCutPos" />{/if}</div>
         <Field {ed} key="NoFollow" row value={isOn(v['NoFollow']) ? '0' : '1'} oncommit={(t) => ed.set('NoFollow', t === '1' ? '0' : '1')} />

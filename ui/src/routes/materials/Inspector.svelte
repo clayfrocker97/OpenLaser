@@ -21,7 +21,9 @@
     <h3>{g.title} · {g.keys.length}</h3>
     <p class="muted">{g.help}</p>
     {#each g.keys as key (key)}
-      <div class="row"><span><span class="mono">{key}</span> · {context(key)}{field(key).label}</span><span><b>{bare(key, recipe.attributes[key] ?? '')}</b>{#if field(key).unit && field(key).kind === 'number'}{' '}{unitLabel(field(key).unit ?? '')}{/if}<span class="state-tag {g.kind}">{g.title}</span></span></div>
+      <div class="row"><span><span class="mono">{key}</span> · {context(key)}{field(key).label}</span><span
+        ><b>{bare(key, recipe.attributes[key] ?? '')}</b>{#if field(key).unit && field(key).kind === 'number'}{' '}{unitLabel(field(key).unit ?? '')}{/if}<span
+        class="state-tag {g.kind}">{g.title}</span></span></div>
     {/each}
   {/each}
 </div>

@@ -44,7 +44,12 @@ export class RecipeEdits {
     if (this.saving[id]) return null;
     this.saving[id] = true;
     const film = this.film(id);
-    return { id, revision: this.revision, change: { attributes: this.attributes(id), expected_attributes: Object.fromEntries(Object.entries(this.entries[id]?.attributes ?? {}).map(([key, edit]) => [key, edit.base])), ...(film === undefined ? {} : { film, expected_film: this.entries[id]!.film!.base }) } };
+    const expected_attributes = Object.fromEntries(Object.entries(this.entries[id]?.attributes ?? {}).map(([key, edit]) => [key, edit.base]));
+    return {
+      id,
+      revision: this.revision,
+      change: { attributes: this.attributes(id), expected_attributes, ...(film === undefined ? {} : { film, expected_film: this.entries[id]!.film!.base }) },
+    };
   }
 
   finish(save: RecipeSave, success: boolean): void {
@@ -63,7 +68,9 @@ export class RecipeEdits {
   conflicts(recipe: RecipeView): Array<{ key: string; base: string; draft: string; saved: string }> {
     const edit = this.entries[recipe.id];
     if (!edit) return [];
-    const conflicts = Object.entries(edit.attributes).filter(([key, e]) => (recipe.attributes[key] ?? null) !== e.base && recipe.attributes[key] !== e.value).map(([key, e]) => ({ key, base: e.base ?? 'removed', draft: e.value, saved: recipe.attributes[key] ?? 'removed' }));
+    const conflicts = Object.entries(edit.attributes)
+      .filter(([key, e]) => (recipe.attributes[key] ?? null) !== e.base && recipe.attributes[key] !== e.value)
+      .map(([key, e]) => ({ key, base: e.base ?? 'removed', draft: e.value, saved: recipe.attributes[key] ?? 'removed' }));
     if (edit.film && recipe.film !== edit.film.base && recipe.film !== edit.film.value) conflicts.push({ key: '$film', base: edit.film.base ?? 'none', draft: edit.film.value ?? 'none', saved: recipe.film ?? 'none' });
     return conflicts;
   }
@@ -87,7 +94,9 @@ function restore(): Record<string, Edit> {
   try {
     const value: unknown = JSON.parse(localStorage.getItem('ol-recipe-drafts') ?? '{}');
     if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
-    return Object.fromEntries(Object.entries(value).filter(([, edit]) => edit && typeof edit === 'object' && edit.attributes && Object.values(edit.attributes).every((e: unknown) => e && typeof e === 'object' && 'value' in e && typeof e.value === 'string' && 'revision' in e && typeof e.revision === 'number' && 'base' in e)));
+    return Object.fromEntries(Object.entries(value).filter(([, edit]) => edit && typeof edit === 'object' && edit.attributes
+      && Object.values(edit.attributes).every((e: unknown) => e && typeof e === 'object'
+        && 'value' in e && typeof e.value === 'string' && 'revision' in e && typeof e.revision === 'number' && 'base' in e)));
   } catch { return {}; }
 }
 export const recipeEdits = new RecipeEdits();

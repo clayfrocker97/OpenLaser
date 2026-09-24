@@ -219,12 +219,18 @@
   header { display:flex; align-items:center; justify-content:space-between; gap:24px; margin-bottom:24px; }
   header p { color:var(--ink-3); margin:0; }
   nav { display:flex; gap:8px; margin-bottom:30px; }
-  nav button { flex:1; display:flex; align-items:center; gap:12px; padding:12px 18px; min-height:58px; border:1px solid var(--line); border-radius:10px; color:var(--ink-3); background:var(--panel-2); text-align:left; font-size:var(--t-base); cursor:pointer; }
+  nav button {
+    flex:1; display:flex; align-items:center; gap:12px; padding:12px 18px; min-height:58px; border:1px solid var(--line); border-radius:10px;
+    color:var(--ink-3); background:var(--panel-2); text-align:left; font-size:var(--t-base); cursor:pointer;
+  }
   nav button span { display:grid; place-items:center; width:27px; height:27px; border:1px solid var(--line); border-radius:50%; }
   nav button.current { color:var(--ink); border-color:var(--accent); background:color-mix(in srgb,var(--accent) 8%,var(--panel)); } nav .current span { color:white; background:var(--accent); border-color:var(--accent); }
   .cal-body { display:grid; grid-template-columns:minmax(0,1.3fr) minmax(290px,1fr); gap:38px; align-items:start; }
   .bed { display:grid; grid-template-columns:repeat(3,1fr); gap:18px; padding:22px; border:2px solid var(--line); border-radius:12px; background:var(--panel-2); }
-  .bed button { min-height:106px; display:flex; flex-direction:column; justify-content:center; align-items:center; gap:7px; border:1px solid var(--line); border-radius:8px; background:var(--panel); color:var(--ink); cursor:pointer; padding:10px 5px; }
+  .bed button {
+    min-height:106px; display:flex; flex-direction:column; justify-content:center; align-items:center; gap:7px; border:1px solid var(--line);
+    border-radius:8px; background:var(--panel); color:var(--ink); cursor:pointer; padding:10px 5px;
+  }
   .bed strong { font-size:var(--t-xl); }
   .bed span { font-size:var(--t-sm); }
   .bed small { font-size:var(--t-sm); color:var(--ink-3); }
@@ -249,5 +255,17 @@
   header .seg button { min-height:48px; }
   @media(max-width:950px) { .cal-body { gap:22px; } .bed { gap:12px; padding:14px; } .bed small { display:none; } }
   @media(max-width:720px) { .cal-body { grid-template-columns:1fr; } header { align-items:flex-start; } nav button { padding:10px; gap:8px; font-size:var(--t-sm); } }
-  @media(max-height:850px) { header { margin-bottom:12px; } nav { margin-bottom:14px; } nav button { min-height:50px; padding-block:8px; } .bed { gap:10px; padding:12px; } .bed button { min-height:80px; gap:4px; padding:7px; } .bed strong { font-size:var(--t-xl); } .bed-heading { padding:8px 0; } .step-content { padding-top:8px; } h3 { font-size:var(--t-xl); margin:10px 0 12px; } .step-content p { font-size:var(--t-sm); margin-bottom:12px; } .measurement { margin:14px 0; } }
+  @media(max-height:850px) {
+    header { margin-bottom:12px; }
+    nav { margin-bottom:14px; }
+    nav button { min-height:50px; padding-block:8px; }
+    .bed { gap:10px; padding:12px; }
+    .bed button { min-height:80px; gap:4px; padding:7px; }
+    .bed strong { font-size:var(--t-xl); }
+    .bed-heading { padding:8px 0; }
+    .step-content { padding-top:8px; }
+    h3 { font-size:var(--t-xl); margin:10px 0 12px; }
+    .step-content p { font-size:var(--t-sm); margin-bottom:12px; }
+    .measurement { margin:14px 0; }
+  }
 </style>

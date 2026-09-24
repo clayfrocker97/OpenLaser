@@ -103,8 +103,11 @@ export function cardFor(name: string): MaterialCard | null {
     [/^(ss|stainless)/, 'stainless-steel'], [/^(cs|carbon|mild|steel|ms\b)/, 'mild-steel'], [/^(al\b|alu)/, 'aluminum'],
     [/^(cu\b|copper)/, 'copper'], [/brass/, 'brass'], [/bronze/, 'bronze'], [/titanium|^ti\b/, 'titanium'], [/galvan/, 'galvanized-steel'],
     [/acrylic|pmma|plexi/, 'clear-acrylic'], [/delrin|acetal|pom/, 'acetal-delrin'], [/rubber/, 'laser-rubber'],
-    [/basswood/, 'basswood'], [/birch|ply/, 'birch-plywood'], [/mdf/, 'mdf'], [/hdf/, 'hdf'], [/oak/, 'red-oak'], [/walnut/, 'walnut'], [/maple/, 'maple'], [/cherry/, 'cherry'], [/pine/, 'pine'], [/balsa/, 'balsa'], [/bamboo/, 'bamboo-plywood'], [/cork/, 'cork'], [/veneer/, 'wood-veneer'], [/wood/, 'basswood'],
-    [/cardboard|corrugat/, 'corrugated-cardboard'], [/cardstock|card\b/, 'cardstock'], [/paper/, 'paper'], [/leather/, 'vegetable-tanned-leather'], [/felt/, 'wool-felt'], [/denim/, 'denim'], [/cotton/, 'cotton'], [/fabric|textile|cloth/, 'polyester-fabric'],
+    [/basswood/, 'basswood'], [/birch|ply/, 'birch-plywood'], [/mdf/, 'mdf'], [/hdf/, 'hdf'], [/oak/, 'red-oak'], [/walnut/, 'walnut'],
+    [/maple/, 'maple'], [/cherry/, 'cherry'], [/pine/, 'pine'], [/balsa/, 'balsa'], [/bamboo/, 'bamboo-plywood'], [/cork/, 'cork'],
+    [/veneer/, 'wood-veneer'], [/wood/, 'basswood'],
+    [/cardboard|corrugat/, 'corrugated-cardboard'], [/cardstock|card\b/, 'cardstock'], [/paper/, 'paper'], [/leather/, 'vegetable-tanned-leather'],
+    [/felt/, 'wool-felt'], [/denim/, 'denim'], [/cotton/, 'cotton'], [/fabric|textile|cloth/, 'polyester-fabric'],
     [/glass/, 'glass'], [/tile|ceramic/, 'ceramic-tile'], [/slate/, 'slate'], [/marble/, 'marble'], [/granite/, 'granite'],
   ];
   const id = alias.find(([pattern]) => pattern.test(key))?.[1];

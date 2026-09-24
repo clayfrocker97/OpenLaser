@@ -44,7 +44,8 @@ describe('gas and laser figures', () => {
     expect(pricePerM3({ kind: 'compressor', cost_per_hour: 2 })).toBeNull();
     expect([0, 1, 2, 3, 4, 5].map(gasOfSelector)).toEqual(['air', 'oxygen', 'nitrogen', 'air', 'oxygen', 'nitrogen']);
     const supply = { source: { kind: 'bulk', price_per_m3: 3 }, flow: { kind: 'estimated' }, calibration: null } as const;
-    const costs: GasCosts = { currency: '$', nitrogen: supply, oxygen: { ...supply, flow: { kind: 'manual', rate: 40 } }, air: { ...supply, calibration: { factor: 1.12, at: 0, pressure: 6, nozzle: { diameter: 1.5, kind: 'single' }, estimated: 100, measured: 112 } } };
+    const costs: GasCosts = { currency: '$', nitrogen: supply, oxygen: { ...supply, flow: { kind: 'manual', rate: 40 } },
+      air: { ...supply, calibration: { factor: 1.12, at: 0, pressure: 6, nozzle: { diameter: 1.5, kind: 'single' }, estimated: 100, measured: 112 } } };
     expect(calibrationStatus(costs, 'nitrogen')).toMatch(/Not calibrated/);
     expect(calibrationStatus(costs, 'oxygen')).toMatch(/Manual flow/);
     expect(calibrationStatus(costs, 'air')).toMatch(/^Calibrated ×1\.12 · .* · 6\.00 bar · 1\.50 mm single$/);

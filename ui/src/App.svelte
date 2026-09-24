@@ -101,4 +101,9 @@
   <WorkspaceOverlays />
 </div>
 
-<style>.pending-btn { position: relative; } .pending-btn .badge { margin-left: 8px; background: var(--accent); }.app:has(.persistence-error) { grid-template-rows:68px auto minmax(0,1fr); }.persistence-error { padding: 8px 20px; background: var(--warn-soft); color: var(--warn); }</style>
+<style>
+  .pending-btn { position: relative; }
+  .pending-btn .badge { margin-left: 8px; background: var(--accent); }
+  .app:has(.persistence-error) { grid-template-rows:68px auto minmax(0,1fr); }
+  .persistence-error { padding: 8px 20px; background: var(--warn-soft); color: var(--warn); }
+</style>

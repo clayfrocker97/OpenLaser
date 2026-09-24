@@ -11,7 +11,14 @@
   import ImportRecipes from './ImportRecipes.svelte';
   import type { RecipeView } from '../../api';
 
-  let { recipes, selected, onselect, onadd, selectOnExpand = true }: { recipes: RecipeView[]; selected: RecipeView | null; /** Whether the selection took. */ onselect: (recipe: RecipeView) => boolean; onadd: () => void; selectOnExpand?: boolean } = $props();
+  let { recipes, selected, onselect, onadd, selectOnExpand = true }: {
+    recipes: RecipeView[];
+    selected: RecipeView | null;
+    /** Whether the selection took. */
+    onselect: (recipe: RecipeView) => boolean;
+    onadd: () => void;
+    selectOnExpand?: boolean;
+  } = $props();
 
   let search = $state('');
   let open = $state<string | null>(null);
@@ -75,7 +82,9 @@
           {#each gasesOf(m) as gas (gas)}
             <span class="gas">{gas}</span>
             {#each m.recipes.filter((r) => r.gas === gas) as r (r.id)}
-              <button class="rec" class:on={r.id === selected?.id} aria-pressed={r.id === selected?.id} onclick={() => onselect(r)}><strong>{r.thickness_mm > 0 ? quantity(r.thickness_mm, 'mm') : 'No thickness'}</strong><MaterialSummary source={r} variant="line" /></button>
+              <button
+                class="rec" class:on={r.id === selected?.id} aria-pressed={r.id === selected?.id} onclick={() => onselect(r)}
+              ><strong>{r.thickness_mm > 0 ? quantity(r.thickness_mm, 'mm') : 'No thickness'}</strong><MaterialSummary source={r} variant="line" /></button>
             {/each}
           {/each}
         {/if}
