@@ -158,6 +158,15 @@ pub struct Folder {
     pub favourite: bool,
 }
 
+/// The colour a file gives one of its layers.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LayerColor {
+    /// The layer.
+    pub layer: String,
+    /// Red, green and blue.
+    pub color: [u8; 3],
+}
+
 /// An imported drawing.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Part {
@@ -182,6 +191,9 @@ pub struct Part {
     pub sha256: String,
     /// The geometry in millimetres.
     pub drawing: std::sync::Arc<Drawing>,
+    /// The colours the file gives its layers.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub colors: Vec<LayerColor>,
     /// Whether it is starred.
     #[serde(default)]
     pub favourite: bool,
@@ -321,9 +333,9 @@ impl Anchor {
     }
 }
 
-/// How one drawing layer is cut: with the job's recipe or its own, and
-/// through the sheet or only on its surface. A layer left uncut is in the
-/// features' skipped layers instead.
+/// The recipe one drawing layer runs with: the job's or its own. What the
+/// layer does to the sheet and its machining are in the features' layers;
+/// a layer left uncut is in their skipped layers.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct LayerChoice {
     /// The layer's name.
@@ -331,10 +343,6 @@ pub struct LayerChoice {
     /// Its own recipe, as it was when chosen; none cuts it with the job's.
     #[serde(default)]
     pub recipe: Option<Recipe>,
-    /// Engraved on the surface: no kerf, leads, joints or cooling, never a
-    /// hole or an outline, and before the cuts.
-    #[serde(default)]
-    pub engrave: bool,
 }
 
 /// A frozen job: its parts, a snapshot of the recipe, the machining
@@ -589,6 +597,17 @@ impl Library {
 
     /// Imports a drawing, keeping the original bytes.
     pub fn add_part(&mut self, file_name: &str, bytes: &[u8], drawing: Drawing) -> Result<Part> {
+        self.add_colored_part(file_name, bytes, drawing, Vec::new())
+    }
+
+    /// Imports a drawing with the colours its file gives its layers.
+    pub fn add_colored_part(
+        &mut self,
+        file_name: &str,
+        bytes: &[u8],
+        drawing: Drawing,
+        colors: Vec<LayerColor>,
+    ) -> Result<Part> {
         let name = clean_name(
             Path::new(file_name).file_stem().and_then(|s| s.to_str()).unwrap_or(file_name),
         )?;
@@ -611,6 +630,7 @@ impl Library {
             file_name: file_name.to_owned(),
             sha256,
             drawing: std::sync::Arc::new(drawing),
+            colors,
             favourite: false,
             created: now,
             updated: now,

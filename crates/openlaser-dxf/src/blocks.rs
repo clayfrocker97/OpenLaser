@@ -8,6 +8,7 @@
 //! mirrors, and the arcs it mirrors run the other way. An entity on layer
 //! `0` takes the layer of the reference that places it.
 
+use crate::colors::Color;
 use crate::entities::text::TextEntity;
 use crate::entities::{Entity, Insert, Read};
 use crate::{Error, Result, Skipped};
@@ -34,7 +35,9 @@ pub(crate) struct Block {
 /// Every entity of the drawing where it lies, and on which layer.
 #[derive(Default)]
 pub(crate) struct Placed<'a> {
-    pub entities: Vec<(&'a Entity, Transform, String)>,
+    /// Each entity with where it lies, its layer, and its own colour when
+    /// it has one rather than its layer's.
+    pub entities: Vec<(&'a Entity, Transform, String, Option<[u8; 3]>)>,
     pub texts: Vec<(&'a TextEntity, Transform, String)>,
     pub skipped: Vec<Skipped>,
     pub paper: usize,
@@ -51,7 +54,7 @@ pub(crate) fn expand<'a>(top: &'a Read, blocks: &'a BTreeMap<String, Block>) -> 
     };
     let mut expansion =
         Expansion { blocks, placed: &mut placed, stack: Vec::new(), used: Vec::new() };
-    expansion.read(top, &Transform::IDENTITY, None)?;
+    expansion.read(top, &Transform::IDENTITY, None, None)?;
     Ok(placed)
 }
 
@@ -66,19 +69,27 @@ struct Expansion<'a, 'p> {
 
 impl<'a> Expansion<'a, '_> {
     /// Places what `read` holds through `transform`; entities on layer `0`
-    /// take `inherited` when a reference places them.
+    /// take `inherited` when a reference places them, and entities coloured
+    /// by block take the reference's colour, `block`.
     fn read(
         &mut self,
         read: &'a Read,
         transform: &Transform,
         inherited: Option<&str>,
+        block: Option<[u8; 3]>,
     ) -> Result<()> {
         let layer = |own: &str| match inherited {
             Some(outer) if own == "0" => outer.to_owned(),
             _ => own.to_owned(),
         };
+        let color = |own: Color| match own {
+            Color::Rgb(rgb) => Some(rgb),
+            Color::ByBlock => block,
+            Color::ByLayer => None,
+        };
         for entity in &read.entities {
-            self.placed.entities.push((entity, *transform, layer(&entity.layer)));
+            let placed = (entity, *transform, layer(&entity.layer), color(entity.color));
+            self.placed.entities.push(placed);
         }
         for (text, own) in &read.texts {
             self.placed.texts.push((text, transform.after(own), layer(&text.layer)));
@@ -91,12 +102,18 @@ impl<'a> Expansion<'a, '_> {
         }
         for insert in &read.inserts {
             let layer = layer(&insert.layer);
-            self.insert(insert, transform, &layer)?;
+            self.insert(insert, transform, &layer, color(insert.color))?;
         }
         Ok(())
     }
 
-    fn insert(&mut self, insert: &'a Insert, outer: &Transform, layer: &str) -> Result<()> {
+    fn insert(
+        &mut self,
+        insert: &'a Insert,
+        outer: &Transform,
+        layer: &str,
+        color: Option<[u8; 3]>,
+    ) -> Result<()> {
         let key = insert.block.to_uppercase();
         let block = self.blocks.get(&key).ok_or_else(|| Error::Block {
             line: insert.line,
@@ -131,7 +148,7 @@ impl<'a> Expansion<'a, '_> {
         let base = Transform::translation(-block.base);
         for copy in &insert.copies {
             let transform = outer.after(&copy.after(&base));
-            self.read(&block.read, &transform, Some(layer))?;
+            self.read(&block.read, &transform, Some(layer), color)?;
         }
         self.stack.pop();
         Ok(())

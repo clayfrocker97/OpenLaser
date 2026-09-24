@@ -5,6 +5,7 @@ import type { Cooling } from "./Cooling";
 import type { CutOrder } from "./CutOrder";
 import type { Joints } from "./Joints";
 import type { Kerf } from "./Kerf";
+import type { Layer } from "./Layer";
 import type { LayerEdit } from "./LayerEdit";
 import type { Leads } from "./Leads";
 import type { Seam } from "./Seam";
@@ -58,4 +59,9 @@ skip_layers: Array<string>,
  * Shapes moved to another layer than the drawing gives them; left
  * out of the file when there are none, as earlier builds wrote it.
  */
-layer_edits?: Array<LayerEdit>, };
+layer_edits?: Array<LayerEdit>,
+/**
+ * The layers in the order they run, with what each does and its own
+ * colour and machining. Empty until the operator changes a layer.
+ */
+layers?: Array<Layer>, };

@@ -16,7 +16,20 @@ use usvg::tiny_skia_path::PathSegment;
 
 const MAX_SEGMENTS: usize = 1_000_000;
 
-pub(crate) fn drawing(tree: &usvg::Tree, mm_per_px: f64, tolerance: f64) -> Result<Drawing> {
+/// A layer's name and its colour.
+pub(crate) type LayerColor = (String, [u8; 3]);
+
+/// The layer of paths outside any named group.
+const DEFAULT_LAYER: &str = "0";
+
+/// The drawing, and the colour of each layer that has one. Paths outside a
+/// named group are on a layer of their colour, as a laser program names
+/// layers by colour; black ones stay on the default layer.
+pub(crate) fn drawing(
+    tree: &usvg::Tree,
+    mm_per_px: f64,
+    tolerance: f64,
+) -> Result<(Drawing, Vec<LayerColor>)> {
     let mut reader = Reader {
         drawing: Drawing::default(),
         height: f64::from(tree.size().height()) * mm_per_px,
@@ -24,9 +37,25 @@ pub(crate) fn drawing(tree: &usvg::Tree, mm_per_px: f64, tolerance: f64) -> Resu
         tolerance,
         count: 0,
         paints: None,
+        colors: Vec::new(),
     };
-    reader.group(tree.root(), "0", 0)?;
-    Ok(reader.drawing)
+    reader.group(tree.root(), DEFAULT_LAYER, 0)?;
+    Ok((reader.drawing, reader.colors))
+}
+
+/// A path's colour: its stroke's, else its fill's, when it is a plain one.
+fn color(path: &usvg::Path) -> Option<[u8; 3]> {
+    let paint =
+        path.stroke().map(usvg::Stroke::paint).or_else(|| path.fill().map(usvg::Fill::paint))?;
+    match paint {
+        usvg::Paint::Color(c) => Some([c.red, c.green, c.blue]),
+        _ => None,
+    }
+}
+
+/// A colour's name as a layer: hex, as the file writes it.
+fn color_name(rgb: [u8; 3]) -> String {
+    format!("#{:02X}{:02X}{:02X}", rgb[0], rgb[1], rgb[2])
 }
 
 struct Reader {
@@ -36,6 +65,8 @@ struct Reader {
     tolerance: f64,
     count: usize,
     paints: Option<Vec<(std::ops::Range<usize>, usvg::FillRule)>>,
+    /// The colour of each layer that has one, first path first.
+    colors: Vec<LayerColor>,
 }
 
 impl Reader {
@@ -57,7 +88,17 @@ impl Reader {
                 usvg::Node::Group(group) => self.group(group, layer, depth + 1)?,
                 usvg::Node::Path(path) if path.is_visible() && visible_paint(path) => {
                     let start = self.drawing.contours.len();
-                    self.path(path, layer)?;
+                    let rgb = color(path).filter(|rgb| *rgb != [0, 0, 0]);
+                    let named = match rgb {
+                        Some(rgb) if layer == DEFAULT_LAYER => color_name(rgb),
+                        _ => layer.to_owned(),
+                    };
+                    if let Some(rgb) = rgb
+                        && !self.colors.iter().any(|(name, _)| *name == named)
+                    {
+                        self.colors.push((named.clone(), rgb));
+                    }
+                    self.path(path, &named)?;
                     if let Some(paints) = &mut self.paints {
                         paints.push((
                             start..self.drawing.contours.len(),
@@ -98,8 +139,14 @@ impl Reader {
             tolerance: self.tolerance,
             count: self.count,
             paints: Some(Vec::new()),
+            colors: Vec::new(),
         };
         reader.group(text.flattened(), layer, depth)?;
+        for (name, rgb) in reader.colors {
+            if !self.colors.iter().any(|(known, _)| *known == name) {
+                self.colors.push((name, rgb));
+            }
+        }
         let paints = reader.paints.unwrap_or_default();
         let contours = crate::weld::text(&reader.drawing.contours, &paints);
         let count = contours.iter().map(|contour| contour.curves.len()).sum::<usize>();

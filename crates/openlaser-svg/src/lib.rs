@@ -109,6 +109,9 @@ pub struct Import {
     pub scale: Option<Scale>,
     /// What was repaired, and where.
     pub repairs: Repairs,
+    /// The colour of each layer that has one; paths outside a named group
+    /// are on a layer of their colour.
+    pub colors: Vec<(String, [u8; 3])>,
 }
 
 /// Imports SVG paths and text without executing scripts or loading resources.
@@ -157,7 +160,7 @@ pub fn import_with(bytes: &[u8], fonts: &Fonts, options: &Options) -> Result<Imp
     let warnings = Mutex::new(BTreeSet::new());
     let fonts = fonts.options(&warnings);
     let tree = usvg::Tree::from_str(source, &fonts).map_err(|e| Error(format!("SVG: {e}")))?;
-    let drawing = paths::drawing(&tree, mm_per_px, options.tolerance)?;
+    let (drawing, colors) = paths::drawing(&tree, mm_per_px, options.tolerance)?;
     if drawing.contours.is_empty() {
         return Err(Error("the SVG has no visible paths or text outlines".into()));
     }
@@ -174,6 +177,7 @@ pub fn import_with(bytes: &[u8], fonts: &Fonts, options: &Options) -> Result<Imp
         units,
         scale,
         repairs: Repairs { gaps, duplicates, mirrored: Vec::new() },
+        colors,
     })
 }
 
@@ -248,6 +252,24 @@ mod tests {
 
     fn svg(body: &str) -> Vec<u8> {
         format!("<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100mm\" height=\"50mm\" viewBox=\"0 0 100 50\">{body}</svg>").into_bytes()
+    }
+
+    /// Paths outside a named group are on a layer of their colour; black
+    /// stays on the default layer, and a named group keeps its name.
+    #[test]
+    fn colours_make_layers_and_named_groups_keep_theirs() {
+        let result = import(&svg(concat!(
+            "<path fill=\"none\" stroke=\"black\" d=\"M0 0L10 0\"/>",
+            "<path fill=\"none\" stroke=\"#ff0000\" d=\"M0 5L10 5\"/>",
+            "<g id=\"Etch\"><path fill=\"none\" stroke=\"blue\" d=\"M0 9L10 9\"/></g>",
+        )))
+        .unwrap();
+        let layers: Vec<_> = result.drawing.contours.iter().map(|c| c.layer.as_str()).collect();
+        assert_eq!(layers, ["0", "#FF0000", "Etch"]);
+        assert_eq!(
+            result.colors,
+            [("#FF0000".to_owned(), [255, 0, 0]), ("Etch".to_owned(), [0, 0, 255])]
+        );
     }
 
     #[test]

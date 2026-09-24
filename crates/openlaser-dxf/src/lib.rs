@@ -31,6 +31,7 @@
 )]
 
 mod blocks;
+mod colors;
 mod entities;
 mod pairs;
 
@@ -190,6 +191,10 @@ pub struct Import {
     pub warnings: Vec<String>,
     /// The layers that hold geometry, in the order first drawn.
     pub layers: Vec<Layer>,
+    /// The colour of each imported layer that has one. An entity coloured
+    /// otherwise than its layer is on a layer of its own, named after the
+    /// layer and its colour, such as `0 Red`.
+    pub colors: Vec<(String, [u8; 3])>,
     /// What was repaired, and where.
     pub repairs: Repairs,
 }
@@ -231,9 +236,23 @@ pub fn import_with(bytes: &[u8], options: &Options) -> Result<Import> {
     let mut repairs = Repairs::default();
     let mut pieces = Vec::new();
     let mut curves = 0usize;
-    for (entity, transform, layer) in &placed.entities {
+    let mut colors: Vec<(String, [u8; 3])> = Vec::new();
+    for (entity, transform, layer, own) in &placed.entities {
         if !chosen.contains(&layer.to_uppercase()) {
             continue;
+        }
+        let by_layer = sections.colors.get(&layer.to_uppercase()).copied();
+        // Shapes of another colour than their layer's are a layer of their own.
+        let (layer, color) = match own {
+            Some(rgb) if Some(*rgb) != by_layer => {
+                (&format!("{layer} {}", colors::name(*rgb)), Some(*rgb))
+            }
+            _ => (layer, by_layer),
+        };
+        if let Some(rgb) = color
+            && !colors.iter().any(|(name, _)| name == layer)
+        {
+            colors.push((layer.clone(), rgb));
         }
         let contour = place(entity, transform, layer, scale, options.tolerance)?;
         curves = curves.saturating_add(contour.curves.len());
@@ -265,6 +284,7 @@ pub fn import_with(bytes: &[u8], options: &Options) -> Result<Import> {
         skipped,
         warnings,
         layers,
+        colors,
         repairs,
     })
 }
@@ -345,7 +365,7 @@ fn layers(
     let names = placed
         .entities
         .iter()
-        .map(|(_, _, layer)| layer)
+        .map(|(_, _, layer, _)| layer)
         .chain(placed.texts.iter().map(|(_, _, layer)| layer));
     for name in names {
         let key = name.to_uppercase();
@@ -409,6 +429,8 @@ struct Sections<'a> {
     entities: Read,
     /// Whether each layer, by upper-case name, is turned off or frozen.
     layers: BTreeMap<String, bool>,
+    /// Each layer's colour, by upper-case name.
+    colors: BTreeMap<String, [u8; 3]>,
     blocks: BTreeMap<String, blocks::Block>,
     /// The block being read.
     block: Option<(String, blocks::Block)>,
@@ -423,6 +445,7 @@ impl<'a> Sections<'a> {
             units: Units::Unspecified,
             entities: Read::default(),
             layers: BTreeMap::new(),
+            colors: BTreeMap::new(),
             blocks: BTreeMap::new(),
             block: None,
         };
@@ -498,6 +521,11 @@ impl<'a> Sections<'a> {
             let off = fields.number(62)?.is_some_and(|colour| colour < 0.);
             let frozen = fields.flags(70)? & 1 != 0;
             self.layers.insert(name.to_uppercase(), off || frozen);
+            if let colors::Color::Rgb(rgb) =
+                colors::from_groups(fields.number(62)?, fields.number(420)?)
+            {
+                self.colors.insert(name.to_uppercase(), rgb);
+            }
         }
         self.at = end;
         Ok(())
@@ -547,6 +575,32 @@ mod tests {
             "0\nSECTION\n2\nHEADER\n9\n$INSUNITS\n70\n{units}\n0\nENDSEC\n0\nSECTION\n2\nENTITIES\n{entities}0\nENDSEC\n0\nEOF\n"
         )
         .into_bytes()
+    }
+
+    /// Layers keep the table's colour; an entity of another colour than its
+    /// layer's is on a layer of its own, so it never joins its neighbours.
+    #[test]
+    fn colours_come_from_the_layer_table_and_entities_of_their_own_colour() {
+        let text = "0\nSECTION\n2\nTABLES\n0\nTABLE\n2\nLAYER\n0\nLAYER\n2\nCUT\n70\n0\n62\n1\n0\nENDTAB\n0\nENDSEC\n\
+            0\nSECTION\n2\nENTITIES\n\
+            0\nLINE\n8\nCUT\n10\n0\n20\n0\n11\n10\n21\n0\n\
+            0\nLINE\n8\nCUT\n62\n5\n10\n10\n20\n0\n11\n10\n21\n10\n\
+            0\nLINE\n8\nCUT\n62\n1\n10\n10\n20\n10\n11\n0\n21\n10\n\
+            0\nCIRCLE\n8\nMARK\n420\n1193046\n10\n5\n20\n5\n40\n1\n0\nENDSEC\n0\nEOF\n";
+        let import = import(text.as_bytes()).unwrap();
+        let layers: Vec<_> = import.drawing.contours.iter().map(|c| c.layer.as_str()).collect();
+        assert_eq!(layers.iter().filter(|l| **l == "CUT Blue").count(), 1, "{layers:?}");
+        assert!(layers.contains(&"MARK #123456"));
+        // The red lines meet only through the blue one, so they stay apart.
+        assert_eq!(import.drawing.contours.iter().filter(|c| c.layer == "CUT").count(), 2);
+        assert_eq!(
+            import.colors,
+            [
+                ("CUT".to_owned(), [255, 0, 0]),
+                ("CUT Blue".to_owned(), [0, 0, 255]),
+                ("MARK #123456".to_owned(), [18, 52, 86])
+            ]
+        );
     }
 
     /// Geometry we cannot cut is refused by name, and files that are not

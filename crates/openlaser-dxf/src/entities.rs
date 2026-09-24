@@ -52,6 +52,8 @@ pub(crate) enum Piece {
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct Entity {
     pub layer: String,
+    /// Its own colour, or its layer's or block reference's.
+    pub color: crate::colors::Color,
     pub pieces: Vec<Piece>,
     /// The line it starts on.
     pub line: usize,
@@ -67,6 +69,8 @@ pub(crate) struct Entity {
 pub(crate) struct Insert {
     pub block: String,
     pub layer: String,
+    /// The colour its block's by-block entities take.
+    pub color: crate::colors::Color,
     pub copies: Vec<Transform>,
     pub line: usize,
 }
@@ -140,7 +144,8 @@ pub(crate) fn read(pairs: &[Pair<'_>], start: usize, read: &mut Read) -> Result<
         _ => return Err(Error::Unsupported { line, entity: name }),
     };
     let pieces = if flipped { pieces.iter().map(mirrored).collect() } else { pieces };
-    read.entities.push(Entity { layer: fields.layer(), pieces, line, name, flipped });
+    let color = fields.color()?;
+    read.entities.push(Entity { layer: fields.layer(), color, pieces, line, name, flipped });
     Ok(next)
 }
 
@@ -240,6 +245,11 @@ impl Fields<'_> {
     /// The number in group `code`, which must be present.
     pub(crate) fn required(&self, code: i32) -> Result<f64> {
         self.number(code)?.ok_or_else(|| self.error(format!("group {code} is missing")))
+    }
+
+    /// The colour: its own, its layer's, or its block reference's.
+    pub(crate) fn color(&self) -> Result<crate::colors::Color> {
+        Ok(crate::colors::from_groups(self.number(62)?, self.number(420)?))
     }
 
     /// The layer, `0` when unnamed.
@@ -396,7 +406,7 @@ impl Fields<'_> {
                 copies.push(if flipped { FLIP.after(&placed) } else { placed });
             }
         }
-        Ok(Insert { block, layer: self.layer(), copies, line: self.line })
+        Ok(Insert { block, layer: self.layer(), color: self.color()?, copies, line: self.line })
     }
 
     /// Refuses a polyline drawn with width.

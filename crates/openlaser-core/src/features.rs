@@ -40,6 +40,77 @@ pub struct Features {
     #[serde(skip_serializing_if = "Vec::is_empty")]
     #[cfg_attr(feature = "typescript", ts(as = "Option<Vec<LayerEdit>>", optional))]
     pub layer_edits: Vec<LayerEdit>,
+    /// The layers in the order they run, with what each does and its own
+    /// colour and machining. Empty until the operator changes a layer.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[cfg_attr(feature = "typescript", ts(as = "Option<Vec<Layer>>", optional))]
+    pub layers: Vec<Layer>,
+}
+
+/// What a layer does to the sheet.
+#[cfg_attr(feature = "typescript", derive(ts_rs::TS), ts(export))]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LayerMode {
+    /// Cut through: its closed shapes are the parts and their holes.
+    #[default]
+    Cut,
+    /// Traced on the surface: never a part or a hole, and without the
+    /// job's machining unless the layer has its own.
+    Mark,
+}
+
+/// One of the job's layers.
+#[cfg_attr(feature = "typescript", derive(ts_rs::TS), ts(export))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Layer {
+    /// Its name.
+    pub name: String,
+    /// What it does to the sheet.
+    #[serde(default)]
+    pub mode: LayerMode,
+    /// Its colour on screen, over the drawing's own.
+    #[serde(default)]
+    pub color: Option<[u8; 3]>,
+    /// Its own machining, over the job's.
+    #[serde(default)]
+    pub machining: Option<Machining>,
+}
+
+/// What happens along a layer's contours, when the layer has its own.
+/// Picked places, such as manual starts, joints and lead edits, stay the
+/// job's, so a layer's manual joints are the job's manual joints.
+#[cfg_attr(feature = "typescript", derive(ts_rs::TS), ts(export))]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Machining {
+    /// Entry and exit leads.
+    pub leads: Option<Leads>,
+    /// Micro-joints.
+    pub joints: Option<Joints>,
+    /// Cooling stops.
+    pub cooling: Option<Cooling>,
+    /// Kerf compensation.
+    pub kerf: Option<Kerf>,
+    /// Where each contour starts and which way it runs.
+    pub start: Start,
+    /// How a closed contour's seam is treated.
+    pub seam: Seam,
+}
+
+impl Machining {
+    /// The job's own machining, as a layer starts from it.
+    #[must_use]
+    pub fn of(features: &Features) -> Self {
+        Self {
+            leads: features.leads.clone(),
+            joints: features.joints.clone(),
+            cooling: features.cooling.clone(),
+            kerf: features.kerf,
+            start: features.start.clone(),
+            seam: features.seam,
+        }
+    }
 }
 
 /// One shape on a layer of the operator's choosing. The shape is a contour
@@ -54,6 +125,58 @@ pub struct LayerEdit {
 }
 
 impl Features {
+    /// The layer's entry in the table, when it has one.
+    #[must_use]
+    pub fn layer(&self, name: &str) -> Option<&Layer> {
+        self.layers.iter().find(|l| l.name == name)
+    }
+
+    /// What the layer does to the sheet.
+    #[must_use]
+    pub fn mode(&self, name: &str) -> LayerMode {
+        self.layer(name).map_or(LayerMode::Cut, |l| l.mode)
+    }
+
+    /// The features a layer's contours are prepared with: its own
+    /// machining over the job's, keeping the job's picked places. A marked
+    /// layer without machining of its own has none.
+    #[must_use]
+    pub fn for_layer(&self, name: &str) -> std::borrow::Cow<'_, Self> {
+        let Some(layer) = self.layer(name) else { return std::borrow::Cow::Borrowed(self) };
+        let own = match (&layer.machining, layer.mode) {
+            (Some(machining), _) => machining.clone(),
+            (None, LayerMode::Mark) => Machining::default(),
+            (None, LayerMode::Cut) => return std::borrow::Cow::Borrowed(self),
+        };
+        let mut features = self.clone();
+        features.leads = own.leads.map(|mut leads| {
+            leads.overrides = self.leads.as_ref().map(|l| l.overrides.clone()).unwrap_or_default();
+            leads
+        });
+        features.joints = own.joints.map(|mut joints| {
+            if matches!(joints.placement, JointPlacement::Manual(_)) {
+                joints.placement = match self.joints.as_ref().map(|j| &j.placement) {
+                    Some(manual @ JointPlacement::Manual(_)) => manual.clone(),
+                    _ => JointPlacement::Manual(Vec::new()),
+                };
+            }
+            joints
+        });
+        features.cooling = own.cooling.map(|mut cooling| {
+            if matches!(cooling.placement, CoolingPlacement::Manual(_)) {
+                cooling.placement = match self.cooling.as_ref().map(|c| &c.placement) {
+                    Some(manual @ CoolingPlacement::Manual(_)) => manual.clone(),
+                    _ => CoolingPlacement::Manual(Vec::new()),
+                };
+            }
+            cooling
+        });
+        features.kerf = own.kerf;
+        features.start = Start { spots: self.start.spots.clone(), ..own.start };
+        features.seam = own.seam;
+        std::borrow::Cow::Owned(features)
+    }
+
     /// Machining defaults for another drawing. Widths, speeds and automatic
     /// strategies carry over; picked locations and layer choices do not.
     #[must_use]
@@ -71,6 +194,7 @@ impl Features {
         }
         features.skip_layers.clear();
         features.layer_edits.clear();
+        features.layers.clear();
         features
     }
 
@@ -454,6 +578,38 @@ mod tests {
     use super::*;
 
     #[test]
+    fn a_layer_takes_its_own_machining_and_keeps_the_jobs_picked_places() {
+        let spot = Spot { contour: 3, fraction: 0.25 };
+        let kerf = Kerf { width: Millimeters(0.2), side: Side::Auto };
+        let job = Features {
+            kerf: Some(kerf),
+            start: Start { spots: vec![spot], ..Start::default() },
+            layers: vec![
+                Layer { name: "Mark".into(), mode: LayerMode::Mark, color: None, machining: None },
+                Layer {
+                    name: "Slots".into(),
+                    mode: LayerMode::Cut,
+                    color: None,
+                    machining: Some(Machining {
+                        seam: Seam::Overcut(Millimeters(1.)),
+                        ..Machining::default()
+                    }),
+                },
+            ],
+            ..Features::default()
+        };
+        assert_eq!(*job.for_layer("0"), job, "a layer without an entry cuts as the job");
+        let mark = job.for_layer("Mark");
+        assert!(mark.kerf.is_none(), "a mark has no machining of its own, so none");
+        assert_eq!(mark.start.spots, [spot]);
+        let slots = job.for_layer("Slots");
+        assert!(slots.kerf.is_none() && slots.seam == Seam::Overcut(Millimeters(1.)));
+        assert_eq!(job.mode("Mark"), LayerMode::Mark);
+        assert_eq!(job.mode("0"), LayerMode::Cut);
+        assert_eq!(Machining::of(&job).kerf, Some(kerf));
+    }
+
+    #[test]
     fn reusable_defaults_keep_settings_without_drawing_anchors() {
         let spot = Spot { contour: 3, fraction: 0.4 };
         let features = Features {
@@ -546,6 +702,12 @@ mod tests {
             },
             skip_layers: vec!["NOTES".into()],
             layer_edits: vec![LayerEdit { contour: 2, layer: "Etch".into() }],
+            layers: vec![Layer {
+                name: "Etch".into(),
+                mode: LayerMode::Mark,
+                color: Some([255, 0, 0]),
+                machining: Some(Machining::default()),
+            }],
         };
         let json = serde_json::to_string(&features).unwrap();
         assert_eq!(serde_json::from_str::<Features>(&json).unwrap(), features);

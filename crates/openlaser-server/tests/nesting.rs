@@ -56,7 +56,7 @@ async fn setup(shared: &Shared) {
     c.set_features(Features::default()).unwrap();
     // Two layers: each is cut with the job's recipe.
     for layer in ["Cut", "Hole"] {
-        let change = LayerChange::Cut { layer: layer.into(), recipe: None, engrave: false };
+        let change = LayerChange::Recipe { layer: layer.into(), recipe: None };
         c.change_layers(change).unwrap();
     }
     drop(c);

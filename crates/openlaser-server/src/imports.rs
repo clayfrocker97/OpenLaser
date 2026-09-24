@@ -161,6 +161,13 @@ pub(crate) struct Import {
     pub layers: Vec<ImportLayer>,
     pub scale: Option<ScaleReview>,
     pub repairs: Repairs,
+    /// The colours the file gives its layers.
+    pub colors: Vec<openlaser_library::LayerColor>,
+}
+
+/// The colours an importer found, as the library keeps them.
+fn colors(found: Vec<(String, [u8; 3])>) -> Vec<openlaser_library::LayerColor> {
+    found.into_iter().map(|(layer, color)| openlaser_library::LayerColor { layer, color }).collect()
 }
 
 impl Import {
@@ -209,6 +216,7 @@ fn svg(bytes: &[u8], fonts: &openlaser_svg::Fonts, options: &ImportOptions) -> R
         layers: Vec::new(),
         scale: Some(ScaleReview { units, scale: imported.scale.map(Into::into) }),
         repairs: imported.repairs,
+        colors: colors(imported.colors),
     })
 }
 
@@ -253,6 +261,7 @@ fn dxf(bytes: &[u8], options: &ImportOptions) -> Result<Import> {
             .collect(),
         scale: None,
         repairs: imported.repairs,
+        colors: colors(imported.colors),
     })
 }
 

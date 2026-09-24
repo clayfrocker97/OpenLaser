@@ -852,7 +852,8 @@ impl Coordinator {
         import: crate::imports::Import,
     ) -> Result<PartView> {
         let notices = import.notices();
-        let part = self.library.add_part(file_name, bytes, import.drawing)?;
+        let part =
+            self.library.add_colored_part(file_name, bytes, import.drawing, import.colors)?;
         let view = PartView::new(&part);
         self.library_changed();
         if !notices.is_empty() {

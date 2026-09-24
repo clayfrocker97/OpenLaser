@@ -379,9 +379,7 @@ impl Draft {
         let automatic = groups(drawing, &self.current.placed, &[]);
         let matching = crate::correspondence::matching(drawing, &self.current.placed, &automatic);
         self.groups = self.current.grouping.resolve(automatic);
-        let engraved = crate::layers::engraved(&self.current.layers);
-        let prepared = prepare(drawing, &self.current.placed, &self.current.features, &engraved);
-        match prepared.and_then(|prepared| {
+        match prepare(drawing, &self.current.placed, &self.current.features).and_then(|prepared| {
             crate::nesting::check_prepared(drawing, self, &prepared)?;
             Ok(prepared)
         }) {
@@ -986,19 +984,13 @@ pub fn pick(
 }
 
 /// Places and prepares a drawing. Bridge picks are kept in the drawing's
-/// own coordinates, so they are placed with their contours. Shapes take
-/// the layers the operator moved them to; `engraved` layers are prepared
-/// apart, as bare lines ahead of the cuts.
-pub fn prepare(
-    drawing: &Drawing,
-    placed: &[Placed],
-    features: &Features,
-    engraved: &[String],
-) -> Result<Prepared> {
+/// own coordinates, so they are placed with their contours, and shapes
+/// take the layers the operator moved them to.
+pub fn prepare(drawing: &Drawing, placed: &[Placed], features: &Features) -> Result<Prepared> {
     let drawing = crate::layers::relayered(drawing, &features.layer_edits);
     let sheet = place(&drawing, placed);
     let features = placed_bridges(&sheet, features, placed)?;
-    let toolpath = crate::layers::prepare(&sheet, &features, engraved)?;
+    let toolpath = openlaser_prep::prepare(&sheet, &features)?;
     Ok(Prepared {
         contours: contours(&toolpath),
         film: toolpath.contours.iter().map(|c| film_runs(&c.film)).collect(),
@@ -1477,7 +1469,7 @@ mod tests {
             groups(
                 &drawing,
                 &placed,
-                &prepare(&drawing, &placed, &features, &[]).unwrap().preview.contours
+                &prepare(&drawing, &placed, &features).unwrap().preview.contours
             ),
             vec![vec![0, 1]]
         );
@@ -1634,7 +1626,7 @@ mod tests {
     /// cut start after the lead-in.
     #[test]
     fn preparation_produces_contours_and_a_preview() {
-        let prepared = prepare(&square(), &Placed::all(1), &Features::default(), &[]).unwrap();
+        let prepared = prepare(&square(), &Placed::all(1), &Features::default()).unwrap();
         assert_eq!(prepared.contours.len(), 1);
         assert!(prepared.contours[0].segments.iter().all(|s| s.source.is_some()));
         assert!((prepared.preview.length_mm - 40.).abs() < 1e-9);
@@ -1678,7 +1670,7 @@ mod tests {
         let filming = settings(&bundle, &film, Binder { film: true, ..binder }).unwrap();
         assert!(cutting.with_film && cutting.power == 77);
         assert!(filming.pierce.is_empty() && !filming.with_film && filming.power == 12);
-        let prepared = prepare(&square(), &Placed::all(1), &Features::default(), &[]).unwrap();
+        let prepared = prepare(&square(), &Placed::all(1), &Features::default()).unwrap();
         assert_eq!(prepared.film[0].len(), 1, "one run of bare geometry");
         let compiled = compile(
             &prepared,
@@ -1710,7 +1702,7 @@ mod tests {
     fn the_contour_shift_is_applied_once() {
         let close =
             |a: [f64; 2], b: [f64; 2]| (a[0] - b[0]).abs() < 1e-9 && (a[1] - b[1]).abs() < 1e-9;
-        let prepared = prepare(&square(), &Placed::all(1), &Features::default(), &[]).unwrap();
+        let prepared = prepare(&square(), &Placed::all(1), &Features::default()).unwrap();
         let corner = prepared.contours[0].segments[0].curve.point(0.);
         let shifted = prepared.shifted([10., -3.]).unwrap();
         let moved = shifted.contours[0].segments[0].curve.point(0.);

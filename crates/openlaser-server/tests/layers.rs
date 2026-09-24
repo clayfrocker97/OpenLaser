@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //! Layers with their own recipes: the choice a drawing of several layers
-//! asks for, shapes moved and layers renamed, an engraved layer prepared
-//! bare and run first under its own recipe, and all of it saved.
+//! asks for, shapes moved and layers renamed, a marked layer prepared bare
+//! under its own recipe, the order dragged, and all of it saved.
 #![allow(clippy::unwrap_used, clippy::expect_used, reason = "known offline fixtures")]
 mod common;
 
 use common::start;
 use openlaser_core::LaserMode;
-use openlaser_core::features::{Features, Kerf, Side};
+use openlaser_core::features::{Features, Kerf, LayerMode, Side};
 use openlaser_core::geometry::{Contour, Curve, Drawing, Point};
 use openlaser_core::units::Millimeters;
 use openlaser_server::coordinator::{NewRecipe, RecipeChange, Values};
@@ -27,7 +27,7 @@ fn rect(layer: &str, corner: [f64; 2], size: [f64; 2]) -> Contour {
 }
 
 #[tokio::test]
-async fn each_layer_is_chosen_and_an_engraved_one_runs_first_under_its_own_recipe() {
+async fn each_layer_is_chosen_and_a_marked_one_runs_bare_under_its_own_recipe_in_order() {
     let (_sim, shared) = start("layers").await;
     let bend = Contour {
         layer: "Bend".into(),
@@ -75,16 +75,25 @@ async fn each_layer_is_chosen_and_an_engraved_one_runs_first_under_its_own_recip
         c.change_layers(LayerChange::Rename { from: "Holes".into(), to: "Slots".into() }).unwrap();
         let names: Vec<_> =
             c.document().draft.unwrap().layers.iter().map(|l| l.name.clone()).collect();
-        assert_eq!(names, ["Cut", "Bend", "Slots"]);
-        c.change_layers(LayerChange::Ignore { layer: "Slots".into() }).unwrap();
-        c.change_layers(LayerChange::Cut { layer: "Cut".into(), recipe: None, engrave: false })
-            .unwrap();
-        let bend = LayerChange::Cut { layer: "Bend".into(), recipe: Some(etch), engrave: true };
-        c.change_layers(bend).unwrap();
+        assert_eq!(names, ["Bend", "Slots", "Cut"], "smaller shapes first");
+        c.change_layers(LayerChange::Output { layer: "Slots".into(), on: false }).unwrap();
+        c.change_layers(LayerChange::Recipe { layer: "Cut".into(), recipe: None }).unwrap();
+        c.change_layers(LayerChange::Recipe { layer: "Bend".into(), recipe: Some(etch) }).unwrap();
+        c.change_layers(LayerChange::Mode { layer: "Bend".into(), mode: LayerMode::Mark }).unwrap();
         let layers = c.document().draft.unwrap().layers.clone();
         assert!(layers.iter().all(|l| l.chosen));
-        assert_eq!(layers[1].recipe.as_ref().unwrap().name, "Etch");
-        assert!(layers[1].engrave && layers[2].ignored);
+        let bend = layers.iter().find(|l| l.name == "Bend").unwrap();
+        assert_eq!(bend.recipe.as_ref().unwrap().name, "Etch");
+        assert_eq!(bend.mode, LayerMode::Mark);
+        assert!(!layers.iter().find(|l| l.name == "Slots").unwrap().output);
+        // Dragged: the cut first, the mark after it.
+        let order = vec!["Cut".to_owned(), "Slots".to_owned(), "Bend".to_owned()];
+        c.change_layers(LayerChange::Order { layers: order }).unwrap();
+        let names: Vec<_> =
+            c.document().draft.unwrap().layers.iter().map(|l| l.name.clone()).collect();
+        assert_eq!(names, ["Cut", "Slots", "Bend"]);
+        let order = vec!["Bend".to_owned(), "Cut".to_owned(), "Slots".to_owned()];
+        c.change_layers(LayerChange::Order { layers: order }).unwrap();
     }
     machine::prepare(&shared).await.unwrap();
     machine::compile(&shared, false).await.unwrap();
@@ -92,7 +101,7 @@ async fn each_layer_is_chosen_and_an_engraved_one_runs_first_under_its_own_recip
     let draft = c.draft.as_ref().unwrap();
     let preview = draft.preview.as_ref().unwrap();
     let order: Vec<_> = preview.contours.iter().map(|c| c.layer.as_str()).collect();
-    assert_eq!(order, ["Bend", "Cut"], "the engraving first, the ignored slot not at all");
+    assert_eq!(order, ["Bend", "Cut"], "in the layers' order, the slot not at all");
     let compiled = draft.compiled.as_ref().unwrap();
     let passes = &compiled.job.passes;
     assert_ne!(passes[0].settings, compiled.job.settings, "the bend runs under Etch");
@@ -112,6 +121,7 @@ async fn each_layer_is_chosen_and_an_engraved_one_runs_first_under_its_own_recip
     let saved = c.save_job("Layered bracket").unwrap();
     let job = c.library.job(&saved.id).unwrap().clone();
     assert_eq!(job.layers.len(), 2);
+    assert_eq!(job.features.layers.len(), 3);
     assert_eq!(job.recipe.name, job_steel.name);
     assert_eq!(job.features.layer_edits.len(), 1);
     c.open_job(&saved.id).unwrap();

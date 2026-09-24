@@ -835,17 +835,16 @@ async fn preview_features(
     Query(v): Query<Revision>,
     Json(features): Json<Features>,
 ) -> Reply {
-    let (drawing, placed, engraved) = {
+    let (drawing, placed) = {
         let c = shared.lock().await;
         c.check_draft(v.revision)?;
         let d = c.draft.as_ref().ok_or_else(|| Error::Refused("open a part first".into()))?;
-        (d.drawing()?.clone(), d.current.placed.clone(), crate::layers::engraved(&d.current.layers))
+        (d.drawing()?.clone(), d.current.placed.clone())
     };
-    let prepared = tokio::task::spawn_blocking(move || {
-        crate::draft::prepare(&drawing, &placed, &features, &engraved)
-    })
-    .await
-    .map_err(|e| Error::Refused(e.to_string()))??;
+    let prepared =
+        tokio::task::spawn_blocking(move || crate::draft::prepare(&drawing, &placed, &features))
+            .await
+            .map_err(|e| Error::Refused(e.to_string()))??;
     Ok(Json(json!({ "preview": prepared.preview, "revision": v.revision })))
 }
 

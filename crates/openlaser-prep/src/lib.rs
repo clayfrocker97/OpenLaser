@@ -36,7 +36,7 @@ mod topology;
 pub use bridge::project;
 pub use topology::groups;
 
-use openlaser_core::features::{Bridges, Features, Seam, Spot};
+use openlaser_core::features::{Bridges, Features, LayerMode, Seam, Spot};
 use openlaser_core::geometry::{Contour, Drawing, Point, Transform};
 use openlaser_core::toolpath::{PreparedContour, Toolpath};
 
@@ -246,10 +246,16 @@ pub fn prepare(drawing: &Drawing, features: &Features) -> Result<Toolpath> {
     let bridged = bridge::apply(&kept(drawing, features), features.bridges.as_ref())?;
     let mapped = provenance::remap(drawing, &bridged, features)?;
     let depths = prepared_depths(drawing, &bridged, features)?;
+    // Each layer with a table entry has its machining worked out once.
+    let layered = features
+        .layers
+        .iter()
+        .map(|l| (l.name.clone(), mapped.features.for_layer(&l.name).into_owned()))
+        .collect();
     let mut preparation = Preparation {
         drawing,
-        features,
         mapped: &mapped,
+        layered,
         warnings: Vec::new(),
         work: MATCHING_WORK,
     };
@@ -268,7 +274,11 @@ pub fn prepare(drawing: &Drawing, features: &Features) -> Result<Toolpath> {
         prepared.push(contour);
         items.push(item);
     }
-    let sequence = order::arrange(&items, &features.order)?;
+    // Layers run in their order; within a layer, the cutting order holds.
+    let ranks = layer_order(drawing, features);
+    let rank = |layer: &str| ranks.iter().position(|l| l == layer).unwrap_or(ranks.len());
+    let mut sequence = order::arrange(&items, &features.order)?;
+    sequence.sort_by_key(|&i| rank(&prepared[i].layer));
     let ordered: Vec<_> = sequence.into_iter().map(|i| prepared[i].clone()).collect();
     let contours = if let Some(common) = &features.common {
         common::apply(&ordered, common)?
@@ -296,9 +306,15 @@ fn validate_drawing(drawing: &Drawing, features: &Features) -> Result<()> {
     for (index, contour) in kept(drawing, features) {
         validate(index, contour)?;
     }
+    for layer in features.layers.iter().filter(|l| l.machining.is_some()) {
+        check(&features.for_layer(&layer.name))?;
+    }
     check(features)
 }
 
+/// How deep each contour lies: which are parts and which are holes. The
+/// layers cut through decide that together; each marked layer only for
+/// itself, so a mark never makes a hole in a part.
 fn prepared_depths(
     drawing: &Drawing,
     bridged: &[bridge::Sourced],
@@ -307,25 +323,79 @@ fn prepared_depths(
     if let Some(common) = &features.common {
         common::check(common, drawing.contours.len())?;
     }
-    let contours: Vec<_> = bridged.iter().map(|s| &s.contour).collect();
     let selected = |i: usize| {
         features
             .common
             .as_ref()
             .is_some_and(|c| bridged[i].sources.iter().all(|s| c.contours.contains(s)))
     };
-    topology::depths_with(&contours, |i, j| selected(i) && selected(j))
+    let mut sets: Vec<(Option<&str>, Vec<usize>)> = Vec::new();
+    for (i, sourced) in bridged.iter().enumerate() {
+        let layer = sourced.contour.layer.as_str();
+        let key = (features.mode(layer) == LayerMode::Mark).then_some(layer);
+        match sets.iter_mut().find(|(k, _)| *k == key) {
+            Some((_, members)) => members.push(i),
+            None => sets.push((key, vec![i])),
+        }
+    }
+    let mut depths = vec![0; bridged.len()];
+    for (_, members) in sets {
+        let contours: Vec<_> = members.iter().map(|&i| &bridged[i].contour).collect();
+        let found =
+            topology::depths_with(&contours, |a, b| selected(members[a]) && selected(members[b]))
+                .map_err(|error| match error {
+                Error::Contour { index, reason } => {
+                    Error::Contour { index: members[index], reason }
+                }
+                other => other,
+            })?;
+        for (at, depth) in members.into_iter().zip(found) {
+            depths[at] = depth;
+        }
+    }
+    Ok(depths)
+}
+
+/// The order the layers run in: the operator's table first, then the
+/// drawing's other layers with smaller shapes first, so a layer of holes
+/// runs before the outlines around them.
+#[must_use]
+pub fn layer_order(drawing: &Drawing, features: &Features) -> Vec<String> {
+    let mut found: Vec<(String, f64)> = Vec::new();
+    for contour in &drawing.contours {
+        let area = contour.bounds().map_or(0., |b| (b.max.x - b.min.x) * (b.max.y - b.min.y));
+        match found.iter_mut().find(|(name, _)| *name == contour.layer) {
+            Some((_, largest)) => *largest = largest.max(area),
+            None => found.push((contour.layer.clone(), area)),
+        }
+    }
+    let mut order: Vec<String> = features
+        .layers
+        .iter()
+        .filter(|l| found.iter().any(|(name, _)| *name == l.name))
+        .map(|l| l.name.clone())
+        .collect();
+    let mut rest: Vec<_> = found.into_iter().filter(|(name, _)| !order.contains(name)).collect();
+    rest.sort_by(|a, b| a.1.total_cmp(&b.1));
+    order.extend(rest.into_iter().map(|(name, _)| name));
+    order
 }
 
 struct Preparation<'a> {
     drawing: &'a Drawing,
-    features: &'a Features,
     mapped: &'a provenance::Remapped,
+    /// The features of each layer with its own entry.
+    layered: std::collections::BTreeMap<String, Features>,
     warnings: Vec<String>,
     work: usize,
 }
 
 impl Preparation<'_> {
+    /// The features a layer's contours are prepared with.
+    fn machining(&self, layer: &str) -> &Features {
+        self.layered.get(layer).unwrap_or(&self.mapped.features)
+    }
+
     fn contour(
         &mut self,
         index: usize,
@@ -333,7 +403,8 @@ impl Preparation<'_> {
         depth: usize,
     ) -> Result<(PreparedContour, order::Item)> {
         let edited = self.mapped.lead_overrides.get(&index);
-        let leads = self.features.leads.as_ref().map(|leads| leads.resolved(edited));
+        let features = self.machining(&sourced.contour.layer);
+        let leads = features.leads.as_ref().map(|leads| leads.resolved(edited));
         let lead_target = if leads.as_ref().is_some_and(|l| l.entry.is_some() || l.exit.is_some()) {
             match edited {
                 Some(edited) => Some(edited.location),
@@ -376,7 +447,11 @@ impl Preparation<'_> {
     ) -> Result<(Contour, joints::Frame)> {
         let closed = source.is_closed();
         let hole = depth % 2 == 1;
-        let mut contour = match (&self.features.kerf, closed) {
+        let features = self.machining(&source.layer);
+        let (kerf, direction, position) =
+            (features.kerf, features.start.direction, features.start.position);
+        let picked = features.start.spots.iter().find(|s| index == s.contour).map(|s| s.fraction);
+        let mut contour = match (&kerf, closed) {
             (Some(kerf), true) => topology::compensated(source, kerf, hole)
                 .map_err(|reason| Error::Contour { index, reason })?,
             (kerf, _) => {
@@ -388,17 +463,11 @@ impl Preparation<'_> {
                 source.clone()
             }
         };
-        let reversed = shape::reverses(&contour, self.features.start.direction);
+        let reversed = shape::reverses(&contour, direction);
         if reversed {
             contour = contour.reversed();
         }
-        let spot = self.mapped.features.start.spots.iter().find(|s| index == s.contour);
-        let start = shape::start_fraction(
-            &contour,
-            self.features.start.position,
-            spot.map(|s| s.fraction),
-            reversed,
-        );
+        let start = shape::start_fraction(&contour, position, picked, reversed);
         if start > 0. {
             contour = contour.started_at(start * contour.length());
         }
@@ -411,12 +480,10 @@ impl Preparation<'_> {
         sourced: &bridge::Sourced,
         frame: &joints::Frame,
     ) -> Result<Vec<openlaser_core::toolpath::PreparedSegment>> {
-        let mut segments = joints::split(
-            contour,
-            self.mapped.features.joints.as_ref(),
-            self.mapped.features.cooling.as_ref(),
-            frame,
-        )?;
+        let features = self.machining(&contour.layer);
+        let seam = features.seam;
+        let mut segments =
+            joints::split(contour, features.joints.as_ref(), features.cooling.as_ref(), frame)?;
         for segment in &mut segments {
             segment.source = provenance::interval(
                 &segment.curve,
@@ -425,7 +492,7 @@ impl Preparation<'_> {
                 &mut self.work,
             )?;
         }
-        match shape::seamed(&segments, self.features.seam, frame.closed) {
+        match shape::seamed(&segments, seam, frame.closed) {
             Ok(seamed) => segments = seamed,
             Err(reason) => self.warnings.push(format!("contour {}: {reason}", frame.contour)),
         }

@@ -20,6 +20,9 @@ pub struct JobDrawing {
     /// Where each part's contours start in the joined drawing.
     starts: Vec<usize>,
     drawing: Arc<Drawing>,
+    /// The colours the parts' files give their layers, the first part's
+    /// first where two name the same layer.
+    colors: Vec<crate::LayerColor>,
 }
 
 impl JobDrawing {
@@ -38,7 +41,24 @@ impl JobDrawing {
                 contours: parts.iter().flat_map(|(_, d)| d.contours.iter().cloned()).collect(),
             }),
         };
-        Self { parts, starts, drawing }
+        Self { parts, starts, drawing, colors: Vec::new() }
+    }
+
+    /// With the colours the parts' files give their layers.
+    #[must_use]
+    pub fn with_colors(mut self, colors: Vec<crate::LayerColor>) -> Self {
+        for color in colors {
+            if !self.colors.iter().any(|c| c.layer == color.layer) {
+                self.colors.push(color);
+            }
+        }
+        self
+    }
+
+    /// The colours the parts' files give their layers.
+    #[must_use]
+    pub fn colors(&self) -> &[crate::LayerColor] {
+        &self.colors
     }
 
     /// The parts, in the order their contours follow each other.
@@ -129,11 +149,10 @@ impl Library {
     /// The drawing of a job cutting `parts`.
     pub fn job_drawing(&self, parts: &[Id]) -> Result<JobDrawing> {
         contour_count(parts, self)?;
-        let parts = parts
-            .iter()
-            .map(|id| Ok((id.clone(), self.part(id)?.drawing.clone())))
-            .collect::<Result<Vec<_>>>()?;
-        Ok(JobDrawing::new(parts))
+        let parts = parts.iter().map(|id| self.part(id)).collect::<Result<Vec<_>>>()?;
+        let colors = parts.iter().flat_map(|p| p.colors.iter().cloned()).collect();
+        let drawings = parts.iter().map(|p| (p.id.clone(), p.drawing.clone())).collect();
+        Ok(JobDrawing::new(drawings).with_colors(colors))
     }
 }
 
