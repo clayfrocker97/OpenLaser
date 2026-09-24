@@ -150,7 +150,7 @@
   <p class="muted">{draft.compiled.plan.reduce((n, pass) => n + pass.omitted_cooling, 0)} cooling points skipped within {quantity(0.2, 'mm')} of endpoints.</p>
 {/if}
 {#if draft.error}<div class="warn-text" style="font-size:var(--t-sm)">{plain(draft.error).text}</div>{/if}
-<GasLaserCard />
+{#if draft.compiled}<GasLaserCard />{/if}
 </div>
 
 <div class="stack">

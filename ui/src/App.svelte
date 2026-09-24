@@ -16,6 +16,7 @@
   import { confirmDisconnect, connectionLabel } from './lib/connection';
   import { partsOf, sourceLabel } from './lib/job-parts';
   import { pending } from './lib/pending.svelte';
+  import { setupAlarms } from './lib/setup-alarms';
 
   const doc = $derived(server.doc);
   const connected = $derived(doc?.machine.connection.state === 'connected');
@@ -23,7 +24,7 @@
   const link = $derived(doc?.link);
   const busy = $derived(!!link && link.phase !== 'idle' && link.phase !== 'failed');
   const label = $derived(connectionLabel(doc));
-  const alarms = $derived(doc?.machine.alarms.length ?? 0);
+  const alarms = $derived((doc?.machine.alarms.length ?? 0) + setupAlarms(doc).length);
   const brandSub = $derived(doc?.draft ? sourceLabel(partsOf(doc.draft, doc.library.parts)) : '');
 
   function setTab(tab: Tab): void {

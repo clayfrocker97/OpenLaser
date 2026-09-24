@@ -282,7 +282,39 @@
             <button class:on={draft.dry_run} disabled={choosingRun || !doc.readiness.compile.ok || !!machine.operation} onclick={() => chooseRun(true)}>Dry run</button>
           </div>
         {/if}
-        <span class="step-chip" class:ok={!step} role="status">{step ?? (choosingRun ? 'Preparing…' : `Ready · ${laserLabel(doc.mode)}`)}</span>
+        <div class="run-status"><StatusLine status={step ?? (choosingRun ? 'Preparing…' : message)} gates={running || paused || step ? [] : statusGates} tone={step ? 'warn' : statusTone} /></div>
+      </div>
+      <div class="run-layers">
+        {#if canRecover && !recoveryEditor}
+          <button class="legend-chip recovery-toggle" onclick={() => showRecovery = !showRecovery}>
+            {recovering ? 'Back to controls' : 'Adjust restart…'}
+          </button>
+        {/if}
+        {#if recovering && !showLayers}
+          <span class="recovery-key"><i></i>Selected restart</span>
+          <span class="recovery-key finished-key"><i></i>Completed</span>
+          <button class="legend-chip" onclick={() => showLayers = true}>Display layers…</button>
+        {:else if layersOpen || recovering}
+          {#each LAYERS as [layer, label]}
+            <button class="legend-chip" class:off={!ui.layerShown(layer)} onclick={() => ui.toggleLayer(layer)}>
+              <svg class="sample" viewBox="0 0 36 12" aria-hidden="true">
+                {#if layer === 'pierce'}<circle class="mark pierce" cx="18" cy="6" r="5"/>{:else}<path class="path {layer}" d="M2 6H34"/>{/if}
+              </svg>
+              {label}
+            </button>
+          {/each}
+          {#if recovering}<button class="legend-chip" onclick={() => showLayers = false}>Done</button>
+          {:else}<button class="legend-chip" onclick={() => (layersOpen = false)}>Hide layers</button>{/if}
+        {:else}
+          <button class="legend-chip" onclick={() => (layersOpen = true)}>Layers…</button>
+        {/if}
+        <span class="spacer"></span>
+        {#if !recovering || showLayers}
+          <div class="seg small">
+            <button class:on={ui.travelMode === 'next'} onclick={() => ui.setTravelMode('next')}>Next move</button>
+            <button class:on={ui.travelMode === 'all'} onclick={() => ui.setTravelMode('all')}>All moves</button>
+          </div>
+        {/if}
       </div>
       <div class="canvas-zoom">
         <button onclick={fit} title="Fit job"><i class="ic ic-fit"></i></button>
@@ -292,38 +324,6 @@
       </div>
     {/snippet}
   </Stage>
-  <div class="legend-bar">
-    {#if canRecover && !recoveryEditor}
-      <button class="legend-chip recovery-toggle" onclick={() => showRecovery = !showRecovery}>
-        {recovering ? 'Back to controls' : 'Adjust restart…'}
-      </button>
-    {/if}
-    {#if recovering && !showLayers}
-      <span class="recovery-key"><i></i>Selected restart</span>
-      <span class="recovery-key finished-key"><i></i>Completed</span>
-      <button class="legend-chip" onclick={() => showLayers = true}>Display layers…</button>
-    {:else if layersOpen || recovering}
-      {#each LAYERS as [layer, label]}
-        <button class="legend-chip" class:off={!ui.layerShown(layer)} onclick={() => ui.toggleLayer(layer)}>
-          <svg class="sample" viewBox="0 0 36 12" aria-hidden="true">
-            {#if layer === 'pierce'}<circle class="mark pierce" cx="18" cy="6" r="5"/>{:else}<path class="path {layer}" d="M2 6H34"/>{/if}
-          </svg>
-          {label}
-        </button>
-      {/each}
-      {#if recovering}<button class="legend-chip" onclick={() => showLayers = false}>Done</button>
-      {:else}<button class="legend-chip" onclick={() => (layersOpen = false)}>Hide layers</button>{/if}
-    {:else}
-      <button class="legend-chip" onclick={() => (layersOpen = true)}>Layers…</button>
-    {/if}
-    <span class="spacer"></span>
-    {#if !recovering || showLayers}
-      <div class="seg small">
-        <button class:on={ui.travelMode === 'next'} onclick={() => ui.setTravelMode('next')}>Next move</button>
-        <button class:on={ui.travelMode === 'all'} onclick={() => ui.setTravelMode('all')}>All moves</button>
-      </div>
-    {/if}
-  </div>
 
   {#if doc.completed_sheet && !running && !recovering}
     <div class="sheet-complete">
@@ -332,7 +332,6 @@
     </div>
   {/if}
   {#if !recovering}
-  <StatusLine status={message} gates={running || paused ? [] : statusGates} tone={statusTone} />
   <RunControls onaction={act} busy={reviewing} showStop={!compact} explain={false} />
   {/if}
 </section>
@@ -362,11 +361,13 @@
 .recovery-key { display:flex; align-items:center; gap:8px; font-size:var(--t-sm); color:var(--ink-3); }
 .recovery-key i { width:22px; height:3px; background:var(--hold); }
 .finished-key i { background:var(--ink-3); opacity:.45; }
+.run-layers { position:absolute; left:14px; bottom:14px; display:flex; flex-wrap:wrap; gap:6px; align-items:center; max-width:calc(100% - 260px); }
+.run-layers .seg, .run-layers .legend-chip { background:var(--panel); }
+.run-layers .spacer { display:none; }
+.run-status { min-width:0; max-width:420px; }
+.run-status :global(.status-summary) { background:var(--panel); }
 .run-float { position:absolute; left:14px; top:14px; display:flex; flex-wrap:wrap; gap:8px; align-items:center; max-width:calc(100% - 28px); }
 .run-float .seg { background:var(--panel); }
-.step-chip { display:inline-flex; align-items:center; gap:8px; min-height:44px; padding:0 14px; border:1px solid var(--line); border-radius:12px; background:var(--panel); font-size:var(--t-sm); font-weight:600; color:var(--ink); }
-.step-chip::before { content:''; width:8px; height:8px; border-radius:50%; background:var(--warn); }
-.step-chip.ok::before { background:var(--move); }
 .zoom-percent { display:inline-flex; align-items:center; padding:0 8px; font-size:var(--t-sm); color:var(--ink-3); font-variant-numeric:tabular-nums; }
 .values-toggle { flex:none; min-height:44px; min-width:44px; padding:0 10px; border:0; background:transparent; color:var(--accent); font:inherit; font-size:var(--t-sm); cursor:pointer; }
 </style>

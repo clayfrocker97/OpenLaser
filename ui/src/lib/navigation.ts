@@ -14,7 +14,7 @@ export const SETTINGS = { id: 'machine', label: 'Settings' } as const;
  */
 export const SETTINGS_PAGES: ReadonlyArray<{ id: number; label: string; groups: readonly string[]; wide?: boolean; keywords?: string }> = [
   { id: 0, label: 'General', groups: ['display', 'checklists', 'interface'], keywords: 'units inches metric theme dark night hold time preflight postflight pause checklist layout' },
-  { id: 1, label: 'Machine', groups: ['controller', 'laser', 'axes', 'safety'], keywords: 'controller firmware laser fiber co2 head travel limits jog speed inputs door water' },
+  { id: 1, label: 'Machine', groups: ['controller', 'laser', 'tests', 'axes', 'safety'], keywords: 'controller firmware laser fiber co2 head travel limits jog speed inputs door water test pulse gas valve pointer shutter mode switch' },
   { id: 2, label: 'Materials & processes', groups: ['materials', 'process', 'gas'], keywords: 'recipes material library process ini gas cost price nitrogen oxygen air flow' },
   { id: 3, label: 'Calibration', groups: ['head-calibration', 'matrix'], wide: true, keywords: 'matrix correction squareness head calibration' },
   { id: 4, label: 'Network & phones', groups: ['network', 'phones'], keywords: 'ip address adapter route udp lan wifi phone tablet remote' },

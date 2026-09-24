@@ -10,6 +10,7 @@
   import MachineSettings from '../components/MachineSettings.svelte';
   import MachineFiles from '../components/MachineFiles.svelte';
   import GasCosts from '../components/GasCosts.svelte';
+  import MachineTools from '../components/MachineTools.svelte';
   import { holdSeconds, MAX_HOLD_MS, MIN_HOLD_MS } from '../lib/hold-confirm';
   import { SETTINGS_PAGES } from '../lib/navigation';
   import { APP_VERSION } from '../lib/version';
@@ -89,6 +90,7 @@
   const inputOn = (input: number): boolean => !!feedback && ((feedback.inputs >> (input - 1)) & 1) === 1;
 
   // Search shows every section; rows and groups that do not match hide.
+  let testing = $state(false);
   let content = $state<HTMLElement | null>(null);
   let matches = $state(0);
   $effect(() => {
@@ -193,7 +195,7 @@
   {:else if name === 'laser'}
     <div class="setting-group"><h3>Laser and head</h3>
       <div class="setting">
-        <div class="lbl">Operating mode<small>Switch it in Run → Machine tests</small></div>
+        <div class="lbl">Operating mode<small>Switch it in Machine tests</small></div>
         <div class="val">{laserLabel(doc.mode)}</div>
       </div>
       <div class="setting">
@@ -204,6 +206,10 @@
         <div class="lbl">Head controller<small>From the machine backup</small></div>
         <div class="val">{bindings ? (bindings.head_enabled ? 'configured' : 'none') : '—'}</div>
       </div>
+    </div>
+  {:else if name === 'tests'}
+    <div class="setting-group"><h3>Machine tests</h3>
+      <div class="setting"><div class="lbl">Laser, gas and outputs<small>Pulse the laser, test a gas valve, hold an output, switch Fiber / CO₂</small></div><button class="btn btn-ghost" onclick={() => (testing = true)}>Open</button></div>
     </div>
   {:else if name === 'axes'}
     <div class="setting-group"><h3>Axes and travel</h3>
@@ -327,6 +333,7 @@
   </div>
 </section>
 
+{#if testing}<MachineTools onclose={() => (testing = false)} />{/if}
 {#if ui.checklistEditor}<PreflightEditor scope={ui.checklistEditor} onclose={() => (ui.checklistEditor = null)} />{/if}
 
 <style>

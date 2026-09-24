@@ -7,6 +7,7 @@
   import { ui } from '../stores/ui.svelte';
   import { explain } from '../lib/format';
   import { alarmTitles, groupAlarms } from '../lib/plain';
+  import { setupAlarms } from '../lib/setup-alarms';
   import type { AlarmSession, HistoryPage } from '../api';
 
   let { onclose }: { onclose: () => void } = $props();
@@ -55,6 +56,14 @@
 </script>
 
 <Modal title="Alarms" {onclose}>
+  {#each setupAlarms(server.doc) as alarm (alarm.title)}
+    <div class="alarm-item">
+      <div class="bar"></div>
+      <div class="alarm-text"><strong>{alarm.title}</strong><span class="fix">{alarm.fix}</span></div>
+      <button class="btn btn-ghost" onclick={() => { ui.settingsQuery = ''; ui.machinePage = 1; ui.tab = 'machine'; onclose(); }}>Open Settings</button>
+      <details class="alarm-technical"><summary>Details</summary><span>{alarm.detail}</span></details>
+    </div>
+  {/each}
   {#if faulted}
     <div class="alarm-item"><div class="bar"></div><div><strong>Controller link lost</strong><span class="muted">{faulted}. Reconnect from the top bar.</span></div></div>
   {/if}
@@ -74,7 +83,7 @@
       <details class="alarm-technical"><summary>Details</summary>{#each group.alarms as alarm (keyOf(alarm.source, alarm.id))}<span>{alarm.label} · {alarm.source}{#if alarm.id !== null} · {alarm.id}{/if}</span>{/each}</details>
     </div>
   {:else}
-    {#if !faulted}<div class="all-clear"><i class="ic ic-check"></i><strong>No current alarms</strong></div>{/if}
+    {#if !faulted && !setupAlarms(server.doc).length}<div class="all-clear"><i class="ic ic-check"></i><strong>No current alarms</strong></div>{/if}
   {/each}
   {#if alarms.length > 0}
     <div class="live-footer"><span class="muted">Reset does not resume cutting.</span><button class="btn btn-ghost" disabled={resetting || !server.link} onclick={() => relieve(null)}>Reset all</button></div>

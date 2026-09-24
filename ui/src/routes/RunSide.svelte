@@ -9,9 +9,7 @@
   import { TapOrHold } from '../lib/tap-or-hold';
   import SheetPosition from '../components/SheetPosition.svelte';
   import GoToXy from '../components/GoToXy.svelte';
-  import MachineTools from '../components/MachineTools.svelte';
   import HoldButton from '../components/HoldButton.svelte';
-  import GasLaserCard from '../components/GasLaserCard.svelte';
   import { api } from '../api/client';
   import { server } from '../stores/server.svelte';
   import { ui } from '../stores/ui.svelte';
@@ -89,7 +87,6 @@
   const diagonalOk = (xPositive: boolean, yPositive: boolean) =>
     !readiness.xy_recovery && readiness.xy_jog[0]![Number(xPositive)]!.ok && readiness.xy_jog[1]![Number(yPositive)]!.ok;
   let goingTo = $state(false);
-  let testing = $state(false);
 
   // Why a control is unavailable is on the Run page's status line.
   const originGate = $derived(readiness.position.ok && !origin ? { ok: false, reason: 'set a job origin first' } : readiness.position);
@@ -230,12 +227,9 @@
       Release between presses. Once clear, use Home.
     </p>
   {/if}
-  {#if doc.draft}<GasLaserCard />{/if}
-  <button class="btn btn-ghost machine-tests" onclick={() => (testing = true)}>Machine tests · laser, gas, outputs, mode…</button>
  </div>
 </aside>
 {#if goingTo}<GoToXy onclose={() => (goingTo = false)} />{/if}
-{#if testing}<MachineTools onclose={() => (testing = false)} />{/if}
 
 <style>
   .run-side { padding:12px; }
@@ -253,7 +247,6 @@
   .zcol { grid-template-columns: minmax(0, 1fr); grid-template-rows:repeat(3,minmax(64px,1fr)); }
   .zcol > * { grid-column: 1; }
   .auxiliary-hint { font-size: var(--t-sm); color: var(--ink-3); }
-  .machine-tests { width: 100%; min-height: 48px; }
   .jog-steps { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px; align-items: center; }
   .step-label { display: grid; gap: 2px; font-size: var(--t-sm); color: var(--ink-2); }
   .jog-hint { margin: 0; font-size: var(--t-sm); color: var(--ink-3); }

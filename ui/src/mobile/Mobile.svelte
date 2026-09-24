@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { setupAlarms } from '../lib/setup-alarms';
   import { api } from '../api/client';
   import { access } from '../lib/access.svelte';
   import { confirmDisconnect, connectionLabel } from '../lib/connection';
@@ -25,6 +26,7 @@
   const connected = $derived(doc?.machine.connection.state === 'connected');
   const linkBusy = $derived(!!doc && doc.link.phase !== 'idle' && doc.link.phase !== 'failed');
   const done = $derived({ parts: !!doc?.draft, setup: !!doc?.draft?.compiled, run: false });
+  const alarmCount = $derived((doc?.machine.alarms.length ?? 0) + setupAlarms(doc).length);
   const persistenceError = $derived(doc?.persistence_error || recipeEdits.storageError || settingsEdits.error);
   const settingsName = (page: number): string => SETTINGS_PAGES.find(item => item.id === page)?.label ?? 'Settings';
   type Detail = { tab:Tab; kind:'setup' | 'layout' | 'controls' | 'recovery' | 'machine'; title:string; restart?:boolean };
@@ -86,7 +88,7 @@
         onclick={connect} title={doc?.link.detail || undefined}
       ><span class="connection-dot"></span>{connectionLabel(doc)}{#if linkBusy}<small>Cancel</small>{/if}</button>
       <button class="phone-icon phone-alarm" aria-label="Alarms" onclick={() => ui.modal = 'alarms'}>
-        <i class="ic ic-bell"></i>{#if doc?.machine.alarms.length}<b>{doc.machine.alarms.length}</b>{/if}
+        <i class="ic ic-bell"></i>{#if alarmCount}<b>{alarmCount}</b>{/if}
       </button>
     </div>
   </header>

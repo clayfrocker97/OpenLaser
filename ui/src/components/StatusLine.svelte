@@ -3,6 +3,7 @@
   // the active alarms with how to clear them, and the original technical text.
   import { server } from '../stores/server.svelte';
   import { ui } from '../stores/ui.svelte';
+  import { setupAlarms } from '../lib/setup-alarms';
   import { alarmTitles, blockedControls, plain, type NamedGate, type Plain } from '../lib/plain';
 
   let { status, gates = [], tone = 'info' }: {
@@ -18,9 +19,10 @@
   // A reason the line already gives is not repeated underneath it.
   const blocked = $derived(blockedControls(gates).filter((group) => group.reason.text !== line.text));
   const alarms = $derived((server.doc?.machine.alarms ?? []).filter((alarm) => alarm.blocking));
+  const setup = $derived(setupAlarms(server.doc));
   const details = $derived([...new Set([line.detail, ...blocked.map((b) => b.reason.detail)].filter((d): d is string => !!d))]);
-  const expandable = $derived(blocked.length > 0 || alarms.length > 0 || details.length > 0);
-  const shownTone = $derived(alarms.length > 0 && tone !== 'ready' ? 'warn' : tone);
+  const expandable = $derived(blocked.length > 0 || alarms.length > 0 || setup.length > 0 || details.length > 0);
+  const shownTone = $derived(alarms.length + setup.length > 0 && tone !== 'ready' ? 'warn' : tone);
 </script>
 
 {#if line.text}
@@ -32,8 +34,9 @@
     </button>
     {#if open && expandable}
       <div class="status-details">
-        {#if alarms.length}
+        {#if alarms.length || setup.length}
           <ul class="status-alarms">
+            {#each setup as alarm (alarm.title)}<li><strong>{alarm.title}</strong><span>{alarm.fix}</span></li>{/each}
             {#each alarmTitles(alarms) as title (title)}
               {@const alarm = alarms.find((row) => row.title === title)!}
               <li><strong>{title}</strong><span>{alarm.fix}</span></li>
