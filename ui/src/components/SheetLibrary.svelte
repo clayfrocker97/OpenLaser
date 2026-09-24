@@ -80,7 +80,7 @@
       </div>
       {#if !rack}<button class="btn btn-ghost" disabled={busy} onclick={() => adding = true}>Mark a saved job as cut</button>{/if}
     </div>
-  {:else}<p class="intro">Choose an inspected sheet. Its existing cutouts stay clear in the nest.</p>{/if}
+  {:else}<p class="intro">Earlier cut areas stay clear.</p>{/if}
   {#if rack}<StockRack />{:else}
   {#if error}<p class="error" role="alert">{error}</p>{/if}
   <div class="sheets-grid">
@@ -106,8 +106,8 @@
     <div class="empty">
       <strong>{remnants ? 'No remaining sheets saved yet' : 'No cut sheets recorded yet'}</strong>
       <p>{remnants
-        ? 'Completed jobs appear in Cut history. Inspect one and save its remaining sheet here.'
-        : 'Completed runs keep their sheet boundaries and cut areas. You can also mark a saved job as already cut.'}</p>
+        ? 'Inspect a finished cut in Cut history to save what is left.'
+        : 'Finished cuts appear here.'}</p>
       {#if !onchoose && remnants}<button class="btn" onclick={() => showSheets(false)}>View cut history</button>{/if}
     </div>
   {/if}
@@ -119,7 +119,7 @@
 {#if inspected}<RemnantInspector id={inspected} onclose={() => inspected = null} onchanged={() => { void load(); }} />{/if}
 {#if adding}
   <Modal title="Mark a saved job as already cut" onclose={closeAdding}>
-    <p class="intro">Choose a job you have already cut. Its saved sheet and part positions become a sheet record to inspect.</p>
+    <p class="intro">Choose a job you already cut.</p>
     <input class="job-search" type="search" bind:value={search} placeholder="Find a saved job…" aria-label="Find a cut job" />
     <div class="job-choices">
       {#each jobs as job}

@@ -40,7 +40,6 @@
 
 <div class="stock-rack">
   <div class="rack-tools">
-    <p>Full sheets and remnants on hand. Nesting offers the ones matching its recipe; a cut takes a sheet off.</p>
     <button class="btn btn-primary" onclick={() => adding = true}><i class="ic ic-plus"></i>Add sheets</button>
   </div>
   {#each groups as g (g.key)}
@@ -70,7 +69,7 @@
   {:else}
     <div class="empty-rack">
       <strong>Nothing on the rack yet</strong>
-      <p>Add the sheets you have, by material and size. Remnants you save after a cut appear here too.</p>
+      <p>Add the sheets you have. Saved remnants appear here too.</p>
     </div>
   {/each}
 </div>
@@ -78,8 +77,7 @@
 {#if editing}<StockEditor id={editing} onclose={() => editing = null} />{/if}
 
 <style>
-  .rack-tools { display:flex; align-items:center; justify-content:space-between; gap:18px; margin-bottom:18px; }
-  .rack-tools p { margin:0; color:var(--ink-3); font-size:var(--t-sm); line-height:1.6; }
+  .rack-tools { display:flex; align-items:center; justify-content:flex-end; gap:18px; margin-bottom:18px; }
   .rack-tools .btn { min-height:48px; flex-shrink:0; }
   .rack-group { margin-bottom:22px; }
   .rack-group h3 { display:flex; align-items:center; gap:10px; margin:0 0 10px; font-size:var(--t-base); color:var(--ink); text-transform:none; letter-spacing:normal; }

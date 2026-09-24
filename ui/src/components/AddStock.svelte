@@ -57,7 +57,7 @@
       <div class="chips">
         {#each names as name (name)}
           <button class="chip" class:on={picked?.name === name} disabled={busy} onclick={() => pickName(name)}>{name}</button>
-        {:else}<p class="fixed">Add a recipe first; sheets use its material.</p>{/each}
+        {:else}<p class="fixed">Add a recipe first.</p>{/each}
       </div>
       {#if picked}
         <h4>Thickness</h4>

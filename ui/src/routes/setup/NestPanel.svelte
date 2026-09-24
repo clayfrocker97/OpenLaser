@@ -50,28 +50,28 @@
   /** What a source is, in words: a title and a line under it. */
   function describe(source: StockSource | undefined): { title: string; detail: string } {
     if (!source) return stock?.kind === 'outline'
-      ? { title: 'Drawing outline', detail: 'Reference boundary · excluded from cutting' }
+      ? { title: 'Drawing outline', detail: 'Not cut' }
       : { title: 'Current sheet', detail: '' };
     if (source.kind === 'remnant') {
       const sheet = library.remnants.find((r) => r.id === source.id);
       return { title: sheet?.name ?? 'Remnant', detail: sheet
-        ? `Remnant · ${sheetLabel(sheet.bounds.max.x - sheet.bounds.min.x, sheet.bounds.max.y - sheet.bounds.min.y)} · used once`
+        ? `Remnant · ${sheetLabel(sheet.bounds.max.x - sheet.bounds.min.x, sheet.bounds.max.y - sheet.bounds.min.y)}`
         : 'No longer available' };
     }
     if (source.kind === 'stock') {
       const item = library.stock.find((i) => i.id === source.id);
       return item
-        ? { title: sheetLabel(item.width_mm, item.height_mm), detail: `From the rack · up to ${source.count} of ${item.quantity}` }
+        ? { title: sheetLabel(item.width_mm, item.height_mm), detail: `Rack · ${source.count} of ${item.quantity}` }
         : { title: 'Rack sheets', detail: 'No longer on the rack' };
     }
-    return { title: sheetLabel(source.width, source.height), detail: 'New sheets · as many as needed' };
+    return { title: sheetLabel(source.width, source.height), detail: 'New · as needed' };
   }
   /** Sheets added to the list; they replace a drawing outline, which Undo brings back. */
   async function add(source: StockSource): Promise<void> {
     if (stock?.kind === 'outline') {
       try {
         await api.setStock({ kind: 'clear' });
-        ui.say('The drawing outline is no longer the sheet · Undo restores it');
+        ui.say('Outline replaced · Undo restores it');
       } catch (e) { error = explain(e); return; }
     }
     edit([...plan, source]);
@@ -90,10 +90,10 @@
   }
   const quantityTitle = $derived(selected === 1 ? 'Selected part quantity' : `${draft.groups.length} parts on this sheet`);
   const quantityHint = $derived(
-    selected === 1 ? 'Total copies, including this original' : 'Tap a part on the drawing to change its quantity');
+    selected === 1 ? 'Including this one' : 'Tap a part to set its quantity');
   const liveNote = $derived(live
-    ? `The drawing shows sheet ${first + live.sheet} as the search improves it; the result is checked before you can apply it.`
-    : 'Overflow goes onto the next sheet.');
+    ? `Showing sheet ${first + live.sheet}`
+    : '');
   const applyLabel = $derived(result?.sheets.length === 1 ? 'layout' : `${result?.sheets.length} sheets`);
   const rotations: [NestSettings['rotation'], string, string][] = [
     ['any', 'Dense', 'Any angle'],
@@ -221,11 +221,11 @@
       </button>
     {/each}
   </div>
-  <p class="nest-note">Review each sheet on the drawing. After applying, switch sheets above the canvas and save the set in one folder.</p>
+  <p class="nest-note">After applying, switch sheets above the drawing.</p>
 {:else if result?.running}
   <div class="searching" role="status">
     <strong>{cancelling ? 'Cancelling…' : 'Arranging your sheets'}</strong>
-    <p>{result.placed < result.total ? `${result.placed} of ${result.total} parts placed` : 'All parts placed · packing them tighter'}</p>
+    <p>{result.placed < result.total ? `${result.placed} of ${result.total} parts placed` : 'All placed · packing tighter'}</p>
     <div class="bar" class:working={!cancelling} role="progressbar" aria-label="Parts placed"
       aria-valuenow={result.placed} aria-valuemin={0} aria-valuemax={result.total}>
       <span style:width="{result.total ? Math.max(4, result.placed / result.total * 100) : 4}%"></span>
@@ -234,7 +234,6 @@
     <button class="btn lg block" disabled={cancelling} onclick={cancel}>Cancel nesting</button>
   </div>
 {:else}
-  <p class="feat-desc">Arrange the parts and put overflow on the next sheet.</p>
   <fieldset disabled={busy}>
     <div class="stock-plan">
       <div class="plan-head">
@@ -255,8 +254,6 @@
         </div>
       {/each}
       <button class="btn btn-ghost add-sheets" onclick={() => stockOpen = true}><i class="ic ic-plus"></i>Add sheets</button>
-      <p class="nest-note">{chosen ? 'Unused sheets stay on the rack.'
-        : 'Suggested: the smallest remnant that holds the job, then rack sheets, then new ones. Unused sheets stay on the rack.'}</p>
     </div>
     {#if ui.nestPicking}
       <p class="pick-hint">Tap the closed sheet outline on the drawing.<button
@@ -297,7 +294,6 @@
         </button>
       {/each}
     </div>
-    <p class="nest-note">Lead and kerf clearance is added. Part holes stay reserved.</p>
     <details class="search-options">
       <summary>Search time · {seconds} sec</summary>
       <div class="seg">
@@ -307,7 +303,7 @@
       </div>
     </details>
   </fieldset>
-  {#if stale}<p class="error">The drawing changed. Preview again to use the current layout.</p>{/if}
+  {#if stale}<p class="error">The drawing changed. Preview again.</p>{/if}
 {/if}
 {#if error}<p class="error" role="alert">{error}</p>{/if}
 <details class="credits">
@@ -342,7 +338,6 @@
   .feat-head { flex-shrink:0; }
   .feat-head button { min-height:48px; }
   .nest-scroll { flex:1; min-height:0; overflow-y:auto; padding-right:3px; }
-  .feat-desc { margin:0 0 16px; }
   .nest-actions { flex-shrink:0; display:grid; gap:10px; padding-top:14px; border-top:1px solid var(--line); }
   fieldset { border:0; padding:0; margin:0; min-width:0; }
   .stock-plan h3 { margin:0; }

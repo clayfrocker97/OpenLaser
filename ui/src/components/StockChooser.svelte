@@ -1,7 +1,6 @@
 <script lang="ts">
   // Adds a kind of sheet to the ones a nest fills: new sheets of a size,
   // sheets on the rack, a remnant, or an outline on the drawing.
-  import { quantity } from '../lib/units.svelte';
   import { sheetLabel } from '../lib/sheet-sizes';
   import { untrack } from 'svelte';
   import Modal from './Modal.svelte';
@@ -57,7 +56,6 @@
       </div>
       <div class="sheet-form">
         <h3>New sheets</h3>
-        <p>As many as the parts need, after any remnants and rack sheets.</p>
         <SheetSizePicker bind:width bind:height />
         <button
           class="btn btn-primary lg block"
@@ -67,15 +65,13 @@
     </div>
   {:else if page === 'rack'}
     <div class="rack">
-      <p>{draft?.recipe ? `Sheets on hand for ${draft.recipe.name}, ${quantity(draft.recipe.thickness_mm, 'mm')}.`
-        : 'Sheets on hand. Choose a recipe to see only its material.'}</p>
       {#each rack as item (item.id)}
         <button class="rack-choice" onclick={() => add({ kind: 'stock', id: item.id, count: item.quantity })}>
           <strong>{sheetLabel(item.width_mm, item.height_mm)}</strong>
           <span>{plural(item.quantity, 'sheet')} on hand</span>
         </button>
       {:else}
-        <p class="empty">{taken.length ? 'Every matching size is already in the list.' : 'No matching sheets on the rack.'}</p>
+        <p class="empty">{taken.length ? 'Already in the list.' : 'None on the rack.'}</p>
       {/each}
       <button class="btn btn-ghost" onclick={() => adding = true}>+ Add sheets to the rack</button>
     </div>
@@ -83,7 +79,7 @@
   {:else}
     <div class="drawing-stock">
       <h3>Use an existing outline</h3>
-      <p>Select a closed outline on your drawing. It becomes the sheet boundary and is removed from cutting.</p>
+      <p>Tap a closed outline. It becomes the sheet and is not cut.</p>
       <button class="btn btn-primary lg" onclick={chooseOutline}>Choose outline on drawing</button>
     </div>
   {/if}
