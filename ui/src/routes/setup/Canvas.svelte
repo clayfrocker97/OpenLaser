@@ -337,12 +337,11 @@
   }
 
   // Gestures: a shape moves, the handle turns the selection about its
-  // centre. While picking, the shapes stay put and taps go to the feature.
+  // centre; sizes change only through typed values, never by a drag. While picking, the shapes stay put and taps go to the feature.
   const grab = (target: Element): string | null => {
     if (canvasBusy) return null;
     const lead = target.closest<SVGGElement>('[data-lead]')?.dataset['lead'];
     if (lead !== undefined) return `lead:${lead}`;
-    if (target.closest('.resize-handle')) return 'resize';
     if (target.closest('.handle')) return 'rotate';
     const g = target.closest<SVGGElement>('[data-group]')?.dataset['group'];
     return g === undefined ? null : `move:${g}`;
@@ -375,12 +374,6 @@
       if (!draft) return;
       anchor = { revision: draft.revision, groups: [...selected], center, angle: Math.atan2(from[1] - center[1], from[0] - center[0]), box };
       dragging = true;
-    }
-    if (kind === 'resize') {
-      const radius = Math.hypot(from[0] - anchor.center[0], from[1] - anchor.center[1]);
-      const scale = Math.max(0.001, Math.hypot(to[0] - anchor.center[0], to[1] - anchor.center[1]) / Math.max(radius, 1e-6));
-      local = { groups: anchor.groups, m: scaling(scale, anchor.center) };
-      return;
     }
     if (kind === 'rotate') {
       let delta = ((Math.atan2(to[1] - anchor.center[1], to[0] - anchor.center[0]) - anchor.angle) * 180) / Math.PI;
@@ -669,7 +662,6 @@
           <rect class="sel-box" x={selection.minX - 2 * mark} y={selection.minY - 2 * mark}
             width={selection.maxX - selection.minX + 4 * mark} height={selection.maxY - selection.minY + 4 * mark} vector-effect="non-scaling-stroke"/>
           <path class="stalk" d="M{centre(selection)[0]} {selection.maxY + 2 * mark}V{selection.maxY + 8 * mark}" vector-effect="non-scaling-stroke"/>
-          <circle class="resize-handle" cx={selection.maxX + 2 * mark} cy={selection.maxY + 2 * mark} r={mark * 1.5} fill="var(--accent)" style="cursor:nwse-resize"/>
           <g class="handle" transform="translate({centre(selection)[0]} {selection.maxY + 8 * mark})">
             <circle r={3 * mark} class="hit"/><circle r={1.4 * mark} vector-effect="non-scaling-stroke"/>
           </g>
@@ -693,7 +685,3 @@
   </Stage>
 </div>
 <DrawingToolbar tools={DRAW_TOOLS} selected={!!selection} />
-
-<style>
-  .resize-handle { pointer-events: all; }
-</style>
