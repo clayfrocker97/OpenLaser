@@ -32,7 +32,7 @@ struct Saved {
     sizes: Vec<SheetSize>,
 }
 
-/// Every size positive and finite, at most [`MAX_SIZES`] of them, none repeated.
+/// Every size positive and finite, at most `MAX_SIZES` of them, none repeated.
 pub fn validate(sizes: &[SheetSize]) -> Result<()> {
     if sizes.len() > MAX_SIZES {
         return Err(Error::Request(format!("keep at most {MAX_SIZES} sheet sizes")));
