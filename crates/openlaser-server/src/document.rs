@@ -30,6 +30,8 @@ pub struct Document {
     pub soft: crate::soft_settings::SoftView,
     /// How long held controls must be held, the same on every screen.
     pub hold: crate::touch::HoldTimes,
+    /// Sheet sizes saved for the stock chooser.
+    pub sheet_sizes: Vec<crate::sheet_sizes::SheetSize>,
     /// Gas prices and the current job's estimate.
     pub gas: Arc<crate::gas::GasView>,
     /// Changes with every publication.
@@ -140,6 +142,7 @@ impl Serialize for Patch<'_> {
         map.serialize_entry("alarm_history", &d.alarm_history)?;
         map.serialize_entry("soft", &d.soft)?;
         map.serialize_entry("hold", &d.hold)?;
+        map.serialize_entry("sheet_sizes", &d.sheet_sizes)?;
         map.serialize_entry("gas", &d.gas)?;
         map.serialize_entry("machine", &d.machine)?;
         map.serialize_entry("calibration", &d.calibration)?;
@@ -1194,5 +1197,21 @@ mod tests {
                 .unwrap();
         assert_eq!(patch.get("draft"), Some(&serde_json::Value::Null));
         assert_eq!(patch["draft_revision"], 1);
+    }
+
+    /// The first event is the whole document: every field a page reads must
+    /// be in the hand-written patch, or a new field never reaches the screens.
+    #[test]
+    fn the_first_patch_carries_every_document_field() {
+        let document = Document::default();
+        let whole = serde_json::to_value(&document).unwrap();
+        let first = serde_json::to_value(Patch { document: &document, previous: None }).unwrap();
+        let missing: Vec<&String> = whole
+            .as_object()
+            .unwrap()
+            .keys()
+            .filter(|key| first.get(key.as_str()).is_none())
+            .collect();
+        assert!(missing.is_empty(), "missing from the patch: {missing:?}");
     }
 }

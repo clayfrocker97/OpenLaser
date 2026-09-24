@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { distance, quantity, unitLabel } from '../lib/units.svelte';
+  import { quantity, toDisplay, unitLabel, units } from '../lib/units.svelte';
   import Modal from './Modal.svelte';
   import SheetLibrary from './SheetLibrary.svelte';
   import { api } from '../api/client';
@@ -24,7 +24,19 @@
     ...(bedSize ? [{ label: 'Full bed', size: [bedSize.width, bedSize.height] as [number, number] }] : []),
     ...COMMON_SHEETS.map((sheet) => ({ label: sheet.label, size: oriented(sheet.long, sheet.short, bedSize) })),
   ]);
-  const saved = $derived(ui.sheetSizes.some((entry) => same(entry, size)));
+  // Saved sizes live on the machine, so every screen offers the same list.
+  const savedSizes = $derived<Array<[number, number]>>((server.doc?.sheet_sizes ?? []).map((s) => [s.width_mm, s.height_mm]));
+  const saved = $derived(savedSizes.some((entry) => same(entry, size)));
+  /** A sheet side the way stock is sold: whole millimetres, or inches to 0.01. */
+  const side = (mm: number) => Number(toDisplay(mm, 'mm').toFixed(units.system === 'imperial' ? 2 : 0)).toLocaleString('en-US');
+  const asSheet = ([width_mm, height_mm]: [number, number]) => ({ width_mm, height_mm });
+  async function saveSizes(next: Array<[number, number]>): Promise<void> {
+    const expected = $state.snapshot(server.doc?.sheet_sizes ?? []);
+    try { await api.saveSheetSizes(next.map(asSheet), expected); }
+    catch (e) { ui.say(explain(e), true); }
+  }
+  const remember = () => saveSizes([...savedSizes, [width, height]]);
+  const forget = (entry: [number, number]) => saveSizes(savedSizes.filter((s) => !same(s, entry)));
   function choose(next: [number, number]): void { [width, height] = next; }
   function rotate(): void { [width, height] = [height, width]; }
   // The preview keeps the sheet's proportions inside a fixed box.
@@ -64,7 +76,7 @@
     <div class="new-stock">
       <div class="sheet-preview">
         <div class="sheet-icon" style:aspect-ratio={aspect} style:width="min(100%, {Math.round(240 * aspect)}px)">
-          <span>{distance(width)} × {distance(height)} {unitLabel('mm')}</span>
+          <span>{side(width)} × {side(height)} {unitLabel('mm')}</span>
         </div>
       </div>
       <div class="sheet-form">
@@ -89,7 +101,7 @@
         </div>
         {#if !fits(size, bedSize)}
           <p class="warn-text" role="status">
-            Larger than the bed ({distance(bedSize!.width)} × {distance(bedSize!.height)} {unitLabel('mm')}).
+            Larger than the bed ({side(bedSize!.width)} × {side(bedSize!.height)} {unitLabel('mm')}).
             Rotate it or pick a smaller size.
           </p>
         {/if}
@@ -107,17 +119,17 @@
         </div>
         <h4>Saved sizes</h4>
         <div class="chips">
-          {#each ui.sheetSizes as entry (entry.join('x'))}
+          {#each savedSizes as entry (entry.join('x'))}
             <span class="saved-size">
               <button class="chip" class:on={same(entry, size)} disabled={busy} onclick={() => choose(entry)}>
-                {distance(entry[0])} × {distance(entry[1])}
+                {side(entry[0])} × {side(entry[1])}
               </button>
-              <button class="forget" aria-label="Forget {distance(entry[0])} × {distance(entry[1])}" onclick={() => ui.forgetSheetSize(entry)}>
+              <button class="forget" aria-label="Forget {side(entry[0])} × {side(entry[1])}" onclick={() => forget(entry)}>
                 <i class="ic ic-x"></i>
               </button>
             </span>
           {/each}
-          <button class="chip save" disabled={busy || saved || width <= 0 || height <= 0} onclick={() => ui.saveSheetSize(size)}>
+          <button class="chip save" disabled={busy || saved || width <= 0 || height <= 0} onclick={remember}>
             {saved ? 'Saved' : '+ Save this size'}
           </button>
         </div>

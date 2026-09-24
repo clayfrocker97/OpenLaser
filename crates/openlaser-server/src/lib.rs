@@ -42,6 +42,7 @@ pub mod preflight;
 pub mod recipes;
 pub mod resume;
 pub mod setup;
+pub mod sheet_sizes;
 pub mod sheets;
 pub mod soft_settings;
 pub mod stock_store;

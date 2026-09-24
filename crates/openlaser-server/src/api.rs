@@ -52,6 +52,7 @@ pub fn router(shared: Shared, ui_dir: std::path::PathBuf) -> Router {
         )
         .route("/api/preflight/action", post(preflight_action))
         .route("/api/touch", post(save_touch))
+        .route("/api/sheet-sizes", post(save_sheet_sizes))
         .route("/api/postflight", get(postflight_review))
         .route("/api/postflight/action", post(postflight_action))
         .route("/api/postflight/dismiss", post(dismiss_postflight))
@@ -1028,6 +1029,22 @@ struct TouchChange {
 
 async fn save_touch(State(shared): State<Shared>, Json(change): Json<TouchChange>) -> Reply {
     shared.lock().await.save_hold_times(change.hold, change.expected)?;
+    Ok(ok())
+}
+
+/// The saved sheet sizes for every screen, from the list the caller last read.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SheetSizesChange {
+    sizes: Vec<crate::sheet_sizes::SheetSize>,
+    expected: Vec<crate::sheet_sizes::SheetSize>,
+}
+
+async fn save_sheet_sizes(
+    State(shared): State<Shared>,
+    Json(change): Json<SheetSizesChange>,
+) -> Reply {
+    shared.lock().await.save_sheet_sizes(change.sizes, &change.expected)?;
     Ok(ok())
 }
 

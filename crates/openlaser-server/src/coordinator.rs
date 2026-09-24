@@ -107,6 +107,8 @@ pub struct Coordinator {
     pub soft: crate::soft_settings::SoftSettings,
     /// How long every screen's held controls must be held.
     pub hold: crate::touch::HoldTimes,
+    /// Sheet sizes saved for the stock chooser, the same on every screen.
+    pub sheet_sizes: Vec<crate::sheet_sizes::SheetSize>,
     /// Gas prices, the run history and the run being recorded.
     pub gas: crate::gas::Store,
     /// Read-only historical alarm recording.
@@ -260,6 +262,7 @@ impl Coordinator {
             postflight: None,
             soft,
             hold: crate::touch::HoldTimes::open(&config.data_dir),
+            sheet_sizes: crate::sheet_sizes::open(&config.data_dir),
             gas: crate::gas::Store::open(&config.data_dir),
             history,
             mode: config.mode,
@@ -423,6 +426,7 @@ impl Coordinator {
             alarm_history: self.history.status(),
             soft: self.soft.view(),
             hold: self.hold,
+            sheet_sizes: self.sheet_sizes.clone(),
             gas: self.gas.view(self.revisions.draft, self.draft_view.as_deref()),
             revision: self.revision,
             calibration: self.calibration_view(&machine),

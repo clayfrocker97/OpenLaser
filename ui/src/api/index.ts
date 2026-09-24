@@ -169,6 +169,7 @@ export type { SessionView } from './bindings/SessionView';
 export type { SheetInfo } from './bindings/SheetInfo';
 export type { SheetNavigation } from './bindings/SheetNavigation';
 export type { SheetPage } from './bindings/SheetPage';
+export type { SheetSize } from './bindings/SheetSize';
 export type { SheetState } from './bindings/SheetState';
 export type { SheetTab } from './bindings/SheetTab';
 export type { SheetView } from './bindings/SheetView';

@@ -15,6 +15,7 @@ import type { PostflightNotice } from "./PostflightNotice";
 import type { ProgressView } from "./ProgressView";
 import type { Readiness } from "./Readiness";
 import type { RecoveryView } from "./RecoveryView";
+import type { SheetSize } from "./SheetSize";
 import type { SoftView } from "./SoftView";
 import type { State } from "./State";
 
@@ -54,6 +55,10 @@ soft: SoftView,
  * How long held controls must be held, the same on every screen.
  */
 hold: HoldTimes,
+/**
+ * Sheet sizes saved for the stock chooser.
+ */
+sheet_sizes: Array<SheetSize>,
 /**
  * Gas prices and the current job's estimate.
  */

@@ -8,6 +8,7 @@ import type {
 } from './index';
 import { server } from '../stores/server.svelte';
 import type { SheetPage, SheetView, SaveRemnant, NestSheetPreview, CorrectionView, CorrectionChange, NestRequest, NestView, StockChoice } from './index';
+import type { SheetSize } from './index';
 import type { PlacementChange, SimplifyView, ImportOptions, ImportReview } from './index';
 import type { Calibration, FlowEstimate, GasCosts, GasKind, Nozzle, RunRecord } from './index';
 
@@ -155,6 +156,8 @@ export const api = {
   savePreflightPreferences: (preferences: PreflightPreferences) => post('/api/preflight/preferences', preferences),
   /** Hold times for every screen, refused if they changed since `expected` was read. */
   saveHoldTimes: (hold: HoldTimes, expected: HoldTimes) => post('/api/touch', { hold, expected }),
+  /** The saved sheet sizes for every screen, refused if they changed since `expected` was read. */
+  saveSheetSizes: (sizes: SheetSize[], expected: SheetSize[]) => post('/api/sheet-sizes', { sizes, expected }),
   saveGasCosts: (costs: GasCosts, expected: GasCosts) => post('/api/gas/costs', { costs, expected }),
   gasFlow: (test: FlowTest) => post<FlowEstimate>('/api/gas/flow', test),
   calibrateGas: (test: FlowTest & { measured: number }) => post<Calibration>('/api/gas/calibrate', test),
