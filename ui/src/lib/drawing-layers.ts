@@ -4,8 +4,9 @@
 import type { DraftLayer, Features, Layer, Machining } from '../api';
 
 /** Colours for layers the file leaves uncoloured, by name after the first,
- *  which draws in the screen's cut colour; distinct on light and dark. */
-export const PALETTE = ['#f28c28', '#3b82f6', '#d946ef', '#eab308', '#06b6d4', '#ef4444', '#8b5cf6', '#84cc16', '#ec4899', '#14b8a6'];
+ *  which draws in the screen's cut colour; distinct on light and dark, and
+ *  never the selection's orange. */
+export const PALETTE = ['#3b82f6', '#d946ef', '#eab308', '#06b6d4', '#ef4444', '#8b5cf6', '#84cc16', '#ec4899', '#14b8a6'];
 
 const hex = ([r, g, b]: [number, number, number]) => `#${[r, g, b].map((c) => c.toString(16).padStart(2, '0')).join('')}`;
 

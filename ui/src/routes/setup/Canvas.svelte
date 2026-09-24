@@ -32,7 +32,7 @@
   import { pathOf, type Box } from '../../lib/svg';
   import { layerColor } from '../../lib/drawing-layers';
   import {
-    drawingPath, hitPath, boundsOfShapes, marqueeGroups, nearestShape, unionBounds, axisAlignedBounds, transformedBounds, BoundsIndex, inverseBounds,
+    drawingPath, hitPath, boundsOfShapes, marqueeGroups, nearestShape, smallShapeAround, unionBounds, axisAlignedBounds, transformedBounds, BoundsIndex, inverseBounds,
   } from '../../lib/viewer-geometry';
   import type { Features, PreviewContour, Spot, Transform } from '../../api';
 
@@ -111,6 +111,8 @@
   /** One shape of the selected part, tapped again to take it alone: a hole
    *  inside a part, a mark around a hole. Parts still move as a whole. */
   let shape = $state<number | null>(null);
+  /** Half a fingertip, in pixels: how far from a line a tap still takes it. */
+  const HALO = 20;
   const selectedSet = $derived(new Set(selected));
   $effect(() => { if (shape !== null && !contoursOf(selected).includes(shape)) shape = null; });
   $effect(() => { selectedContours = updating ? [] : shape !== null ? [shape] : contoursOf(selected); });
@@ -353,6 +355,8 @@
     const lead = target.closest<SVGGElement>('[data-lead]')?.dataset['lead'];
     if (lead !== undefined) return `lead:${lead}`;
     if (target.closest('.handle')) return 'rotate';
+    // Anywhere inside the selection's box moves it.
+    if (target.closest('[data-selection]') && selected.length) return `move:${selected[0]}`;
     const g = target.closest<SVGGElement>('[data-group]')?.dataset['group'];
     return g === undefined ? null : `move:${g}`;
   };
@@ -453,13 +457,17 @@
     }
     if (ui.nestShown) return;
     if (ui.picking) { pickAt(at); return; }
-    // The nearest line wins, so a hole inside a ring can be tapped; a tap
-    // again on a selected part takes the one shape under the finger.
-    const hit = nearestShape(shapes, boundsIndex, at, 10 * view.mmPerPixel, (c) => !hidden(c.layer));
-    const g = hit?.group ?? target.closest<SVGGElement>('[data-group]')?.dataset['group'];
-    if (g === undefined) { if (!additive) selected = []; return; }
-    const n = Number(g);
-    const one = hit?.contour.sources.length === 1 ? hit.contour.sources[0]! : null;
+    // Each line has a halo a fingertip wide; where halos overlap the nearest
+    // line wins, so a hole inside a ring can be tapped. Inside a
+    // fingertip-sized hole takes the hole; other empty space, inside a
+    // large outline or not, takes nothing. A tap again on a selected part takes the
+    // one shape under the finger.
+    const shown = (c: PreviewContour) => !hidden(c.layer);
+    const hit = nearestShape(shapes, boundsIndex, at, HALO * view.mmPerPixel, shown)
+      ?? smallShapeAround(shapes, boundsIndex, at, 5 * HALO * view.mmPerPixel, shown);
+    if (!hit) { if (!additive) { selected = []; shape = null; } return; }
+    const n = hit.group;
+    const one = hit.contour.sources.length === 1 ? hit.contour.sources[0]! : null;
     if (!additive && one !== null && selected.length === 1 && selected[0] === n && (groups[n]?.length ?? 0) > 1) {
       shape = shape === one ? null : one;
       return;
@@ -637,11 +645,14 @@
         {@const on = selectedSet.has(g)}
         {@const bounds = groupBounds.get(g)}
         {@const details = on || !!bounds && Math.max(bounds.maxX - bounds.minX, bounds.maxY - bounds.minY) >= 24 * view.mmPerPixel}
-        <g class="shape" class:selected={on} class:dragging={dragging && on} data-group={g}
+        <g class="shape" class:selected={on} class:drilled={on && shape !== null} class:dragging={dragging && on} data-group={g}
           transform={!movingAll && local && movingSet.has(g) ? svgMatrix(local.m) : ''}>
           {#each shapes.get(g) ?? [] as contour}
             {#if !hidden(contour.layer)}
-              <g class="contour" class:picked={shape !== null && contour.sources[0] === shape}>
+              {@const picked = shape !== null && contour.sources[0] === shape}
+              <g class="contour" class:picked>
+              <!-- The selection's halo: the whole part softly, one shape taken alone strongly. -->
+              {#if on && (shape === null || picked)}<path class="halo" class:strong={picked} d={hitPath(contour)} vector-effect="non-scaling-stroke"/>{/if}
               <path class="hit" d={hitPath(contour)} vector-effect="non-scaling-stroke"/>
               {#each contour.paths as path}
                 {#if ui.layerShown(path.kind)}<path class="path {path.kind}" class:mark={marked.has(contour.layer)}
@@ -682,6 +693,8 @@
       {#if firstEnd}<circle class="mark bridge" cx={firstEnd[0]} cy={firstEnd[1]} r={mark * 1.5} vector-effect="non-scaling-stroke"/>{/if}
       {#if selection && selectionShown && shape === null}
         <g class="gizmo">
+          <rect class="sel-grab" data-selection x={selection.minX - 2 * mark} y={selection.minY - 2 * mark}
+            width={selection.maxX - selection.minX + 4 * mark} height={selection.maxY - selection.minY + 4 * mark}/>
           <rect class="sel-box" x={selection.minX - 2 * mark} y={selection.minY - 2 * mark}
             width={selection.maxX - selection.minX + 4 * mark} height={selection.maxY - selection.minY + 4 * mark} vector-effect="non-scaling-stroke"/>
           <path class="stalk" d="M{centre(selection)[0]} {selection.maxY + 2 * mark}V{selection.maxY + 8 * mark}" vector-effect="non-scaling-stroke"/>
@@ -697,7 +710,8 @@
       {#if ui.picking}
         <PickBar picking={ui.picking} picked={pickedCount} total={candidates.length} busy={updating || pickBusy} onfinish={finishPicks} />
       {/if}
-      {#if preview?.warnings.length}<div class="hint">{preview.warnings[0]}</div>{/if}
+      {#if shape !== null && selectionShown}<div class="hint">One shape · tap it again for the whole part</div>
+      {:else if preview?.warnings.length}<div class="hint">{preview.warnings[0]}</div>{/if}
       {#if selection && selectionShown && shape === null}
         <SelectionHud {selection} {zero} disabled={updating} onplace={typed} onturn={turnBy} onresize={resize} />
       {/if}

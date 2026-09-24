@@ -257,8 +257,12 @@ sheet per layer.
   and an Output switch. Drag a layer's grip to move it; layers run top to
   bottom. Until you do, layers of smaller shapes run first, so a layer of
   holes runs before the outlines around them.
-- **Moving shapes.** Tap a part to select it; tap one of its shapes again to
-  take that shape alone, such as the hole inside a countersink. **Layer** in
+- **Moving shapes.** Tap near a line to select its part: each line takes a
+  tap a fingertip either side, the nearest line winning, and inside a small
+  hole takes the hole; empty space takes nothing. The selection glows. Tap
+  one of its shapes again to take that shape alone, such as the hole inside
+  a countersink; the rest of the part fades. Drag anywhere inside the
+  selection's box to move it. **Layer** in
   the drawing bar moves the selection to a layer, or to a new one, whose
   settings open next.
 - **A layer's settings.** Tap a layer in the list:

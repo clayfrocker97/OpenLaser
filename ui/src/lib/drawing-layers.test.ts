@@ -15,7 +15,7 @@ describe('layers', () => {
     const layers = [layer('0'), layer('Red', [255, 0, 0]), layer('Etch'), layer('White', [255, 255, 255]), layer('Blue', [0, 0, 255])];
     expect(layerColor(layers, '0')).toBeNull();
     expect(layerColor(layers, 'Red')).toBe('#ff0000');
-    expect(layerColor(layers, 'Etch')).toBe('#3b82f6');
+    expect(layerColor(layers, 'Etch')).toBe('#d946ef');
     expect(layerColor(layers, 'White')).toBeNull();
     expect(layerColor(layers, 'Blue')).toBe('#0000ff');
     // Another order keeps every colour.

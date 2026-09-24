@@ -325,11 +325,17 @@ h1 { font-size: var(--t-xl); margin-right: 6px; }
 .canvas { flex: 1; position: relative; background: var(--panel-2); min-height: 0; overflow: hidden; touch-action: none; user-select: none; }
 .shape { cursor: grab; }
 .shape.dragging { cursor: grabbing; }
-.shape .hit { fill: transparent; stroke: transparent; stroke-width: 16px; pointer-events: all; }
+/* Each line's halo: a fingertip either side takes it; empty space inside a part does not. */
+.shape .hit { fill: none; stroke: transparent; stroke-width: 40px; stroke-linecap: round; stroke-linejoin: round; pointer-events: stroke; }
 .shape.selected .path { stroke-width: 3; }
-/* The shape under the pointer, and one shape taken alone, stand out from their part. */
-.shape .contour:hover .path { stroke-width: 3.5; }
-.shape .contour.picked .path.cut { stroke: var(--accent) !important; stroke-width: 4; }
+/* The selection glows: a part softly, one shape taken alone strongly while the rest of its part fades. */
+.shape .halo { fill: none; stroke: var(--accent); stroke-opacity: .22; stroke-width: 10px; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
+.shape .halo.strong { stroke-opacity: .5; stroke-width: 14px; }
+.shape.drilled .contour:not(.picked) { opacity: .4; }
+.shape .contour.picked .path { stroke-width: 3.5; }
+.sel-grab { fill: transparent; stroke: none; pointer-events: fill; cursor: grab; }
+/* The line under a mouse; a touch screen has no hover to show. */
+@media (hover: hover) { .shape .contour:hover .path { stroke-width: 3.5; } }
 .marquee { fill: rgba(228,123,32,.08); stroke: var(--accent); stroke-width: 1; stroke-dasharray: 4 3; }
 .handle .hit { fill: transparent; }
 .handle text { fill: var(--accent); font: 700 var(--t-base) var(--font); pointer-events: none; }

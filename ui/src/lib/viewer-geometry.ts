@@ -47,6 +47,40 @@ export function nearestShape(
   return best;
 }
 
+/** The smallest closed shape around `at` no wider than `size`: a tap
+ *  inside a small hole takes it, while the empty inside of a large outline
+ *  takes nothing. */
+export function smallShapeAround(
+  shapes: Map<number, PreviewContour[]>, index: BoundsIndex, at: [number, number], size: number,
+  shown: (contour: PreviewContour) => boolean = () => true,
+): { group: number; contour: PreviewContour } | null {
+  const [x, y] = at;
+  let best: { group: number; contour: PreviewContour } | null = null;
+  let smallest = Infinity;
+  for (const group of index.query({ minX: x, maxX: x, minY: y, maxY: y })) {
+    for (const contour of shapes.get(group) ?? []) {
+      const bounds = boundsOfContour(contour);
+      if (!bounds || !shown(contour) || x < bounds.minX || x > bounds.maxX || y < bounds.minY || y > bounds.maxY) continue;
+      const width = bounds.maxX - bounds.minX, height = bounds.maxY - bounds.minY;
+      if (Math.max(width, height) > size || width * height >= smallest) continue;
+      if (contour.paths.some((p) => p.kind === 'cut' && encloses(p.points, x, y))) { smallest = width * height; best = { group, contour }; }
+    }
+  }
+  return best;
+}
+
+/** Whether a closed line runs around the point, by the crossings of a ray. */
+function encloses(points: Polyline, x: number, y: number): boolean {
+  const first = points[0], last = points[points.length - 1];
+  if (!first || !last || points.length < 3 || Math.hypot(first[0] - last[0], first[1] - last[1]) > 1e-3) return false;
+  let inside = false;
+  for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+    const [xi, yi] = points[i]!, [xj, yj] = points[j]!;
+    if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+
 /** A marquee touches any member of a group; empty space between members does not count. */
 export function marqueeGroups(shapes: Map<number, PreviewContour[]>, index: BoundsIndex, box: Box): number[] {
   return index.query(box).filter(g => shapes.get(g)?.some(c => {

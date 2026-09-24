@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { axisAlignedBounds, boundsOfShapes, BoundsIndex, drawingPath, hitPath, inverseBounds, marqueeGroups, nearestShape, overlaps, transformedBounds } from './viewer-geometry';
+import { axisAlignedBounds, boundsOfShapes, BoundsIndex, drawingPath, hitPath, inverseBounds, marqueeGroups, nearestShape, overlaps, smallShapeAround, transformedBounds } from './viewer-geometry';
 import { boxOf, pathOf } from './svg';
 import type { PreviewContour, Transform } from '../api';
 
@@ -69,5 +69,15 @@ describe('viewer bounds and cached paths', () => {
     expect((nearestShape(shapes, index, [4.4, 0], 2)!.contour as { sources: number[] }).sources).toEqual([1]);
     expect((nearestShape(shapes, index, [6.2, 0], 2)!.contour as { sources: number[] }).sources).toEqual([2]);
     expect(nearestShape(shapes, index, [20, 20], 2)).toBeNull();
+  });
+
+  it('takes a small hole tapped inside, never the empty inside of a large outline', () => {
+    const ring = (r: number, source: number) => ({ sources: [source], layer: 'CUT', paths: [{ kind: 'cut', points: Array.from({ length: 65 }, (_, i) => [r * Math.cos(i / 32 * Math.PI), r * Math.sin(i / 32 * Math.PI)]) }] }) as never;
+    const shapes = new Map([[0, [ring(3, 1), ring(40, 2)]]]);
+    const index = new BoundsIndex(boundsOfShapes(shapes));
+    const around = (at: [number, number]) => (smallShapeAround(shapes, index, at, 20)?.contour as { sources: number[] } | undefined)?.sources;
+    expect(around([0.5, 0.5])).toEqual([1]);
+    expect(around([20, 0])).toBeUndefined();
+    expect(around([60, 0])).toBeUndefined();
   });
 });
