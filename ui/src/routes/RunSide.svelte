@@ -6,7 +6,6 @@
   // cancelled pointer, releases too.
   import { onMount } from 'svelte';
   import { Hold } from '../lib/hold';
-  import { TapOrHold } from '../lib/tap-or-hold';
   import SheetPosition from '../components/SheetPosition.svelte';
   import GoToXy from '../components/GoToXy.svelte';
   import HoldButton from '../components/HoldButton.svelte';
@@ -62,27 +61,15 @@
   $effect(() => {
     if (!server.link || !access.canControl) {
       held.cancel();
-      keys.cancel();
     }
   });
-  // X/Y keys step on a tap and jog while held, like a pendant: a tap moves
-  // one bounded step; past CONTINUOUS_AFTER_MS the press becomes a deadman
-  // jog that stops on release (DESIGN.md rule 5). Z and W are deadman only.
+  // Every key jogs only while held (DESIGN.md rule 5): the lease renews
+  // while the finger stays down and the controller stops when it lifts.
   function press(event: PointerEvent, axis: Axis, positive: boolean, diagonal?: boolean): void {
-    if (axis === 'w' || axis === 'z') {
-      held.press(event, (lease) => axis === 'w' ? api.machine('table', { lease, table: { positive, speed_mm_s: tableSpeed } })
-        : api.machine('outputs', { lease, output: { kind: 'head_jog', up: positive, fast: ui.jogFast } }));
-      return;
-    }
-    const jog = (step_mm: number | null) => ({ axis, positive, step_mm, fast: ui.jogFast, diagonal });
-    keys.press(event, () => call(() => api.machine('jog', { jog: jog(ui.jogStep) })), (handover) =>
-      held.press(handover as unknown as PointerEvent, (lease) => api.machine('jog', { lease, jog: jog(null) })));
+    held.press(event, (lease) => axis === 'w' ? api.machine('table', { lease, table: { positive, speed_mm_s: tableSpeed } })
+      : axis === 'z' ? api.machine('outputs', { lease, output: { kind: 'head_jog', up: positive, fast: ui.jogFast } })
+      : api.machine('jog', { lease, jog: { axis, positive, step_mm: null, fast: ui.jogFast, diagonal } }));
   }
-  const keys = new TapOrHold(() => server.link && access.canControl);
-  onMount(() => keys.mount());
-  const STEPS = [0.1, 1, 10];
-  /** A step as a short number in the display unit: 0.1, 1, 10 or 0.004, 0.04, 0.39. */
-  const stepLabel = (mm: number) => String(Number(distance(mm).replace(/[^\d.-]/g, '')));
   /** A diagonal needs both of its directions, and never recovers a limit. */
   const diagonalOk = (xPositive: boolean, yPositive: boolean) =>
     !readiness.xy_recovery && readiness.xy_jog[0]![Number(xPositive)]!.ok && readiness.xy_jog[1]![Number(yPositive)]!.ok;
@@ -172,15 +159,6 @@
     </button>
   </div>
 
-  <div class="jog-steps">
-    <span class="step-label"><strong>Step · {unitLabel('mm')}</strong></span>
-    <div class="seg" role="group" aria-label="Jog step">
-      {#each STEPS as step (step)}
-        <button class:on={ui.jogStep === step} aria-pressed={ui.jogStep === step} onclick={() => ui.setJogStep(step)}>{stepLabel(step)}</button>
-      {/each}
-    </div>
-  </div>
-  <p class="jog-hint">Tap an arrow to move {quantity(ui.jogStep, 'mm')}; hold it to jog. Both at {ui.jogFast ? 'Fast' : 'Slow'} speed{jogSpeed != null ? ` (${jogSpeedText})` : ''}; tap the middle key to switch.</p>
   <div class="jogblock">
     <div class="jog" class:disabled={!canJog} title={jogTitle}>
       {@render corner(false, true)}{@render key(1, true, 'ic-arrow-up', 'Y+', readiness.xy_jog[1]![1]!.ok)}{@render corner(true, true)}
@@ -247,11 +225,6 @@
   .zcol { grid-template-columns: minmax(0, 1fr); grid-template-rows:repeat(3,minmax(64px,1fr)); }
   .zcol > * { grid-column: 1; }
   .auxiliary-hint { font-size: var(--t-sm); color: var(--ink-3); }
-  .jog-steps { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px; align-items: center; }
-  .step-label { display: grid; gap: 2px; font-size: var(--t-sm); color: var(--ink-2); }
-  .jog-hint { margin: 0; font-size: var(--t-sm); color: var(--ink-3); }
-  .jog-steps .seg { display: flex; min-width: 0; }
-  .jog-steps .seg button { flex: 1 1 auto; min-width: 44px; padding: 0 8px; }
   .frame-row { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 8px; }
   .frame-row .go-xy { min-height: 52px; }
   .jog .diagonal .ic { transform: rotate(var(--turn)); }

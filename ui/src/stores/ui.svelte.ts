@@ -103,8 +103,6 @@ class Ui {
   drawBar = $state<string[]>(withAll(remembered('ol-draw-bar', DRAW_BAR), DRAW_BAR));
   editDrawBar = $state(false);
   jogFast = $state(false);
-  /** The X/Y step a tap on a jog key moves, in millimetres. Holding a key jogs continuously. */
-  jogStep = $state<number>(remembered<number | null>('ol-jog-step', 1) ?? 1);
   snap = $state(remembered('ol-snap', true));
   grid = $state(remembered('ol-grid', 1));
   /** Canvas layers the operator switched off. */
@@ -151,7 +149,6 @@ class Ui {
     remember('ol-sheet-sizes', this.sheetSizes);
   }
   setDrawBar(order: string[]): void { this.drawBar = withAll(order, DRAW_BAR); remember('ol-draw-bar', this.drawBar); }
-  setJogStep(step: number): void { this.jogStep = step; remember('ol-jog-step', step); }
   toggleSnap(): void { this.snap = !this.snap; remember('ol-snap', this.snap); }
 
   setBar(tools: string[]): void {

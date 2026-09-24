@@ -60,7 +60,7 @@
         {#if !completed}<button class="text-button" disabled={disabled} onclick={() => (changing = true)}>Change</button>{/if}
       </div>
     {:else}
-      <div class="position-title"><strong>Sheet origin</strong>{#if changing}<button class="text-button" onclick={() => (changing = false)}>Done</button>{/if}</div>
+      <div class="position-title"><strong>Sheet origin</strong>{#if !disabled && !doc.readiness.set_origin.ok && doc.readiness.set_origin.reason}<span class="origin-reason">{plain(doc.readiness.set_origin.reason).text}</span>{/if}{#if changing}<button class="text-button" onclick={() => (changing = false)}>Done</button>{/if}</div>
       <div class="position-method" role="group" aria-label="Positioning method">
         <button aria-pressed={method === 'head'} disabled={disabled} title="Set the origin at the head for each new run" onclick={chooseEachRun}>Each run</button>
         <button aria-pressed={method === 'fixed'} disabled={disabled} title="Keep one machine position for a fixture" onclick={() => (method = 'fixed')}>Absolute</button>
@@ -69,7 +69,6 @@
         <HoldButton class="set-origin" kind="zero" disabled={disabled || !doc.readiness.set_origin.ok} title="Set the origin where the head is" onhold={setOrigin}>
           Set origin here{#if position} · X {distance(position[0])} · Y {distance(position[1])}{/if}
         </HoldButton>
-        {#if !disabled && !doc.readiness.set_origin.ok && doc.readiness.set_origin.reason}<p class="gate-reason origin-reason">{plain(doc.readiness.set_origin.reason).text}</p>{/if}
       {/if}
     {/if}
   </section>
@@ -85,6 +84,6 @@
   .sheet-position :global(button[aria-pressed="true"]) { border-color:var(--accent); background:var(--accent-soft); color:var(--accent); }
   .sheet-position :global(button:disabled) { opacity:.4; cursor:default; }
   .sheet-position :global(.set-origin) { width:100%; min-height:48px; padding:0 12px; border-color:var(--accent); color:var(--accent); font-variant-numeric:tabular-nums; }
-  .origin-reason { margin:0; font-size:var(--t-sm); }
+  .origin-reason { flex:1; min-width:0; text-align:right; color:var(--warn); font-size:var(--t-sm); }
   .sheet-position .text-button { flex:none; min-width:44px; padding:0 8px; color:var(--accent); border:0; background:transparent; font-size:var(--t-sm); }
 </style>

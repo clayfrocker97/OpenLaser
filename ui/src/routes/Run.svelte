@@ -211,11 +211,6 @@
       {/if}
     </div>
     {#if material && valuesOpen}<div class="run-summary"><MaterialSummary source={material} variant="line" /></div>{/if}
-    <div class="run-meta">
-      <strong>{execution?.frame ? 'Frame' : `${Math.round(pct)}%`}</strong>
-      <span>{execution?.frame ? 'Laser off' : `${done} / ${contours} passes`}</span>
-      {#if !execution?.frame}<span>{execution && !recovering && program?.state === 'completed' ? 'done' : eta}</span>{/if}
-    </div>
   </div>
 
   {#if compiled?.plan.some((pass) => pass.omitted_cooling > 0)}
@@ -287,6 +282,12 @@
             <button class:on={draft.dry_run} disabled={choosingRun || !doc.readiness.compile.ok || !!machine.operation} onclick={() => chooseRun(true)}>Dry run</button>
           </div>
         {/if}
+        <div class="run-meta">
+          <strong>{execution?.frame ? 'Frame' : `${Math.round(pct)}%`}</strong>
+          <span>{execution?.frame ? 'Laser off' : `${done} / ${contours} passes`}</span>
+          {#if !execution?.frame}<span>{execution && !recovering && program?.state === 'completed' ? 'done' : eta}</span>{/if}
+        </div>
+        <span class="float-spacer"></span>
         <div class="run-status"><StatusLine status={chipText} gates={running || paused || step ? [] : chipGates} tone={step ? 'warn' : statusTone} alarms={false} /></div>
       </div>
       <div class="run-layers">
@@ -371,7 +372,9 @@
 .run-layers .spacer { display:none; }
 .run-status { min-width:0; max-width:420px; }
 .run-status :global(.status-summary) { background:var(--panel); }
-.run-float { position:absolute; left:14px; top:14px; display:flex; flex-wrap:wrap; gap:8px; align-items:center; max-width:calc(100% - 28px); }
+.run-float .run-meta { min-height:44px; padding:0 12px; border:1px solid var(--line); border-radius:12px; background:var(--panel); }
+.float-spacer { flex:1; }
+.run-float { position:absolute; left:14px; right:14px; top:14px; display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
 .run-float .seg { background:var(--panel); }
 .zoom-percent { display:inline-flex; align-items:center; padding:0 8px; font-size:var(--t-sm); color:var(--ink-3); font-variant-numeric:tabular-nums; }
 .values-toggle { flex:none; min-height:44px; min-width:44px; padding:0 10px; border:0; background:transparent; color:var(--accent); font:inherit; font-size:var(--t-sm); cursor:pointer; }

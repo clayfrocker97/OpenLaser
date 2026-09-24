@@ -34,13 +34,10 @@ touch-first CNC interface and adapted for a laser.
    the control, losing the pointer, a blurred window, a hidden page or the
    control becoming disabled mid-hold all do nothing. One press at a time.
    Enter and Space must be held too.
-5. **Deadman motion.** An X/Y jog key works like a pendant: a tap moves one
-   bounded step (0.1, 1 or 10 mm, laser off, chosen above the pad) when the
-   finger lifts, and a press held past 0.4 s becomes a continuous jog
-   (`lib/tap-or-hold.ts`). Sliding off or a cancelled pointer does nothing.
-   The four corner keys move X and Y together at 45°. Go to X/Y takes typed
-   coordinates and moves only on a held Go (rule 1).
-   Continuous jog, table, Z and manual outputs run only while held:
+5. **Deadman motion.** The four corner jog keys move X and Y together at
+   45°. Go to X/Y takes typed coordinates and moves only on a held Go
+   (rule 1).
+   Jog, table, Z and manual outputs run only while held:
    `lib/hold.ts` leases the press, renews it every 75 ms and releases on any
    doubt, and the controller stops them when renewals stop. Their buttons use
    `touch-action: none` (`.deadman`, `.jog`, `.zcol`) so a drifting finger

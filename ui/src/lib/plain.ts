@@ -24,6 +24,7 @@ const EXACT: Record<string, string> = {
   'connect the machine first': 'Connect the machine first.',
   'the machine is not connected': 'Connect the machine first.',
   'home XY first': 'Home the machine first.',
+  'home XY before positioning this sheet': 'Home XY before setting origin',
   'open a part first': 'Open a part first.',
   'choose a material first': 'Choose a material first.',
   'set a job origin first': 'Set the job origin first.',
