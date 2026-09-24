@@ -141,4 +141,11 @@
 </div>
 {#if preflight}<FlightChecklist initial={preflight} onclose={() => preflight = null} />{/if}
 
-<style>.phone-run-title { display:flex; align-items:center; justify-content:space-between; gap:12px; }.phone-run-title :global(.run-chip) { flex:0 1 auto; min-width:0; }.values-toggle { min-height:44px; min-width:44px; padding:0 8px; border:0; background:transparent; color:var(--accent); font:inherit; font-size:var(--t-sm); cursor:pointer; }.phone-run-choice { display:flex; margin-bottom:12px; }.phone-run-choice button { flex:1; min-height:44px; }.phone-pause-position { padding:12px; border:1px solid var(--hold); border-radius:9px; font-size:var(--t-sm); line-height:1.5; }</style>
+<style>
+  .phone-run-title { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  .phone-run-title :global(.run-chip) { flex:0 1 auto; min-width:0; }
+  .values-toggle { min-height:44px; min-width:44px; padding:0 8px; border:0; background:transparent; color:var(--accent); font:inherit; font-size:var(--t-sm); cursor:pointer; }
+  .phone-run-choice { display:flex; margin-bottom:12px; }
+  .phone-run-choice button { flex:1; min-height:44px; }
+  .phone-pause-position { padding:12px; border:1px solid var(--hold); border-radius:9px; font-size:var(--t-sm); line-height:1.5; }
+</style>

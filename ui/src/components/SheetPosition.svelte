@@ -27,6 +27,9 @@
   $effect(() => { method = fixed ? 'fixed' : 'head'; });
   // Once the origin is set the box shrinks to one line until Change.
   let changing = $state(false);
+  /** Why Set origin is unavailable, beside the title. */
+  const originHint = $derived(!disabled && !doc.readiness.set_origin.ok && doc.readiness.set_origin.reason
+    ? plain(doc.readiness.set_origin.reason).text : null);
   const collapsed = $derived(!!placement?.captured && !changing);
 
   function chooseEachRun(): void {
@@ -61,7 +64,11 @@
         {#if !completed || !fixed}<button class="text-button" disabled={disabled} onclick={() => (changing = true)}>Change</button>{/if}
       </div>
     {:else}
-      <div class="position-title"><strong>Sheet origin</strong>{#if !disabled && !doc.readiness.set_origin.ok && doc.readiness.set_origin.reason}<span class="origin-reason">{plain(doc.readiness.set_origin.reason).text}</span>{/if}{#if changing}<button class="text-button" onclick={() => (changing = false)}>Done</button>{/if}</div>
+      <div class="position-title">
+        <strong>Sheet origin</strong>
+        {#if originHint}<span class="origin-reason">{originHint}</span>{/if}
+        {#if changing}<button class="text-button" onclick={() => (changing = false)}>Done</button>{/if}
+      </div>
       <div class="position-method" role="group" aria-label="Positioning method">
         <button aria-pressed={method === 'head'} disabled={disabled} title="Set the origin at the head for each new run" onclick={chooseEachRun}>Each run</button>
         <button aria-pressed={method === 'fixed'} disabled={disabled} title="Keep one machine position for a fixture" onclick={() => (method = 'fixed')}>Absolute</button>

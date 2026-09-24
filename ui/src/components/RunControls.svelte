@@ -20,7 +20,12 @@
 </script>
 
 <div class="run-controls">
-  <HoldButton class="btn btn-start xl" onhold={() => onaction(intent)} disabled={busy || !server.link || !access.canControl || !ready.ok} title={plain(ready.reason).text}><i class="ic ic-play"></i>{intent === 'resume' ? 'Resume' : 'Start'}</HoldButton>
+  <HoldButton
+    class="btn btn-start xl"
+    onhold={() => onaction(intent)}
+    disabled={busy || !server.link || !access.canControl || !ready.ok}
+    title={plain(ready.reason).text}
+  ><i class="ic ic-play"></i>{intent === 'resume' ? 'Resume' : 'Start'}</HoldButton>
   <button class="btn btn-hold xl" onclick={() => onaction('hold')} disabled={busy || !server.link || !doc.readiness.hold.ok} title={doc.readiness.hold.reason ?? ''}><i class="ic ic-pause"></i>Pause</button>
   {#if showStop}<button class="btn btn-stop xl" onclick={() => onaction('stop')} disabled={!server.link || !doc.readiness.stop.ok}><i class="ic ic-stop"></i>Stop</button>{/if}
 </div>

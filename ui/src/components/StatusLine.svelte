@@ -61,7 +61,11 @@
 
 <style>
   .status-line { display: grid; gap: 8px; min-width: 0; }
-  .status-summary { display: flex; align-items: center; gap: 10px; min-height: 44px; width: 100%; padding: 0 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2, transparent); color: var(--ink); font: inherit; font-size: var(--t-sm); text-align: left; cursor: pointer; }
+  .status-summary {
+    display: flex; align-items: center; gap: 10px; min-height: 44px; width: 100%; padding: 0 12px;
+    border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2, transparent);
+    color: var(--ink); font: inherit; font-size: var(--t-sm); text-align: left; cursor: pointer;
+  }
   .status-summary:disabled { cursor: default; opacity: 1; }
   .dot { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--ink-3); }
   .tone-ready .dot { background: var(--move); }
