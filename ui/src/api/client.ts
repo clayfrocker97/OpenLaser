@@ -8,7 +8,7 @@ import type {
 } from './index';
 import { server } from '../stores/server.svelte';
 import type { SheetPage, SheetView, SaveRemnant, NestSheetPreview, CorrectionView, CorrectionChange, NestRequest, NestView, StockChoice } from './index';
-import type { SheetSize } from './index';
+import type { NewStock, SheetSize, StockChange } from './index';
 import type { PlacementChange, SimplifyView, ImportOptions, ImportReview } from './index';
 import type { Calibration, FlowEstimate, GasCosts, GasKind, Nozzle, RunRecord } from './index';
 
@@ -110,6 +110,12 @@ export const api = {
   sheets: (query: { remnants?: boolean; before?: string } = {}) => request<SheetPage>('GET', `/api/sheets?remnants=${query.remnants ?? false}${query.before ? `&before=${encodeURIComponent(query.before)}` : ''}`),
   sheet: (id: string) => request<SheetView>('GET', `/api/sheets/${encodeURIComponent(id)}`),
   saveRemnant: (id: string, change: SaveRemnant) => post(`/api/sheets/${encodeURIComponent(id)}`, change),
+  /** Keeps a remnant in a library folder, or the root. */
+  remnantFolder: (id: string, folder: string | null) => post(`/api/sheets/${encodeURIComponent(id)}/folder`, { folder }),
+  /** Adds sheets to the rack: to the entry of the same material, size and folder, or a new one. */
+  addStock: (stock: NewStock) => post<{ id: string }>('/api/stock', stock),
+  changeStock: (id: string, change: StockChange) => post(`/api/stock/${encodeURIComponent(id)}`, change),
+  removeStock: (id: string) => del(`/api/stock/${encodeURIComponent(id)}`),
   reportCutSheet: (id: string) => post<{ id: string }>(`/api/jobs/${encodeURIComponent(id)}/cut-sheet`),
   selectSheet: (index: number) => draftPost(`/api/draft/sheet/${index}`),
   nestSheet: (id: number, index: number) => request<NestSheetPreview>('GET', `/api/draft/nest/${id}/sheet/${index}`),

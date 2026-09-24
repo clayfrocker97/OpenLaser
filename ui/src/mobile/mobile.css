@@ -134,8 +134,7 @@ html[data-layout="mobile"] .toast { max-width:calc(100vw - 32px); bottom:calc(14
 .phone-detail-header { flex:none; display:flex; align-items:center; gap:12px; padding:8px 16px 4px; }
 .phone-detail-header h1 { min-width:0; font-size:var(--t-lg); line-height:1.2; letter-spacing:-.025em; }
 .phone-detail-header .phone-icon { border:0; background:transparent; margin-left:-7px; }
-.phone-collection-heading,.phone-filter-note { display:flex; align-items:center; justify-content:space-between; gap:12px; padding-block:12px; font-size:var(--t-sm); }
-.phone-collection-heading h2 { font-size:var(--t-lg); }
+.phone-filter-note { display:flex; align-items:center; justify-content:space-between; gap:12px; padding-block:12px; font-size:var(--t-sm); }
 .phone-filter-note button { border:0; background:transparent; color:var(--accent); min-height:44px; padding:0 10px; }
 .phone-import-actions .actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
 .phone-import-actions .btn { min-height:52px; }

@@ -73,10 +73,6 @@
     picks.length ? `${plural(picks.length, 'part')} picked · laid out in this order` : 'Tap the parts to cut together.',
   );
   const setupLabel = $derived(picks.length > 1 ? `Set up job with ${picks.length} parts` : 'Set up job');
-  function showSheets(): void {
-    actions = false;
-    kind = 'sheets';
-  }
   function toggleFavorites(): void {
     actions = false;
     favorites = !favorites;
@@ -99,15 +95,12 @@
 </div>
 <SkippedFiles />
 <div class="phone-segments" role="group" aria-label="Library type">
-  {#each [['all','All'],['parts','Parts'],['jobs','Jobs']] as [id,label]}
+  {#each [['all','All'],['parts','Parts'],['jobs','Jobs'],['sheets','Sheets']] as [id,label]}
     <button aria-pressed={kind === id} onclick={() => kind = id as typeof kind}>{label}</button>
   {/each}
 </div>
 {#if kind === 'sheets'}
-  <div class="phone-collection-heading">
-    <h2>Sheets</h2>
-    <button class="btn btn-ghost" onclick={() => kind = 'all'}>All parts</button>
-  </div><SheetLibrary />
+  <SheetLibrary />
 {:else}
   <label class="phone-search">
     <i class="ic ic-search"></i>
@@ -162,7 +155,6 @@
 {#if actions}<Modal title="Library actions" onclose={() => actions = false}>
   <div class="phone-import-actions"><ImportParts /></div>
   <div class="phone-action-list">
-    <button onclick={showSheets}>Sheets<i class="ic ic-arrow-right"></i></button>
     <button onclick={toggleFavorites}>Favorites<i class="ic ic-arrow-right"></i></button>
     <button onclick={showHistory}>History<i class="ic ic-arrow-right"></i></button>
   </div>

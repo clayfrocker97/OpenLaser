@@ -1,6 +1,8 @@
 <script lang="ts">
   import SkippedFiles from '../components/SkippedFiles.svelte';
   import SheetLibrary from '../components/SheetLibrary.svelte';
+  import StockEditor from '../components/StockEditor.svelte';
+  import { sheetLabel } from '../lib/sheet-sizes';
   import ImportParts from '../components/ImportParts.svelte';
   import EditHistory from '../components/EditHistory.svelte';
   import PartsSide from './PartsSide.svelte';
@@ -12,6 +14,7 @@
   import { fuzzyScore } from '../lib/search';
   import { folderPath as pathOfFolder } from '../lib/folders';
   import { explain, laserLabel, plural, recipeLabel, size } from '../lib/format';
+  import { quantity as quantityOf } from '../lib/units.svelte';
   import { boxOf, pathOf, viewBoxFor } from '../lib/svg';
   import { hasAllParts, togglePick } from '../lib/job-parts';
   import type { Folder, JobView } from '../api';
@@ -19,9 +22,9 @@
   const doc = $derived(server.doc!);
   const library = $derived(doc.library);
 
-  /** A card: a part or a saved job. */
+  /** A card: a part, a saved job, or sheets kept in a folder. */
   type Card = {
-    id: string; kind: 'part' | 'job'; name: string; search: string; folder: string | null; laser: 'fiber' | 'co2' | null;
+    id: string; kind: 'part' | 'job' | 'stock' | 'remnant'; name: string; search: string; folder: string | null; laser: 'fiber' | 'co2' | null;
     material: string; size: string; contours: number; favourite: boolean; updated: number; outline: number[][][]; parts: number;
   };
 
@@ -63,8 +66,22 @@
         outline: j.outline, parts: j.parts.length,
       }];
     });
-    return [...parts, ...jobs];
+    // Sheets show beside the jobs they are kept for; the Stock tab lists them all.
+    const box = (w: number, h: number) => [[[0, 0], [w, 0], [w, h], [0, h], [0, 0]]];
+    const stock = library.stock.filter((i) => i.folder).map((i): Card => ({
+      id: i.id, kind: 'stock', name: `${i.material} · ${plural(i.quantity, 'sheet')}`, search: i.material, folder: i.folder,
+      laser: i.laser, material: quantityOf(i.thickness_mm, 'mm'), size: sheetLabel(i.width_mm, i.height_mm), contours: 0,
+      favourite: false, updated: 0, outline: box(i.width_mm, i.height_mm), parts: 0,
+    }));
+    const remnants = library.remnants.filter((r) => r.folder).map((r): Card => ({
+      id: r.id, kind: 'remnant', name: r.name, search: r.material, folder: r.folder, laser: r.mode,
+      material: `${r.material} · ${quantityOf(r.thickness_mm, 'mm')}`,
+      size: sheetLabel(r.bounds.max.x - r.bounds.min.x, r.bounds.max.y - r.bounds.min.y), contours: 0, favourite: false,
+      updated: r.at, outline: [r.outline, ...r.cutouts], parts: 0,
+    }));
+    return [...parts, ...jobs, ...stock, ...remnants];
   });
+  let editingStock = $state<string | null>(null);
 
   const folderPath = (id: string | null) => pathOfFolder(library.folders, id);
   /** The folder names down to `id`, joined with `separator`. */
@@ -133,6 +150,7 @@
   const picking = $derived(ui.partPicks !== null);
   const shownParts = $derived(visible.filter((c) => c.kind === 'part').map((c) => c.id));
   function choose(card: Card): void {
+    if (card.kind === 'stock' || card.kind === 'remnant') { editingStock = card.id; return; }
     if (!picking) { ui.selected = card.id; return; }
     if (card.kind === 'job') {
       ui.say('A saved job cuts its own parts. Pick parts to set up a new job.');
@@ -184,7 +202,8 @@
 
   /** The kind tag on a card: a job says how many parts it cuts. */
   const kindTag = (c: Card): string =>
-    c.kind === 'job' ? (c.parts > 1 ? `Job · ${plural(c.parts, 'part')}` : 'Job') : 'Part';
+    c.kind === 'job' ? (c.parts > 1 ? `Job · ${plural(c.parts, 'part')}` : 'Job')
+    : c.kind === 'stock' ? 'Sheets' : c.kind === 'remnant' ? 'Remnant' : 'Part';
 
   const emptyTitle = $derived(q || filtered ? 'Nothing matches' : 'Empty folder');
   const emptyHint = $derived(
@@ -296,9 +315,11 @@
           {#if picking && c.kind === 'part'}
             <span class="pick-mark" class:on={pick >= 0} aria-hidden="true">{pick >= 0 ? pick + 1 : ''}</span>
           {/if}
-          <button class="fav" class:on={c.favourite} aria-label="Star" onclick={(e) => starCard(e, c)}>
-            <i class="ic {c.favourite ? 'ic-star-fill' : 'ic-star'}"></i>
-          </button>
+          {#if c.kind === 'part' || c.kind === 'job'}
+            <button class="fav" class:on={c.favourite} aria-label="Star" onclick={(e) => starCard(e, c)}>
+              <i class="ic {c.favourite ? 'ic-star-fill' : 'ic-star'}"></i>
+            </button>
+          {/if}
           <div class="thumb">
             <svg viewBox={thumb(c.outline)}>
               {#each c.outline as line}
@@ -313,7 +334,7 @@
           <div class="tags">
             {#if c.laser}<span class="tag {c.laser}">{laserLabel(c.laser)}</span>{/if}
             <span class="tag">{kindTag(c)}</span>
-            <span class="tag">{plural(c.contours, 'path')}</span>
+            {#if c.contours}<span class="tag">{plural(c.contours, 'path')}</span>{/if}
           </div>
         </div>
       {/if}
@@ -337,6 +358,7 @@
   </div>
 {/if}
 </section>
+{#if editingStock}<StockEditor id={editingStock} onclose={() => editingStock = null} />{/if}
 
 {#if kindFilter !== 'sheet'}{#if picking}<PartPicks shown={shownParts} />{:else}<PartsSide />{/if}{/if}
 {#if historyOpen}<EditHistory onclose={() => (historyOpen = false)} />{/if}

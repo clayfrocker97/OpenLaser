@@ -1,4 +1,5 @@
 // Common sheet sizes, and fitting a size to the bed.
+import { toDisplay, unitLabel, units } from './units.svelte';
 
 /** A sheet size in millimetres, long side first as sold. */
 export interface SheetSize { label: string; long: number; short: number }
@@ -25,3 +26,10 @@ export function oriented(long: number, short: number, bed: { width: number; heig
 /** Whether a sheet fits on the bed in its given orientation. */
 export const fits = ([width, height]: [number, number], bed: { width: number; height: number } | null): boolean =>
   !bed || (width <= bed.width + 1e-6 && height <= bed.height + 1e-6);
+
+/** A sheet side the way stock is sold: whole millimetres, or inches to 0.01. */
+export const side = (mm: number): string =>
+  Number(toDisplay(mm, 'mm').toFixed(units.system === 'imperial' ? 2 : 0)).toLocaleString('en-US');
+
+/** A sheet's width by height, with the unit. */
+export const sheetLabel = (width: number, height: number): string => `${side(width)} × ${side(height)} ${unitLabel('mm')}`;

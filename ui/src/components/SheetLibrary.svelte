@@ -1,16 +1,20 @@
 <script lang="ts">
   import { distance, quantity } from '../lib/units.svelte';
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import Modal from './Modal.svelte';
   import SheetShape from './SheetShape.svelte';
   import RemnantInspector from './RemnantInspector.svelte';
+  import StockRack from './StockRack.svelte';
   import { api } from '../api/client';
   import { server } from '../stores/server.svelte';
   import { explain, laserLabel, plural } from '../lib/format';
   import type { SheetView } from '../api';
   let { onchoose }: { onchoose?: (sheet: SheetView) => Promise<void> } = $props();
   let items = $state<SheetView[]>([]), next = $state<string | null>(null);
-  let remnants = $state(true), busy = $state(false), loaded = $state(false), error = $state('');
+  // Managing, the rack comes first; choosing for a nest lists remnants only.
+  const choosing = untrack(() => !!onchoose);
+  let rack = $state(!choosing);
+  let remnants = $state(choosing), busy = $state(false), loaded = $state(false), error = $state('');
   let inspected = $state<string | null>(null), adding = $state(false), search = $state('');
   const recipe = $derived(server.doc?.draft?.recipe);
   const jobs = $derived((server.doc?.library.jobs ?? [])
@@ -41,9 +45,10 @@
     }
     catch (e) { error = explain(e); } finally { busy = false; }
   }
-  onMount(() => { void load(); });
+  onMount(() => { if (!rack) void load(); });
   /** Switch between remaining sheets and cut history, and reload. */
   function showSheets(remaining: boolean): void {
+    rack = false;
     remnants = remaining;
     void load();
   }
@@ -70,12 +75,13 @@
   {#if !onchoose}
     <div class="library-tools">
       <div class="seg">
-        <button class:on={remnants} disabled={busy} onclick={() => showSheets(true)}>Remnants</button>
-        <button class:on={!remnants} disabled={busy} onclick={() => showSheets(false)}>Cut history</button>
+        <button class:on={rack} disabled={busy} onclick={() => rack = true}>On hand</button>
+        <button class:on={!rack} disabled={busy} onclick={() => showSheets(false)}>Cut history</button>
       </div>
-      <button class="btn btn-ghost" disabled={busy} onclick={() => adding = true}>Mark a saved job as cut</button>
+      {#if !rack}<button class="btn btn-ghost" disabled={busy} onclick={() => adding = true}>Mark a saved job as cut</button>{/if}
     </div>
   {:else}<p class="intro">Choose an inspected sheet. Its existing cutouts stay clear in the nest.</p>{/if}
+  {#if rack}<StockRack />{:else}
   {#if error}<p class="error" role="alert">{error}</p>{/if}
   <div class="sheets-grid">
     {#each items as sheet}
@@ -107,12 +113,13 @@
   {/if}
   {#if next}<button class="btn more" disabled={busy} onclick={() => load(true)}>Load older sheets</button>{/if}
   {#if busy && !items.length}<p>Loading sheets…</p>{/if}
+  {/if}
 </div>
 
 {#if inspected}<RemnantInspector id={inspected} onclose={() => inspected = null} onchanged={() => { void load(); }} />{/if}
 {#if adding}
   <Modal title="Mark a saved job as already cut" onclose={closeAdding}>
-    <p class="intro">Choose a job you have already cut. Its saved stock and part positions become a sheet record to inspect.</p>
+    <p class="intro">Choose a job you have already cut. Its saved sheet and part positions become a sheet record to inspect.</p>
     <input class="job-search" type="search" bind:value={search} placeholder="Find a saved job…" aria-label="Find a cut job" />
     <div class="job-choices">
       {#each jobs as job}
