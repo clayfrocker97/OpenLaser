@@ -56,7 +56,7 @@
       {#each [['none', 'No piercing', 'Cut directly.'], ['staged', 'Staged piercing', 'One to five stages, highest first.'], ['smooth', 'Smooth piercing', 'Transition into cutting with the cutting gas.']] as [id, name, help] (id)}
         <button class="mode-choice" class:on={m === id} disabled={id === 'smooth' && isOn(v['PreDrill'])} onclick={() => setMode(id as Mode)}><strong>{name}</strong><span>{help}</span></button>
       {/each}
-      {#if isOn(v['PreDrill'])}<div class="notice info">Turn off batch pre-piercing to use smooth piercing.</div>{/if}
+      {#if isOn(v['PreDrill'])}<div class="notice info">Turn off PreDrill to use Smooth pierce.</div>{/if}
       {#if m === 'staged'}
         <div class="field"><span class="lbl">Number of stages</span><div class="seg block">{#each [1, 2, 3, 4, 5] as n (n)}<button class:on={count === n} onclick={() => setMode('staged', n)}>{n}</button>{/each}</div></div>
         <p class="muted">Unused stages keep their values. New stages need all fields.</p>
@@ -102,7 +102,7 @@
             class:on={head === 'absolute'} onclick={() => setHead('absolute')}>Absolute height</button></div></div>
         {#if head !== 'follow'}<p class="muted">A fixed or absolute head does not pierce in stages.</p>{/if}
         <div class="fields"><Field {ed} key="UpHeight" />{#if head === 'absolute'}<Field {ed} key="AdvFixHeightCutPos" />{/if}</div>
-        <Field {ed} key="NoFollow" row value={isOn(v['NoFollow']) ? '0' : '1'} oncommit={(t) => ed.set('NoFollow', t === '1' ? '0' : '1')} />
+        <Field {ed} key="NoFollow" row />
         <Field {ed} key="ShortDistNoUp" row note={caps?.short_transfer_mm != null ? `Under the machine's short-transfer distance of ${quantity(caps.short_transfer_mm, 'mm')}.` : "Under the machine's short-transfer distance."} />
       {:else}
         <div class="notice info">This laser runs without height control: the head is set by hand.</div>

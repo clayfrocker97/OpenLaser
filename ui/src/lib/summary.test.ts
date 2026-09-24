@@ -12,20 +12,20 @@ describe('the material summary', () => {
   it('lists every value in one order under one set of names', () => {
     const items = summaryItems(summaryOf(values, 'fiber'));
     expect(items.map((i) => [i.label, i.value])).toEqual([
-      ['Speed', '25 mm/s'], ['Power', '90 %'], ['Duty', '80 %'], ['Frequency', '5000 Hz'], ['Gas', 'High N₂ · 12 bar'],
-      ['Nozzle', '1.5 mm double'], ['Focus', '-2 mm'], ['Lens', '150 mm'], ['Cut height', '0.8 mm'], ['Pierce', '2 stages'],
+      ['Cut Speed', '25 mm/s'], ['Peak Current', '90 %'], ['Cut Power', '80 %'], ['Cut Freq', '5000 Hz'], ['Gas', 'High N₂ · 12 bar'],
+      ['Nozzle', '1.5 mm double'], ['Focus', '-2 mm'], ['Lens', '150 mm'], ['Cut Height', '0.8 mm'], ['Pierce', '2 stages'],
     ]);
   });
 
   it('never calls the duty cycle power', () => {
-    expect(SUMMARY_LABELS.power).toBe('Power');
-    expect(SUMMARY_LABELS.duty).toBe('Duty');
-    expect(field('CutPeakCurrent').label).toBe('Power');
-    expect(field('CutPower').label).toBe('Duty');
-    expect(field('CutDuty').label).toBe('Duty');
-    expect(field('DrillPower2').label).toBe('Duty');
-    expect(field('DrillPeakCurrent2').label).toBe('Power');
-    expect(field('CutHeight').label).toBe('Cut height');
+    expect(SUMMARY_LABELS.power).toBe('Peak Current');
+    expect(SUMMARY_LABELS.duty).toBe('Cut Power');
+    expect(field('CutPeakCurrent').label).toBe('Peak Current');
+    expect(field('CutPower').label).toBe('Cut Power');
+    expect(field('CutDuty').label).toBe('Cut Power');
+    expect(field('DrillPower2').label).toBe('Drill Power');
+    expect(field('DrillPeakCurrent2').label).toBe('Drill Peak Current');
+    expect(field('CutHeight').label).toBe('Cut Height');
   });
 
   it('marks what the recipe does not say and leaves it off the line', () => {
@@ -33,13 +33,13 @@ describe('the material summary', () => {
     const items = summaryItems(source);
     expect(items.find((i) => i.key === 'power')).toMatchObject({ value: '—', set: false });
     expect(items.find((i) => i.key === 'gas')).toMatchObject({ value: 'High Air', set: true });
-    expect(summaryLine(source)).toBe('Speed 10 mm/s · Duty 40 % · Gas High Air · Pierce Smooth');
+    expect(summaryLine(source)).toBe('Cut Speed 10 mm/s · Cut Power 40 % · Gas High Air · Pierce Smooth');
   });
 
   it('shows lengths and pressures in the chosen units', () => {
     units.set('imperial');
     const line = summaryLine(summaryOf(values, 'fiber'), ['speed', 'gas', 'height']);
-    expect(line).toBe('Speed 59.055 in/min · Gas High N₂ · 174.05 psi · Cut height 0.0315 in');
+    expect(line).toBe('Cut Speed 59.055 in/min · Gas High N₂ · 174.05 psi · Cut Height 0.0315 in');
   });
 
   it('reads nozzle and piercing as one value each', () => {

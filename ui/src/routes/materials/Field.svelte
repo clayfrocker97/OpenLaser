@@ -46,12 +46,12 @@
   {@render chips()}
 {:else if f.kind === 'flag' && row}
   <div class="toggle-row" class:changed>
-    <div><strong>{label ?? f.label}</strong>{#if note}<small>{note}</small>{/if}</div>
+    <div><strong>{label ?? f.label}</strong>{#if note ?? f.explain}<small>{note ?? f.explain}</small>{/if}</div>
     <button class="switch" class:on={isOn(v)} onclick={tap} aria-label={label ?? f.label}></button>
   </div>
 {:else}
   <div class="fld" class:changed class:big>
-    <span class="lbl">{label ?? f.label}</span>
+    <span class="lbl">{label ?? f.label}{#if f.explain && !note}<small class="explain">{f.explain}</small>{/if}</span>
     {#if f.kind === 'gas'}
       {@render chips()}
     {:else if regulator}

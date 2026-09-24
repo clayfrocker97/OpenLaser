@@ -3,10 +3,9 @@
 // the same order under the same names, so an operator reads a recipe the
 // same way wherever it appears.
 //
-// Wording (ui/DESIGN.md, "Power and duty"): Power is the laser's peak
-// power setting in percent (`CutPeakCurrent`), Duty is the part of each
-// pulse period the beam is on (`CutPower` on fiber, `CutDuty` on CO₂).
-// Nothing calls the duty cycle "power".
+// Wording (ui/DESIGN.md, "Power and duty"): M-Laser's names. Peak Current
+// is the laser's output while on (`CutPeakCurrent`); Cut Power is the PWM
+// duty (`CutPower` on fiber, `CutDuty` on CO₂).
 
 import type { LaserMode, RecipeSummary } from '../api';
 import { GAS, isOn, stageCount, shown, type Values } from './recipe';
@@ -33,15 +32,15 @@ export interface SummaryItem {
 
 /** The labels, in the order every summary uses. */
 export const SUMMARY_LABELS: Record<SummaryKey, string> = {
-  speed: 'Speed',
-  power: 'Power',
-  duty: 'Duty',
-  frequency: 'Frequency',
+  speed: 'Cut Speed',
+  power: 'Peak Current',
+  duty: 'Cut Power',
+  frequency: 'Cut Freq',
   gas: 'Gas',
   nozzle: 'Nozzle',
   focus: 'Focus',
   lens: 'Lens',
-  height: 'Cut height',
+  height: 'Cut Height',
   pierce: 'Pierce',
 };
 

@@ -19,19 +19,19 @@
     const head = headMode(v);
     const list: Card[] = [
       {
-        id: 'start', title: 'Cut start', status: start.enabled ? 'On' : 'Off',
+        id: 'start', title: 'Start work Segment', status: start.enabled ? 'On' : 'Off',
         text: start.enabled
           ? `${shown('UD_UpLen', start.length)} at ${shown('UD_UpSpeed', start.speed)}${start.legacy ? ' · legacy slow start' : ''}`
           : 'Use the main cutting settings',
       },
       {
-        id: 'end', title: 'Cut end', status: on('UD_DownEnable') ? 'On' : 'Off',
+        id: 'end', title: 'End work Segment', status: on('UD_DownEnable') ? 'On' : 'Off',
         text: on('UD_DownEnable')
           ? `${mm('UD_DownLen')} at ${shown('UD_DownSpeed', v['UD_DownSpeed'] ?? '')}`
           : 'Use the main cutting settings',
       },
       {
-        id: 'timing', title: 'Timing', status: `${bare('LaserOnDelay', v['LaserOnDelay'] ?? '0')} ms`,
+        id: 'timing', title: 'Delay Parameters', status: `${bare('LaserOnDelay', v['LaserOnDelay'] ?? '0')} ms`,
         text: 'Start dwell · end dwell · after-off wait',
       },
       {
@@ -44,12 +44,12 @@
           + `${ed.a.gas && (on('ShortDistGasKeepOn') || on('NoCloseGasInManu')) ? ' · gas kept' : ''}`,
       },
       {
-        id: 'curves', title: 'Speed compensation',
+        id: 'curves', title: 'Dynamic Power',
         status: on('PowerAdjustWithSpeed') || on('FreqAdjustWithSpeed') ? 'On' : 'Off',
-        text: 'Adjust duty and frequency as the speed changes',
+        text: 'Adjust Cut Power and frequency as the speed changes',
       },
       {
-        id: 'residue', title: 'Slag removal',
+        id: 'residue', title: 'Clean Residue',
         status: on('CleanResidue_Enable') ? (m === 'staged' ? 'On' : 'Inactive') : 'Off',
         text: on('CleanResidue_Enable')
           ? `${mm('CleanResidue_WorkR')} radius · ${bare('CleanResidue_SpiralTimes', v['CleanResidue_SpiralTimes'] ?? '')} turns`
@@ -57,7 +57,7 @@
           : 'A separate cleaning motion after piercing',
       },
       {
-        id: 'pre', title: 'Batch pre-piercing',
+        id: 'pre', title: 'PreDrill',
         status: on('PreDrill') ? (m === 'staged' ? 'On' : 'Inactive') : 'Off',
         text: on('PreDrill')
           ? `${caps?.pre_pierce_batch == null ? '? contours' : plural(caps.pre_pierce_batch, 'contour')} per batch`
@@ -65,13 +65,13 @@
           : 'Pierce a batch of contours before cutting them',
       },
       {
-        id: 'film', title: 'Film removal', status: on('WithFilm') ? 'On' : 'Off',
+        id: 'film', title: 'With Film', status: on('WithFilm') ? 'On' : 'Off',
         text: on('WithFilm')
           ? (film ? `Film process: ${film.name} · ${quantity(film.thickness_mm, 'mm')} · ${film.gas}` : 'Choose a film process')
           : 'Run a separate pass before the cut',
       },
       {
-        id: 'shift', title: 'Contour shift', status: on('EnableContourShift') ? 'On' : 'Off',
+        id: 'shift', title: 'Graph Shift', status: on('EnableContourShift') ? 'On' : 'Off',
         text: on('EnableContourShift') ? `X ${mm('ContourShiftXDist')} · Y ${mm('ContourShiftYDist')}` : 'Apply an explicit X / Y offset',
       },
     ];

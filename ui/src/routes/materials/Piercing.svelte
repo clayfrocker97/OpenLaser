@@ -16,7 +16,7 @@
   const dur = $derived(duration(ed.values, bank));
   const held = $derived(bankHeld(ed.values, bank));
   const refinements = $derived.by(() => {
-    const parts = [isOn(ed.values[k('EnableGradualDrill')]) ? 'Progressive descent on' : 'Fixed stage height', isOn(ed.values[k('BoltDrill_Enable')]) ? 'Duty / frequency ramp on' : 'No laser ramp'];
+    const parts = [isOn(ed.values[k('EnableGradualDrill')]) ? 'Gradual Drill on' : 'Fixed Drill Height', isOn(ed.values[k('BoltDrill_Enable')]) ? 'Bolt Drill on' : 'No Bolt Drill'];
     for (const [base, label] of [['BeforeLaserOffDelay', 'Dwell'], ['AfterLaserOffDelay', 'Afterflow']] as const) {
       const v = ed.values[k(base)];
       if (v && Number(v) > 0) parts.push(`${label} ${bare(k(base), v)} ms`);

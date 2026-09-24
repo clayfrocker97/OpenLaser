@@ -801,6 +801,9 @@ body.osk-open .app { padding-bottom: 0; }
 .fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
 .fld { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .fld .lbl { font-size: var(--t-sm); font-weight: 600; color: var(--ink-2); }
+.fld .lbl .explain { display: block; margin-top: 2px; font-weight: 400; color: var(--ink-3); }
+/* Controls line up across a row even when only some labels carry an explainer. */
+.fld > .box, .fld > .chips { margin-top: auto; }
 .fld.changed .lbl { color: var(--accent-2); }
 .fld .chips { flex-wrap: nowrap; gap: 6px; }
 .fld .chip { flex: 1 1 0; min-width: 0; min-height: 56px; padding: 0 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

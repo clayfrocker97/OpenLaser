@@ -96,17 +96,17 @@ Use the tokens, never a pixel size. A readout that shrinks to fit clamps at
 
 ## Power and duty
 
-Laser output has two settings, and every label keeps them apart:
+Recipe fields use M-Laser's own names, so a recipe reads the same in both
+programs. The two laser-output settings are the ones people mix up, so each
+carries a line underneath saying what it does:
 
-- **Power** is the peak power setting in percent: the laser's output
-  while the beam is on (`CutPeakCurrent` and the stage, smooth-pierce and
-  slag-removal `…PeakCurrent` fields). It is a command, not measured watts.
-- **Duty** is the duty cycle in percent: the part of each pulse period the
-  beam is on (`CutPower` on fiber, `CutDuty` on CO₂, and the stage `…Power`
-  fields despite their vendor names).
+- **Peak Current** (`CutPeakCurrent`, and the stage, smooth-pierce and
+  slag-removal `…PeakCurrent` fields): the laser's output while the beam is
+  on, in percent of its rating. A command, not measured watts.
+- **Cut Power** (`CutPower` on fiber, `CutDuty` on CO₂, and the stage
+  `…Power` fields): the PWM duty, the share of each pulse the beam is on.
 
-Never write "power" for a duty cycle, "peak output" or "duty cycle" as a
-field name, or "% power" beside a duty value. Frequency stays Frequency.
+Common fields carry a one-line explainer under the label; rare ones do not.
 
 ## Material summary
 

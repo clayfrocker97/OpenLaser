@@ -37,6 +37,8 @@ export interface Field {
   whole?: boolean;
   /** A line of help for the keypad. */
   help?: string;
+  /** What it does, in a line under the label. */
+  explain?: string;
 }
 
 /** The controller's six gas selections, as the machine files number them. */
@@ -57,62 +59,66 @@ const percent = (label: string, help?: string) => whole(label, '%', 0, 100, help
 const hertz = (label: string) => whole(label, 'Hz', 1, 65535);
 const ms = (label: string, help?: string) => whole(label, policy.duration.unit, policy.duration.min, policy.duration.max, help);
 
-// Power is the laser's peak power setting; Duty is how much of each pulse
-// period the beam is on (ui/DESIGN.md, "Power and duty").
-const POWER_HELP = 'Peak power: the laser’s output setting while the beam is on, in percent of its rating. A command, not measured watts.';
-const DUTY_HELP = 'Duty cycle: the part of each pulse period the beam is on.';
+// Labels are M-Laser's own, so a recipe reads the same in both; the common
+// ones carry a line underneath that says what they do (ui/DESIGN.md,
+// "Power and duty"). Cut Power is the PWM duty; Peak Current is the
+// laser's output while the beam is on.
+const PEAK = 'Laser output while the beam is on, in % of its rating.';
+const PWM = 'PWM duty: the share of each pulse the beam is on.';
+/** A field with a line under its label. */
+const says = (f: Field, explain: string): Field => ({ ...f, explain });
 
 const FIELDS: Record<string, Field> = {
   OpenLaserNozzleDiameter: n('Nozzle diameter', 'mm', 0.01, 20, 'Diameter of the nozzle to fit for this recipe.'),
   OpenLaserNozzleType: text('Nozzle type'),
   OpenLaserManualFocus: n('Focus', 'mm', -1000, 1000, 'Manual focus offset: set it at the head. It does not move Z or change the cut height.'),
   OpenLaserLens: n('Lens', 'mm', 1, 2000, 'Focal length of the focusing lens this recipe was made with, such as 150 mm.'),
-  CutSpeed: n('Cutting speed', 'mm/s', 0.01, 100000, 'Speed along the cutting path. Cut start and cut end can use their own slower regions.'),
-  CutHeight: n('Cut height', 'mm', 0, 1000, 'The nozzle gap: distance between the nozzle and the sheet while following. Optical focus is set by hand.'),
-  CutPower: percent('Duty', DUTY_HELP),
-  CutDuty: percent('Duty', DUTY_HELP),
-  CutFreq: hertz('Frequency'),
-  CutPeakCurrent: percent('Power', POWER_HELP),
-  CutGasType: gas('Cutting gas'),
-  CutAirPressure: n('Gas pressure', 'bar', 0, 100, 'The setpoint of the proportional regulator.'),
+  CutSpeed: says(n('Cut Speed', 'mm/s', 0.01, 100000), 'Speed along the cutting path.'),
+  CutHeight: says(n('Cut Height', 'mm', 0, 1000), 'Nozzle gap above the sheet while cutting.'),
+  CutPower: says(percent('Cut Power'), PWM),
+  CutDuty: says(percent('Cut Power'), PWM),
+  CutFreq: says(hertz('Cut Freq'), 'PWM pulses per second.'),
+  CutPeakCurrent: says(percent('Peak Current'), PEAK),
+  CutGasType: gas('Gas Type'),
+  CutAirPressure: says(n('Gas Pressure', 'bar', 0, 100), 'Setpoint of the pressure regulator.'),
   AdvFixHeightCutPos: n('Absolute cut height', 'mm', 0, 1000),
-  LaserOnDelay: ms('Cutting start dwell'),
-  LaserOffBeforeDelay: ms('Cutting end dwell'),
-  LaserOffAfterDelay: ms('After-off wait'),
-  UpHeight: n('Retract height', 'mm', 0, 1000),
-  NoFollow: flag('Follow sheet surface'),
-  ShortDistNoUp: flag('Keep height on short moves'),
-  ShortDistGasKeepOn: flag('Keep gas on short moves'),
-  NoCloseGasInManu: flag('Keep gas during processing'),
-  NoManu: flag('Layer skipped'),
-  UD_UpEnable: flag('Cut start'), UD_UpAdvEnable: flag('Override duty and frequency'), UD_UpLen: n('Region length', 'mm'), UD_UpSpeed: n('Region speed', 'mm/s', 0.01), UD_UpDuty: percent('Region duty'), UD_UpFreq: hertz('Region frequency'),
-  UD_DownEnable: flag('Cut end'), UD_DownAdvEnable: flag('Override duty and frequency'), UD_DownLen: n('Region length', 'mm'), UD_DownSpeed: n('Region speed', 'mm/s', 0.01), UD_DownDuty: percent('Region duty'), UD_DownFreq: hertz('Region frequency'),
+  LaserOnDelay: says(ms('Laser On Delay'), 'Wait after the beam turns on, before moving.'),
+  LaserOffBeforeDelay: says(ms('Before Laser Off Delay'), 'Wait at the end of a cut with the beam still on.'),
+  LaserOffAfterDelay: ms('After Laser Off Delay'),
+  UpHeight: says(n('Up Height', 'mm', 0, 1000), 'Height the head lifts to between contours.'),
+  NoFollow: says(flag('Unfollow'), 'On: the head does not follow the sheet surface.'),
+  ShortDistNoUp: says(flag('Short Unlift'), 'Stay down on short moves between contours.'),
+  ShortDistGasKeepOn: flag('Short Keep Gas On'),
+  NoCloseGasInManu: flag('Keep Gas On'),
+  NoManu: says(flag('Uncut'), 'On: this layer is not cut.'),
+  UD_UpEnable: says(flag('Start work Segment'), 'A slower first stretch of each cut.'), UD_UpAdvEnable: flag('Enable Laser Control'), UD_UpLen: n('Length', 'mm'), UD_UpSpeed: n('Work Speed', 'mm/s', 0.01), UD_UpDuty: percent('Laser Power [Duty]'), UD_UpFreq: hertz('Laser frequency'),
+  UD_DownEnable: says(flag('End work Segment'), 'A slower last stretch of each cut.'), UD_DownAdvEnable: flag('Enable Laser Control'), UD_DownLen: n('Length', 'mm'), UD_DownSpeed: n('Work Speed', 'mm/s', 0.01), UD_DownDuty: percent('Laser Power [Duty]'), UD_DownFreq: hertz('Laser frequency'),
   SlowStart: flag('Slow start (legacy)'), SlowStartLength: n('Slow start length', 'mm'), SlowStartSpeed: n('Slow start speed', 'mm/s', 0.01),
-  DrillHeight: n('Nozzle height', 'mm', 0, 1000, 'Height above the sheet for this piercing stage.'),
-  DrillDelay: ms('Duration', 'One stage duration: the stationary dwell, or the transition time with progressive descent.'),
-  GradualTime: ms('Duration'), FocusGradualTime: ms('Duration'),
-  DrillPower: percent('Duty', DUTY_HELP), DrillGasPressure: n('Gas pressure', 'bar', 0, 100), DrillFreq: hertz('Frequency'), DrillPeakCurrent: percent('Power', POWER_HELP), DrillGasType: gas('Stage gas'),
-  EnableGradualDrill: flag('Progressive descent'),
-  BoltDrill_Enable: flag('Ramp duty / frequency'), BoltDrill_Power: percent('End duty'), BoltDrill_Freq: hertz('End frequency'),
-  BeforeLaserOffDelay: ms('Laser-on dwell'), AfterLaserOffDelay: ms('Gas afterflow'),
-  EnableSmoothPierce: flag('Smooth piercing'),
-  SmoothPierceDrillHeight: n('Nozzle height', 'mm', 0, 1000), SmoothPierceDrillPower: percent('Duty', DUTY_HELP), SmoothPierceDrillFreq: hertz('Frequency'), SmoothPierceDrillPeakCurrent: percent('Power', POWER_HELP),
-  SmoothPierceDrillTime_ms: ms('Smooth duration (stored)'),
-  PreDrill: flag('Batch pre-piercing'), AfterPreDrillMustDrillBeforeCut: flag('Pierce again before cutting'), PreDrillIsNotUp: flag('Keep head down within a batch'),
-  WithFilm: flag('Film removal'),
-  EnableContourShift: flag('Contour shift'), ContourShiftXDist: n('Shift X', 'mm', -100000), ContourShiftYDist: n('Shift Y', 'mm', -100000),
-  CleanResidue_Enable: flag('Slag removal'), CleanResidue_WorkH: n('Nozzle height', 'mm', 0, 1000), CleanResidue_WorkV: n('Movement speed', 'mm/s', 0.01), CleanResidue_GasType: gas('Gas'), CleanResidue_GasP: n('Gas pressure', 'bar', 0, 100),
-  CleanResidue_PeakCurrent: percent('Power', POWER_HELP), CleanResidue_Power: percent('Duty', DUTY_HELP), CleanResidue_Freq: hertz('Frequency'),
-  CleanResidue_WorkR: n('Spiral radius', 'mm'), CleanResidue_SpiralTimes: whole('Spiral turns', '', 1, 4096),
-  PowerAdjustWithSpeed: flag('Adjust duty with speed'), FreqAdjustWithSpeed: flag('Adjust frequency with speed'), PWMCurveNodes: text('Duty curve'),
+  DrillHeight: says(n('Drill Height', 'mm', 0, 1000), 'Nozzle height for this piercing stage.'),
+  DrillDelay: says(ms('Drill Time'), 'How long this stage pierces.'),
+  GradualTime: ms('Gradual Drill Time'), FocusGradualTime: ms('Focus Gradual Time'),
+  DrillPower: says(percent('Drill Power'), PWM), DrillGasPressure: n('Drill Gas Pressure', 'bar', 0, 100), DrillFreq: hertz('Drill Frequency'), DrillPeakCurrent: says(percent('Drill Peak Current'), PEAK), DrillGasType: gas('Drill Gas Type'),
+  EnableGradualDrill: says(flag('Enable Gradual Drill'), 'Lower the head while piercing.'),
+  BoltDrill_Enable: flag('Bolt Drill'), BoltDrill_Power: percent('Laser Power Duty [End]'), BoltDrill_Freq: hertz('Laser frequency [End]'),
+  BeforeLaserOffDelay: ms('Before Laser Off Delay'), AfterLaserOffDelay: ms('After Laser Off Delay'),
+  EnableSmoothPierce: flag('Smooth pierce'),
+  SmoothPierceDrillHeight: n('Height', 'mm', 0, 1000), SmoothPierceDrillPower: says(percent('Duty cycle'), PWM), SmoothPierceDrillFreq: hertz('Frequency'), SmoothPierceDrillPeakCurrent: says(percent('Power'), PEAK),
+  SmoothPierceDrillTime_ms: ms('Time'),
+  PreDrill: says(flag('PreDrill'), 'Pierce every contour first, then cut.'), AfterPreDrillMustDrillBeforeCut: flag('Enable Before Cut Drill'), PreDrillIsNotUp: flag('Enable PreDrill No Up'),
+  WithFilm: says(flag('With Film'), 'Remove protective film before each cut.'),
+  EnableContourShift: flag('Enable Graph Shift'), ContourShiftXDist: n('Graph Shift X Direction Length', 'mm', -100000), ContourShiftYDist: n('Graph Shift Y Direction Length', 'mm', -100000),
+  CleanResidue_Enable: flag('Clean Residue'), CleanResidue_WorkH: n('Work height', 'mm', 0, 1000), CleanResidue_WorkV: n('Work Speed', 'mm/s', 0.01), CleanResidue_GasType: gas('Gas type'), CleanResidue_GasP: n('Gas Pressure', 'bar', 0, 100),
+  CleanResidue_PeakCurrent: says(percent('percent of Laser peakpower (elec Current)'), PEAK), CleanResidue_Power: says(percent('Laser Power [Duty]'), PWM), CleanResidue_Freq: hertz('Laser frequency'),
+  CleanResidue_WorkR: n('Work radius', 'mm'), CleanResidue_SpiralTimes: whole('Coil cycle number', '', 1, 4096),
+  PowerAdjustWithSpeed: says(flag('Dynamic Power'), 'Lower Cut Power as the head slows into corners.'), FreqAdjustWithSpeed: flag('Adjust frequency with speed'), PWMCurveNodes: text('Duty curve'),
   FreqCurveNodes: text('Frequency curve'), PowerCurveSmoothType: whole('Duty graph style', '', 0, 10),
   FreqCurveSmoothType: whole('Frequency graph style', '', 0, 10),
-  ZFVibAbatType: whole('Suppression type', '', 0, 3), ZFVibAbat_Level: whole('Thin plate', '', 0, 255), ZFVibAbat_Level_Thick: whole('Thick plate', '', 0, 255),
+  ZFVibAbatType: whole('Vibration suppression', '', 0, 3), ZFVibAbat_Level: whole('Abatement factor - [thin]', '', 0, 255), ZFVibAbat_Level_Thick: whole('Abatement factor - [thick]', '', 0, 255),
   // Kept as the file holds them: optical focus this machine sets by hand, and switches nothing reads.
-  CutFocusPos: n('Optical focus', 'mm', -1000, 1000), DrillFocusPos: n('Optical focus', 'mm', -1000, 1000), EnableFocusGradual: flag('Progressive focus'), FocusGradualEndPos: n('Focus end position', 'mm', -1000, 1000),
-  SmoothPierceDrillFocusPos: n('Optical focus', 'mm', -1000, 1000), CleanResidue_WorkFocus: n('Optical focus', 'mm', -1000, 1000),
-  PreLaserOnFactor: n('Pre laser-on factor', ''), ZFVibAbat_Coef: n('Suppression coefficient', ''), LeadLineParam_Enable: flag('Lead process (legacy)'), DrillTime: ms('Piercing time (unused)'),
-  LayerFileName: text('Layer name'), ManuType: whole('Machining type', '', 0, 7), Note: text('Note'),
+  CutFocusPos: n('Cut Focus Position', 'mm', -1000, 1000), DrillFocusPos: n('Drill Focus Position', 'mm', -1000, 1000), EnableFocusGradual: flag('Enable Focus Gradual'), FocusGradualEndPos: n('Focus Gradual End Position', 'mm', -1000, 1000),
+  SmoothPierceDrillFocusPos: n('Focus', 'mm', -1000, 1000), CleanResidue_WorkFocus: n('Laser focus', 'mm', -1000, 1000),
+  PreLaserOnFactor: n('Pre laser-on factor', ''), ZFVibAbat_Coef: n('Coefficient', ''), LeadLineParam_Enable: flag('Lead process (legacy)'), DrillTime: ms('Piercing time (unused)'),
+  LayerFileName: text('Layer name'), ManuType: whole('Drill Type', '', 0, 7), Note: text('Notes'),
 };
 
 const STAGE_FIELDS = [
