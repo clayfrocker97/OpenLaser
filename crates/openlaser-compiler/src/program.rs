@@ -319,7 +319,7 @@ impl Job {
         contours: &[cut::Contour],
         film: Option<Film<'_>>,
     ) -> Result<Self> {
-        Self::schedule_geometry(settings, contours, film, false)
+        Self::schedule_geometry(settings, contours, film, false, None)
     }
 
     /// Plans geometry already prepared by the host, preserving its lines
@@ -330,7 +330,23 @@ impl Job {
         contours: &[cut::Contour],
         film: Option<Film<'_>>,
     ) -> Result<Self> {
-        Self::schedule_geometry(settings, contours, film, true)
+        Self::schedule_geometry(settings, contours, film, true, None)
+    }
+
+    /// Plans prepared geometry whose contours each run under their own
+    /// recipe, as drawing layers choose them; `processes` holds one per
+    /// contour. The job's own recipe opens and closes the program, and only
+    /// its contours carry film and preliminary piercing.
+    pub fn schedule_layered(
+        settings: &Settings,
+        contours: &[cut::Contour],
+        film: Option<Film<'_>>,
+        processes: &[&Settings],
+    ) -> Result<Self> {
+        if processes.len() != contours.len() {
+            return Err(Error::Invalid("every contour needs its recipe"));
+        }
+        Self::schedule_geometry(settings, contours, film, true, Some(processes))
     }
 
     fn schedule_geometry(
@@ -338,7 +354,10 @@ impl Job {
         contours: &[cut::Contour],
         film: Option<Film<'_>>,
         prepared: bool,
+        processes: Option<&[&Settings]>,
     ) -> Result<Self> {
+        let process = |i: usize| processes.map_or(settings, |p| p[i]);
+        let own = |i: usize| std::ptr::eq(process(i), settings);
         let film = match (settings.with_film, film) {
             (false, _) => None,
             (true, None) => {
@@ -349,9 +368,11 @@ impl Job {
             }
             (true, Some(film)) => Some(film),
         };
-        let filmed: Vec<bool> =
-            (0..contours.len()).map(|i| film.is_some_and(|f| !f.runs[i].is_empty())).collect();
-        let pierced = vec![settings.pre_pierce.is_some(); contours.len()];
+        let filmed: Vec<bool> = (0..contours.len())
+            .map(|i| own(i) && film.is_some_and(|f| !f.runs[i].is_empty()))
+            .collect();
+        let pierced: Vec<bool> =
+            (0..contours.len()).map(|i| own(i) && settings.pre_pierce.is_some()).collect();
         let plan = pass::schedule(
             contours.len(),
             &filmed,
@@ -368,7 +389,9 @@ impl Job {
             let ordinal = passes.len();
             let pass = Pass { ordinal, ..planned };
             match pass.kind {
-                PassKind::PrePierce => passes.push(Compiled::point(pass, contour, settings)?),
+                PassKind::PrePierce => {
+                    passes.push(Compiled::point(pass, contour, process(planned.source))?);
+                }
                 PassKind::Film => {
                     let film = film.ok_or(Error::Invalid("a film pass needs the film process"))?;
                     let mut bound = film.settings.clone();
@@ -385,11 +408,11 @@ impl Job {
                     }
                 }
                 PassKind::Cut => {
-                    retention = Some((settings.keep_gas_after, settings.short_gas_keep));
+                    let cutting = process(planned.source);
+                    retention = Some((cutting.keep_gas_after, cutting.short_gas_keep));
                     let budget = MAX_SAMPLES.saturating_sub(total);
-                    let mut compiled =
-                        Compiled::planned(pass, contour, settings, budget, prepared)?;
-                    compiled.initial_pierce = repierce;
+                    let mut compiled = Compiled::planned(pass, contour, cutting, budget, prepared)?;
+                    compiled.initial_pierce = !own(planned.source) || repierce;
                     total += compiled.samples();
                     passes.push(compiled);
                 }
@@ -1955,6 +1978,26 @@ mod tests {
         for (_, section) in cleaning {
             assert!(section.points.iter().all(|point| point[0] > 69.7 && point[1] > 79.7));
         }
+    }
+
+    /// A contour on a layer with its own recipe runs under that recipe and
+    /// pierces with it; contours on the job's recipe plan as they always
+    /// did, so a job of one recipe is unchanged.
+    #[test]
+    fn layered_contours_run_under_their_own_recipe() {
+        let s = piercing();
+        let contours = [line([10., 10.], [20., 10.]), line([30., 10.], [40., 10.])];
+        let plain = Job::schedule_prepared(&s, &contours, None).unwrap();
+        assert_eq!(Job::schedule_layered(&s, &contours, None, &[&s, &s]).unwrap(), plain);
+        let mut engrave = piercing();
+        engrave.peak_current = 9.;
+        engrave.pierce.clear();
+        let layered = Job::schedule_layered(&s, &contours, None, &[&engrave, &s]).unwrap();
+        assert_eq!(layered.passes[0].settings, engrave);
+        assert!(layered.passes[0].initial_pierce);
+        assert_eq!(layered.passes[1], plain.passes[1]);
+        assert_eq!(layered.settings, s);
+        assert!(Job::schedule_layered(&s, &contours, None, &[&s]).is_err());
     }
 
     /// Padding samples and PWM records have distinct counts. The complete
