@@ -5,6 +5,7 @@ import type { Cooling } from "./Cooling";
 import type { CutOrder } from "./CutOrder";
 import type { Joints } from "./Joints";
 import type { Kerf } from "./Kerf";
+import type { LayerEdit } from "./LayerEdit";
 import type { Leads } from "./Leads";
 import type { Seam } from "./Seam";
 import type { Start } from "./Start";
@@ -52,4 +53,9 @@ order: CutOrder,
 /**
  * Drawing layers left uncut.
  */
-skip_layers: Array<string>, };
+skip_layers: Array<string>,
+/**
+ * Shapes moved to another layer than the drawing gives them; left
+ * out of the file when there are none, as earlier builds wrote it.
+ */
+layer_edits?: Array<LayerEdit>, };

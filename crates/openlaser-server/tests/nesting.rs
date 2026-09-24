@@ -9,6 +9,7 @@ use openlaser_core::features::Features;
 use openlaser_core::geometry::{Contour, Curve, Drawing, Point, Transform};
 use openlaser_core::nesting::{NestRotation, NestSettings};
 use openlaser_server::coordinator::{NewRecipe, Shared, Values};
+use openlaser_server::layers::LayerChange;
 use openlaser_server::nesting::{self, NestRequest, NestView, StockChoice};
 use openlaser_server::{Coordinator, machine};
 
@@ -53,6 +54,11 @@ async fn setup(shared: &Shared) {
     c.open_part(&part.id).unwrap();
     c.set_recipe(&recipe.id).unwrap();
     c.set_features(Features::default()).unwrap();
+    // Two layers: each is cut with the job's recipe.
+    for layer in ["Cut", "Hole"] {
+        let change = LayerChange::Cut { layer: layer.into(), recipe: None, engrave: false };
+        c.change_layers(change).unwrap();
+    }
     drop(c);
     machine::prepare(shared).await.unwrap();
     shared.lock().await.set_stock(StockChoice::Outline { contour: 0 }).unwrap();

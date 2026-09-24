@@ -33,6 +33,7 @@ mod imports;
 pub mod inventory;
 pub mod job_parts;
 mod lan;
+pub mod layers;
 pub mod machine;
 mod machine_files;
 pub mod nesting;

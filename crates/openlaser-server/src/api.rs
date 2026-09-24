@@ -94,6 +94,7 @@ pub fn router(shared: Shared, ui_dir: std::path::PathBuf) -> Router {
         .route("/api/draft/job/{id}", post(open_job))
         .route("/api/draft/recipe/{id}", post(set_recipe))
         .route("/api/draft/features", post(set_features))
+        .route("/api/draft/layers", post(change_layers))
         .route("/api/draft/preflight", post(set_preflight))
         .route("/api/draft/copy/{id}", post(copy_features))
         .route("/api/draft/transform", post(transform))
@@ -669,6 +670,18 @@ async fn set_features(
     .await
 }
 
+async fn change_layers(
+    State(shared): State<Shared>,
+    Query(v): Query<Revision>,
+    Json(change): Json<crate::layers::LayerChange>,
+) -> Reply {
+    edit(&shared, Some(v.revision), |c| {
+        c.change_layers(change)?;
+        Ok(Value::Null)
+    })
+    .await
+}
+
 async fn copy_features(
     State(shared): State<Shared>,
     Path(id): Path<String>,
@@ -822,16 +835,17 @@ async fn preview_features(
     Query(v): Query<Revision>,
     Json(features): Json<Features>,
 ) -> Reply {
-    let (drawing, placed) = {
+    let (drawing, placed, engraved) = {
         let c = shared.lock().await;
         c.check_draft(v.revision)?;
         let d = c.draft.as_ref().ok_or_else(|| Error::Refused("open a part first".into()))?;
-        (d.drawing()?.clone(), d.current.placed.clone())
+        (d.drawing()?.clone(), d.current.placed.clone(), crate::layers::engraved(&d.current.layers))
     };
-    let prepared =
-        tokio::task::spawn_blocking(move || crate::draft::prepare(&drawing, &placed, &features))
-            .await
-            .map_err(|e| Error::Refused(e.to_string()))??;
+    let prepared = tokio::task::spawn_blocking(move || {
+        crate::draft::prepare(&drawing, &placed, &features, &engraved)
+    })
+    .await
+    .map_err(|e| Error::Refused(e.to_string()))??;
     Ok(Json(json!({ "preview": prepared.preview, "revision": v.revision })))
 }
 

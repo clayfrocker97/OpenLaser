@@ -148,6 +148,10 @@ pub struct Snapshot {
     pub recipe: Option<Recipe>,
     /// The film process the recipe refers to, snapshotted with it.
     pub film: Option<Recipe>,
+    /// How each drawing layer is cut; absent from drafts kept before
+    /// layers had their own recipes, and left out when there are none.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub layers: Vec<openlaser_library::LayerChoice>,
     /// The sheet offset: what the machine adds to a drawing coordinate to
     /// reach the bed, which is where the sheet lies on the bed. Absent until
     /// the sheet is placed. Stored as `zero`, its name in earlier builds.
@@ -324,6 +328,7 @@ impl Draft {
                 features: Features::default(),
                 recipe: None,
                 film: None,
+                layers: Vec::new(),
                 sheet_offset: None,
                 anchor: Anchor::default(),
                 preflight: openlaser_library::preflight::JobPreflight::default(),
@@ -374,7 +379,9 @@ impl Draft {
         let automatic = groups(drawing, &self.current.placed, &[]);
         let matching = crate::correspondence::matching(drawing, &self.current.placed, &automatic);
         self.groups = self.current.grouping.resolve(automatic);
-        match prepare(drawing, &self.current.placed, &self.current.features).and_then(|prepared| {
+        let engraved = crate::layers::engraved(&self.current.layers);
+        let prepared = prepare(drawing, &self.current.placed, &self.current.features, &engraved);
+        match prepared.and_then(|prepared| {
             crate::nesting::check_prepared(drawing, self, &prepared)?;
             Ok(prepared)
         }) {
@@ -847,6 +854,7 @@ impl Draft {
             preview: self.preview.clone(),
             compiled: self.compiled.as_ref().map(|c| c.view.clone()),
             error: self.error.clone(),
+            layers: crate::layers::view(self),
         }
     }
 }
@@ -960,7 +968,8 @@ pub fn pick(
     tolerance: f64,
     bridging: bool,
 ) -> Result<Option<PickView>> {
-    let sheet = place(drawing, &draft.current.placed);
+    let drawing = crate::layers::relayered(drawing, &draft.current.features.layer_edits);
+    let sheet = place(&drawing, &draft.current.placed);
     let features = placed_bridges(&sheet, &draft.current.features, &draft.current.placed)?;
     let picked = openlaser_prep::pick(&sheet, &features, Point::from(at), tolerance, bridging)?;
     let Some((spot, point)) = picked else { return Ok(None) };
@@ -977,11 +986,19 @@ pub fn pick(
 }
 
 /// Places and prepares a drawing. Bridge picks are kept in the drawing's
-/// own coordinates, so they are placed with their contours.
-pub fn prepare(drawing: &Drawing, placed: &[Placed], features: &Features) -> Result<Prepared> {
-    let sheet = place(drawing, placed);
+/// own coordinates, so they are placed with their contours. Shapes take
+/// the layers the operator moved them to; `engraved` layers are prepared
+/// apart, as bare lines ahead of the cuts.
+pub fn prepare(
+    drawing: &Drawing,
+    placed: &[Placed],
+    features: &Features,
+    engraved: &[String],
+) -> Result<Prepared> {
+    let drawing = crate::layers::relayered(drawing, &features.layer_edits);
+    let sheet = place(&drawing, placed);
     let features = placed_bridges(&sheet, features, placed)?;
-    let toolpath = openlaser_prep::prepare(&sheet, &features)?;
+    let toolpath = crate::layers::prepare(&sheet, &features, engraved)?;
     Ok(Prepared {
         contours: contours(&toolpath),
         film: toolpath.contours.iter().map(|c| film_runs(&c.film)).collect(),
@@ -1237,12 +1254,16 @@ pub fn compile(
     prepared: &Prepared,
     settings: &Settings,
     film: Option<&Settings>,
+    layered: &crate::layers::Layered,
     dry_run: bool,
     scale: i32,
 ) -> Result<CompiledJob> {
     let prepared = prepared.shifted(settings.contour_shift)?;
     let film = film.map(|settings| Film { settings, runs: &prepared.film });
-    let job = Arc::new(Job::schedule_prepared(settings, &prepared.contours, film)?);
+    let job = Arc::new(match layered.processes(settings) {
+        Some(processes) => Job::schedule_layered(settings, &prepared.contours, film, &processes)?,
+        None => Job::schedule_prepared(settings, &prepared.contours, film)?,
+    });
     let z_units_per_mm = u32::try_from(scale).ok().filter(|scale| *scale > 0);
     let program = job.program(Binding { current: [0.; 2], z_units_per_mm })?;
     let blocks = records::encoded_blocks(&program.records)
@@ -1456,7 +1477,7 @@ mod tests {
             groups(
                 &drawing,
                 &placed,
-                &prepare(&drawing, &placed, &features).unwrap().preview.contours
+                &prepare(&drawing, &placed, &features, &[]).unwrap().preview.contours
             ),
             vec![vec![0, 1]]
         );
@@ -1613,7 +1634,7 @@ mod tests {
     /// cut start after the lead-in.
     #[test]
     fn preparation_produces_contours_and_a_preview() {
-        let prepared = prepare(&square(), &Placed::all(1), &Features::default()).unwrap();
+        let prepared = prepare(&square(), &Placed::all(1), &Features::default(), &[]).unwrap();
         assert_eq!(prepared.contours.len(), 1);
         assert!(prepared.contours[0].segments.iter().all(|s| s.source.is_some()));
         assert!((prepared.preview.length_mm - 40.).abs() < 1e-9);
@@ -1657,9 +1678,17 @@ mod tests {
         let filming = settings(&bundle, &film, Binder { film: true, ..binder }).unwrap();
         assert!(cutting.with_film && cutting.power == 77);
         assert!(filming.pierce.is_empty() && !filming.with_film && filming.power == 12);
-        let prepared = prepare(&square(), &Placed::all(1), &Features::default()).unwrap();
+        let prepared = prepare(&square(), &Placed::all(1), &Features::default(), &[]).unwrap();
         assert_eq!(prepared.film[0].len(), 1, "one run of bare geometry");
-        let compiled = compile(&prepared, &cutting, Some(&filming), false, 1000).unwrap();
+        let compiled = compile(
+            &prepared,
+            &cutting,
+            Some(&filming),
+            &crate::layers::Layered::default(),
+            false,
+            1000,
+        )
+        .unwrap();
         let kinds: Vec<PassKind> = compiled.job.passes.iter().map(|p| p.pass.kind).collect();
         assert_eq!(kinds, [PassKind::Film, PassKind::Cut]);
         assert_eq!(compiled.job.passes[0].settings.power, 12);
@@ -1667,7 +1696,10 @@ mod tests {
         assert_eq!(compiled.view.plan.len(), 2);
         assert!(compiled.view.moves.iter().any(|m| m.kind == PathKind::Film && m.pass == Some(0)));
         assert_eq!(compiled.view.pierces.len(), 1, "the film pass does not pierce");
-        let missing = compile(&prepared, &cutting, None, false, 1000).unwrap_err().to_string();
+        let missing =
+            compile(&prepared, &cutting, None, &crate::layers::Layered::default(), false, 1000)
+                .unwrap_err()
+                .to_string();
         assert!(missing.contains("Resolve a separate film process"), "{missing}");
     }
 
@@ -1678,7 +1710,7 @@ mod tests {
     fn the_contour_shift_is_applied_once() {
         let close =
             |a: [f64; 2], b: [f64; 2]| (a[0] - b[0]).abs() < 1e-9 && (a[1] - b[1]).abs() < 1e-9;
-        let prepared = prepare(&square(), &Placed::all(1), &Features::default()).unwrap();
+        let prepared = prepare(&square(), &Placed::all(1), &Features::default(), &[]).unwrap();
         let corner = prepared.contours[0].segments[0].curve.point(0.);
         let shifted = prepared.shifted([10., -3.]).unwrap();
         let moved = shifted.contours[0].segments[0].curve.point(0.);

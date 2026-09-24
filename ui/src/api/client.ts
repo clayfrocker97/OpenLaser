@@ -8,7 +8,7 @@ import type {
 } from './index';
 import { server } from '../stores/server.svelte';
 import type { SheetPage, SheetView, SaveRemnant, NestSheetPreview, CorrectionView, CorrectionChange, NestRequest, NestView, StockChoice } from './index';
-import type { NewStock, SheetSize, StockChange } from './index';
+import type { LayerChange, NewStock, SheetSize, StockChange } from './index';
 import type { PlacementChange, SimplifyView, ImportOptions, ImportReview } from './index';
 import type { Calibration, FlowEstimate, GasCosts, GasKind, Nozzle, RunRecord } from './index';
 
@@ -213,6 +213,8 @@ export const api = {
   openJob: (id: string) => openDraft(`/api/draft/job/${id}`),
   setRecipe: (id: string) => draftPost(`/api/draft/recipe/${id}`),
   setFeatures: (features: Features, revision?: number) => draftPost('/api/draft/features', features, revision),
+  /** Moves shapes between layers, names a layer, or chooses how a layer is cut; one undo step. */
+  changeLayers: (change: LayerChange) => draftPost('/api/draft/layers', change),
   copyFeatures: (jobId: string) => draftPost(`/api/draft/copy/${jobId}`),
   /** Moves, turns or mirrors placed contours by `matrix`, applied after what they have; `null` puts them back. */
   transform: (contours: number[], matrix: Transform | null, revision?: number) => draftPost('/api/draft/transform', { contours, matrix }, revision),

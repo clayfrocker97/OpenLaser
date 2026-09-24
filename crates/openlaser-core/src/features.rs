@@ -35,6 +35,22 @@ pub struct Features {
     pub order: CutOrder,
     /// Drawing layers left uncut.
     pub skip_layers: Vec<String>,
+    /// Shapes moved to another layer than the drawing gives them; left
+    /// out of the file when there are none, as earlier builds wrote it.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[cfg_attr(feature = "typescript", ts(as = "Option<Vec<LayerEdit>>", optional))]
+    pub layer_edits: Vec<LayerEdit>,
+}
+
+/// One shape on a layer of the operator's choosing. The shape is a contour
+/// of the job's drawing, so every copy of it follows.
+#[cfg_attr(feature = "typescript", derive(ts_rs::TS), ts(export))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LayerEdit {
+    /// The drawing contour.
+    pub contour: usize,
+    /// The layer it is on.
+    pub layer: String,
 }
 
 impl Features {
@@ -54,6 +70,7 @@ impl Features {
             bridges.connections.clear();
         }
         features.skip_layers.clear();
+        features.layer_edits.clear();
         features
     }
 
@@ -528,6 +545,7 @@ mod tests {
                 ..CutOrder::default()
             },
             skip_layers: vec!["NOTES".into()],
+            layer_edits: vec![LayerEdit { contour: 2, layer: "Etch".into() }],
         };
         let json = serde_json::to_string(&features).unwrap();
         assert_eq!(serde_json::from_str::<Features>(&json).unwrap(), features);

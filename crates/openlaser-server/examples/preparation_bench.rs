@@ -33,8 +33,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let toolpath_ms = started.elapsed().as_secs_f64() * 1000.;
 
         let started = Instant::now();
-        let prepared =
-            black_box(draft::prepare(&drawing, &Placed::all(drawing.contours.len()), &features)?);
+        let prepared = black_box(draft::prepare(
+            &drawing,
+            &Placed::all(drawing.contours.len()),
+            &features,
+            &[],
+        )?);
         let prepared_ms = started.elapsed().as_secs_f64() * 1000.;
 
         let part = (openlaser_library::Id::from("benchmark"), std::sync::Arc::new(drawing.clone()));

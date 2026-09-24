@@ -321,6 +321,22 @@ impl Anchor {
     }
 }
 
+/// How one drawing layer is cut: with the job's recipe or its own, and
+/// through the sheet or only on its surface. A layer left uncut is in the
+/// features' skipped layers instead.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct LayerChoice {
+    /// The layer's name.
+    pub layer: String,
+    /// Its own recipe, as it was when chosen; none cuts it with the job's.
+    #[serde(default)]
+    pub recipe: Option<Recipe>,
+    /// Engraved on the surface: no kerf, leads, joints or cooling, never a
+    /// hole or an outline, and before the cuts.
+    #[serde(default)]
+    pub engrave: bool,
+}
+
 /// A frozen job: its parts, a snapshot of the recipe, the machining
 /// features, the drawing's contours on the sheet, and where the sheet
 /// lies on the bed.
@@ -372,6 +388,10 @@ pub struct Job {
     /// The film process as it was when the job was saved.
     #[serde(default)]
     pub film: Option<Recipe>,
+    /// How each drawing layer is cut, as chosen when the job was saved;
+    /// left out when there are none, so earlier builds read the job.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub layers: Vec<LayerChoice>,
     /// The machining features.
     pub features: Features,
     /// The job drawing's contours on the sheet, copies and all; empty for
@@ -964,6 +984,7 @@ mod tests {
             parts: vec![part.clone()],
             recipe,
             film: None,
+            layers: Vec::new(),
             features: Features::default(),
             placed: Vec::new(),
             sheet_offset: None,
@@ -1027,6 +1048,7 @@ mod tests {
                     parts: vec![part.id.clone()],
                     recipe: recipe.clone(),
                     film: None,
+                    layers: Vec::new(),
                     features: Features::default(),
                     placed: Vec::new(),
                     sheet_offset: Some([120., 80.]),
@@ -1088,6 +1110,7 @@ mod tests {
                 parts: vec![part.id.clone()],
                 recipe,
                 film: None,
+                layers: Vec::new(),
                 features: Features::default(),
                 placed: Vec::new(),
                 sheet_offset: None,

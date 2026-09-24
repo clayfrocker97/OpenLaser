@@ -1690,6 +1690,7 @@ async fn build_revision(
             &prepared,
             &inputs.settings,
             inputs.film.as_ref(),
+            &inputs.layered,
             dry_run,
             inputs.scale,
         )?;

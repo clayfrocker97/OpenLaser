@@ -450,6 +450,7 @@ impl Draft {
             parts: self.current.parts.clone(),
             recipe: recipe.clone(),
             film: None,
+            layers: Vec::new(),
             features: self.current.features.clone(),
             placed: Vec::new(),
             sheet_offset: None,
@@ -462,6 +463,7 @@ impl Draft {
         job.parts.clone_from(&self.current.parts);
         job.recipe = recipe;
         job.film.clone_from(&self.current.film);
+        job.layers.clone_from(&self.current.layers);
         job.features.clone_from(&self.current.features);
         job.placed.clone_from(&self.current.placed);
         job.grouping.clone_from(&self.current.grouping);
@@ -486,6 +488,7 @@ impl Draft {
         self.saved_base = Some(job.clone());
         self.current.recipe = Some(job.recipe.clone());
         self.current.film.clone_from(&job.film);
+        self.current.layers.clone_from(&job.layers);
         self.current.features.clone_from(&job.features);
         self.current.placed.clone_from(&job.placed);
         self.current.grouping.clone_from(&job.grouping);

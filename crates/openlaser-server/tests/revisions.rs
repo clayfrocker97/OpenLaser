@@ -34,8 +34,15 @@ async fn setup(shared: &Shared) {
 }
 
 fn compile(input: &CompileInputs) -> draft::CompiledJob {
-    draft::compile(&input.prepared, &input.settings, input.film.as_ref(), false, input.scale)
-        .unwrap()
+    draft::compile(
+        &input.prepared,
+        &input.settings,
+        input.film.as_ref(),
+        &input.layered,
+        false,
+        input.scale,
+    )
+    .unwrap()
 }
 
 #[tokio::test]

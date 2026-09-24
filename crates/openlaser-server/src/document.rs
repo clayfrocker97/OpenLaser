@@ -867,6 +867,8 @@ pub struct DraftView {
     pub compiled: Option<Arc<Compiled>>,
     /// Why preparation or compilation failed.
     pub error: Option<String>,
+    /// The job's layers, in the order the drawing first uses them.
+    pub layers: Vec<crate::layers::DraftLayer>,
 }
 
 /// What simplifying a part's drawing does, and the part it made once saved.

@@ -1647,6 +1647,9 @@ impl Coordinator {
             }
             _ => None,
         };
+        let layered = crate::layers::layered(draft, &prepared, |recipe| {
+            draft::settings(bundle, recipe, binder)
+        })?;
         Ok(CompileInputs {
             correction: if draft.calibration {
                 None
@@ -1659,6 +1662,7 @@ impl Coordinator {
             prepared,
             settings,
             film,
+            layered,
             scale,
         })
     }
@@ -1859,6 +1863,8 @@ pub struct CompileInputs {
     pub settings: Settings,
     /// The film process as bound, when the recipe removes film.
     pub film: Option<Settings>,
+    /// Which recipe cuts each contour when layers have their own.
+    pub layered: crate::layers::Layered,
     /// The controller's scale.
     pub scale: i32,
 }
