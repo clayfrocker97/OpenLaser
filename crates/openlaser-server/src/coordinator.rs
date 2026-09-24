@@ -109,6 +109,8 @@ pub struct Coordinator {
     pub hold: crate::touch::HoldTimes,
     /// Sheet sizes saved for the stock chooser, the same on every screen.
     pub sheet_sizes: Vec<crate::sheet_sizes::SheetSize>,
+    /// Full sheets on the rack.
+    pub inventory: Vec<crate::inventory::StockItem>,
     /// Gas prices, the run history and the run being recorded.
     pub gas: crate::gas::Store,
     /// Read-only historical alarm recording.
@@ -263,6 +265,7 @@ impl Coordinator {
             soft,
             hold: crate::touch::HoldTimes::open(&config.data_dir),
             sheet_sizes: crate::sheet_sizes::open(&config.data_dir),
+            inventory: crate::inventory::open(&config.data_dir),
             gas: crate::gas::Store::open(&config.data_dir),
             history,
             mode: config.mode,
@@ -641,6 +644,13 @@ impl Coordinator {
     }
 
     pub(crate) fn library_changed(&mut self) {
+        self.refresh_library();
+        self.publish();
+    }
+
+    /// Rebuilds the library view without publishing, for paths that run
+    /// while a document is being published.
+    pub(crate) fn refresh_library(&mut self) {
         self.revisions.library += 1;
         self.library_view = Arc::new(LibraryView {
             folders: self.library.folders().to_vec(),
@@ -653,6 +663,8 @@ impl Coordinator {
                     self.library.job_drawing(&job.parts).ok().map(|d| JobView::new(job, &d))
                 })
                 .collect(),
+            stock: self.inventory.clone(),
+            remnants: self.sheet_store.remnants(),
             skipped: self
                 .library
                 .skipped()
@@ -660,7 +672,6 @@ impl Coordinator {
                 .map(|s| SkippedView { file: s.file.clone(), reason: s.reason.clone() })
                 .collect(),
         });
-        self.publish();
     }
 
     pub(crate) fn draft_changed(&mut self) {
@@ -939,6 +950,11 @@ impl Coordinator {
 
     /// Removes an empty folder.
     pub fn remove_folder(&mut self, id: &Id) -> Result<()> {
+        if self.inventory.iter().any(|i| i.folder.as_ref() == Some(id))
+            || self.sheet_store.remnants().iter().any(|r| r.folder.as_ref() == Some(id))
+        {
+            return Err(Error::Refused("the folder is not empty".into()));
+        }
         self.library.remove_folder(id)?;
         self.library_changed();
         Ok(())
@@ -1977,7 +1993,7 @@ pub struct RecipeChange {
 
 /// `null` clears, absence leaves alone.
 #[allow(clippy::option_option, reason = "absent leaves alone, null clears")]
-fn double_option<'de, D: serde::Deserializer<'de>>(
+pub(crate) fn double_option<'de, D: serde::Deserializer<'de>>(
     deserializer: D,
 ) -> std::result::Result<Option<Option<Id>>, D::Error> {
     Option::<Id>::deserialize(deserializer).map(Some)

@@ -69,6 +69,7 @@ fn request() -> NestRequest {
             rotation: NestRotation::HalfTurn,
         },
         seconds: 1,
+        stock: vec![],
     }
 }
 
@@ -258,7 +259,7 @@ async fn repeat_without_selection_and_retry_after_no_fit_preserve_counts() {
     machine::prepare(&shared).await.unwrap();
     let revision = shared.lock().await.document().draft_revision;
     let failed = nesting::start(&shared, revision, again.clone()).await.unwrap();
-    assert!(finished(&shared, failed.id).await.error.unwrap().contains("empty sheet"));
+    assert!(finished(&shared, failed.id).await.error.unwrap().contains("add a larger sheet"));
     assert!(nesting::apply(&shared, failed.id).await.is_err());
     assert_eq!(shared.lock().await.draft.as_ref().unwrap().current.placed, before);
     shared.lock().await.set_stock(StockChoice::Rectangle { width: 240., height: 160. }).unwrap();
@@ -270,4 +271,63 @@ async fn repeat_without_selection_and_retry_after_no_fit_preserve_counts() {
     assert_eq!(view.total, 5);
     nesting::apply(&shared, retry.id).await.unwrap();
     openlaser_server::shutdown(&shared).await.unwrap();
+}
+
+#[tokio::test]
+async fn chosen_sheets_fill_in_order_within_what_is_on_hand() {
+    use openlaser_server::inventory::NewStock;
+    use openlaser_server::nesting::StockSource;
+    let (_sim, shared) = start("nest-stock").await;
+    setup(&shared).await;
+    let rack = |material: &str, quantity| NewStock {
+        material: material.into(),
+        thickness_mm: 1.,
+        laser: LaserMode::Fiber,
+        width_mm: 100.,
+        height_mm: 60.,
+        quantity,
+        folder: None,
+    };
+    let (revision, steel, other) = {
+        let mut c = shared.lock().await;
+        let steel = c.add_stock(rack("nest STEEL", 2)).unwrap();
+        let turned = NewStock { width_mm: 60., height_mm: 100., ..rack("Nest steel", 1) };
+        assert_eq!(c.add_stock(turned).unwrap(), steel, "the same size either way round adds up");
+        let other = c.add_stock(rack("Brass", 5)).unwrap();
+        (c.document().draft_revision, steel, other)
+    };
+    let asking = |stock| NestRequest { quantity: 12, stock, ..request() };
+    let refused = [
+        vec![StockSource::Stock { id: steel.clone(), count: 4 }],
+        vec![
+            StockSource::Stock { id: steel.clone(), count: 2 },
+            StockSource::Stock { id: steel.clone(), count: 2 },
+        ],
+        vec![StockSource::Stock { id: other, count: 1 }],
+        vec![StockSource::Sheet { width: 80., height: 50., count: Some(0) }],
+    ];
+    for stock in refused {
+        assert!(nesting::start(&shared, revision, asking(stock)).await.is_err());
+    }
+    let stock = vec![
+        StockSource::Stock { id: steel.clone(), count: 1 },
+        StockSource::Sheet { width: 80., height: 50., count: None },
+    ];
+    let task = nesting::start(&shared, revision, asking(stock)).await.unwrap();
+    let result = finished(&shared, task.id).await;
+    assert!(result.error.is_none(), "{:?}", result.error);
+    let sources: Vec<_> = result.sheets.iter().map(|s| s.source).collect();
+    assert_eq!(sources[0], 0, "the rack sheet fills first");
+    assert!(sources.len() > 1 && sources[1..].iter().all(|&s| s == 1), "{sources:?}");
+    let [width, height] = result.sheets[0].size;
+    assert!((width - 100.).abs() < 1e-9 && (height - 60.).abs() < 1e-9);
+    assert_eq!(result.sheets.iter().map(|s| s.parts).sum::<usize>(), 13);
+    nesting::apply(&shared, task.id).await.unwrap();
+    machine::prepare(&shared).await.unwrap();
+    let mut c = shared.lock().await;
+    let job = c.save_job("Rack batch").unwrap();
+    c.report_cut_sheet(&job.id).unwrap();
+    let left = c.inventory.iter().find(|i| i.id == steel).unwrap().quantity;
+    assert_eq!(left, 3, "a cut marked afterwards left the rack before it was counted");
+    assert_eq!(c.document().library.stock.len(), 2);
 }

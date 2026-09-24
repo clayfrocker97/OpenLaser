@@ -71,4 +71,8 @@ cutouts: Array<Array<[number, number]>>,
 /**
  * Inherited minimum margin for prior kerf and leads, in millimetres.
  */
-clearance: number, };
+clearance: number,
+/**
+ * The library folder a remnant is kept in, or the root.
+ */
+folder: Id | null, };

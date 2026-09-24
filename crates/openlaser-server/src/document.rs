@@ -464,6 +464,10 @@ pub struct LibraryView {
     pub recipes: Vec<RecipeView>,
     /// Every job.
     pub jobs: Vec<JobView>,
+    /// Full sheets on the rack.
+    pub stock: Vec<crate::inventory::StockItem>,
+    /// Remnants ready to nest on.
+    pub remnants: Vec<crate::stock_store::SheetView>,
     /// Library files left out when it opened, untouched on disk.
     pub skipped: Vec<SkippedView>,
 }

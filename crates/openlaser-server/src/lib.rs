@@ -30,6 +30,7 @@ mod envelope;
 mod font_store;
 pub mod gas;
 mod imports;
+pub mod inventory;
 pub mod job_parts;
 mod lan;
 pub mod machine;

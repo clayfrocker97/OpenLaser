@@ -97,19 +97,38 @@ pub fn nest(
     pool.install(|| search::run(request, cancel, &progress))
 }
 
+/// One kind of sheet a multi-sheet search may use, in the order given.
+#[derive(Clone, Debug)]
+pub struct Sheet {
+    /// A closed stock outline in drawing coordinates.
+    pub stock: Contour,
+    /// Unavailable material inside or crossing the stock boundary.
+    pub cutouts: Vec<Contour>,
+    /// Whether stock is an axis-aligned rectangle, enabling strip compression.
+    pub rectangular: bool,
+    /// Minimum distance from this sheet's edges and cutouts; a remnant keeps
+    /// a wider band around earlier cuts than a fresh sheet.
+    pub margin: f64,
+    /// How many of this sheet exist, or `None` for as many as needed.
+    pub count: Option<usize>,
+}
+
 /// One complete sheet in a multi-sheet layout.
 #[derive(Clone, Debug)]
 pub struct SheetSolution {
-    /// True for the original stock, false for a fresh overflow sheet.
-    pub original: bool,
+    /// Which of the requested [`Sheet`]s this is.
+    pub sheet: usize,
     /// Rigid placements on this sheet.
     pub layout: Solution,
 }
 
-/// Place all requested copies across numbered sheets, largest first, then
-/// compress the last sheet with the remaining time when it is a plain
-/// rectangle. `overflow`, when given, is the outline of every sheet after
-/// the first, which keeps the request's own stock and cutouts.
+/// Place all requested copies across `sheets`, largest parts first: each
+/// copy goes on the first open sheet with room, else on a new sheet of the
+/// first kind that still has one left and can hold it, so earlier kinds (a
+/// remnant, say) fill before later ones. The last sheet is then compressed
+/// with the remaining time when it is a plain rectangle. The request's own
+/// stock fields are ignored; its items, settings and limits apply to every
+/// sheet. The result lists sheets in the order of their kinds.
 ///
 /// `live` sees the sheets as the search stands and the index of the one
 /// that just changed, at most every [`LIVE_INTERVAL`]: each copy placed so
@@ -118,7 +137,7 @@ pub struct SheetSolution {
 /// and can be applied.
 pub fn nest_sheets(
     request: &Request,
-    overflow: Option<&Contour>,
+    sheets: &[Sheet],
     cancel: &AtomicBool,
     progress: impl Fn(usize, usize) + Sync,
     live: impl Fn(&[SheetSolution], usize) + Sync,
@@ -129,6 +148,8 @@ pub fn nest_sheets(
         .map_err(|e| Error(format!("could not start nesting workers: {e}")))?;
     pool.install(|| {
         let mut live = search::Live::new(&live);
-        search::run_sheets(request, overflow, cancel, &progress, &mut live)
+        let mut solutions = search::run_sheets(request, sheets, cancel, &progress, &mut live)?;
+        solutions.sort_by_key(|s| s.sheet);
+        Ok(solutions)
     })
 }

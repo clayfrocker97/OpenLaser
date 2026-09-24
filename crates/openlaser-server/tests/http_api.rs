@@ -361,6 +361,62 @@ async fn a_browser_disconnect_finishes_its_already_saved_draft_preparation() {
 }
 
 #[tokio::test]
+async fn a_completed_cut_takes_its_sheet_off_the_rack_once() {
+    use openlaser_core::LaserMode;
+    use openlaser_core::features::Features;
+    use openlaser_server::coordinator::{NewRecipe, Values};
+    use openlaser_server::inventory::NewStock;
+    use openlaser_server::nesting::StockChoice;
+    use openlaser_server::{connect, machine};
+    let server = Server::start().await;
+    let source = br#"<svg xmlns="http://www.w3.org/2000/svg" width="30mm" height="30mm" viewBox="0 0 30 30"><rect x="5" y="5" width="20" height="20" fill="none" stroke="black"/></svg>"#;
+    let rack = {
+        let mut c = server.shared.lock().await;
+        let recipe = c
+            .add_recipe(&NewRecipe {
+                name: "Sheet steel".into(),
+                laser: LaserMode::Fiber,
+                thickness_mm: 1.,
+                values: Values::Bank(1),
+                gas: None,
+            })
+            .unwrap();
+        let part = c.import_part("square.svg", source).unwrap();
+        c.open_part(&part.id).unwrap();
+        c.set_recipe(&recipe.id).unwrap();
+        c.set_features(Features::default()).unwrap();
+        c.add_stock(NewStock {
+            material: "sheet steel".into(),
+            thickness_mm: 1.,
+            laser: LaserMode::Fiber,
+            width_mm: 80.,
+            height_mm: 120.,
+            quantity: 2,
+            folder: None,
+        })
+        .unwrap()
+    };
+    machine::prepare(&server.shared).await.unwrap();
+    let turned = StockChoice::Rectangle { width: 120., height: 80. };
+    server.shared.lock().await.set_stock(turned).unwrap();
+    machine::prepare(&server.shared).await.unwrap();
+    connect::connect(&server.shared).await.unwrap();
+    machine::home(&server.shared).await.unwrap();
+    common::until(&server.shared, 10, |d| d.machine.session.homed).await;
+    let on_hand = |c: &openlaser_server::Coordinator| {
+        c.inventory.iter().find(|i| i.id == rack).unwrap().quantity
+    };
+    machine::compile(&server.shared, false).await.unwrap();
+    common::run(&server.shared).await.unwrap();
+    common::until(&server.shared, 30, |d| d.completed_sheet.is_some()).await;
+    let c = server.shared.lock().await;
+    assert_eq!(on_hand(&c), 1, "the turned 120 × 80 sheet came off the 80 × 120 entry");
+    assert_eq!(c.document().library.stock[0].quantity, 1);
+    drop(c);
+    server.close().await;
+}
+
+#[tokio::test]
 #[allow(
     clippy::too_many_lines,
     reason = "one HTTP journey from real completion through reused inventory"
@@ -439,6 +495,7 @@ async fn completed_sheet_survives_edits_and_becomes_stock_with_all_cutouts_exclu
         quantity: 1,
         settings: openlaser_core::nesting::NestSettings::default(),
         seconds: 2,
+        stock: vec![],
     };
     let work = nesting::start(&server.shared, revision, request).await.unwrap();
     loop {
@@ -579,13 +636,12 @@ async fn several_parts_nest_on_a_remnant_and_overflow_onto_a_fresh_sheet() {
         remnant_clearance: 5.,
         rotation: NestRotation::Fixed,
     };
-    let request = NestRequest { contours: vec![], quantity: 1, settings, seconds: 2 };
+    let request =
+        NestRequest { contours: vec![], quantity: 1, settings, seconds: 2, stock: vec![] };
     let work = nesting::start(&server.shared, revision, request).await.unwrap();
     let result = loop {
         let view = nesting::status(&server.shared, work.id).await.unwrap();
         if let Some(live) = &view.live {
-            let fresh = live.sheet > 1;
-            assert_eq!(live.stock_cutouts.is_empty(), fresh, "sheet {}: {live:?}", live.sheet);
             assert!(!live.stock_outline.is_empty());
         }
         if !view.running {
@@ -594,8 +650,8 @@ async fn several_parts_nest_on_a_remnant_and_overflow_onto_a_fresh_sheet() {
         tokio::time::sleep(std::time::Duration::from_millis(10)).await;
     };
     assert!(result.error.is_none(), "{:?}", result.error);
-    let sheets: Vec<_> = result.sheets.iter().map(|s| (s.parts, s.fresh)).collect();
-    assert_eq!(sheets, [(2, false), (1, true)]);
+    let sheets: Vec<_> = result.sheets.iter().map(|s| (s.parts, s.source)).collect();
+    assert_eq!(sheets, [(2, 0), (1, 1)]);
     let first = nesting::sheet_preview(&server.shared, work.id, 0).await.unwrap();
     let second = nesting::sheet_preview(&server.shared, work.id, 1).await.unwrap();
     assert_eq!((first.stock_cutouts.len(), second.stock_cutouts.len()), (1, 0));

@@ -5,7 +5,7 @@
 
 use openlaser_core::geometry::{Contour, Curve, Point};
 use openlaser_core::nesting::{NestRotation, NestSettings, NestStock, Nesting};
-use openlaser_nest::{Item, Request, SheetLimit, nest};
+use openlaser_nest::{Item, Request, Sheet, SheetLimit, nest};
 use std::sync::atomic::AtomicBool;
 use std::time::Duration;
 
@@ -24,6 +24,17 @@ fn rect(x: f64, y: f64, w: f64, h: f64) -> Contour {
     shape(&[[x, y], [x + w, y], [x + w, y + h], [x, y + h]])
 }
 
+/// The request's own stock, as many times as needed.
+fn repeated(input: &Request) -> Vec<Sheet> {
+    vec![Sheet {
+        stock: input.stock.clone(),
+        cutouts: input.cutouts.clone(),
+        rectangular: input.rectangular,
+        margin: input.settings.margin,
+        count: None,
+    }]
+}
+
 #[test]
 fn remnant_overflow_uses_fresh_stock_and_preserves_every_copy() {
     let mut input = request();
@@ -40,14 +51,24 @@ fn remnant_overflow_uses_fresh_stock_and_preserves_every_copy() {
     input.time_limit = Duration::from_secs(5);
     let sheets = openlaser_nest::nest_sheets(
         &input,
-        Some(&input.stock),
+        &[
+            Sheet { count: Some(1), ..repeated(&input).remove(0) },
+            Sheet {
+                stock: input.stock.clone(),
+                cutouts: Vec::new(),
+                rectangular: true,
+                margin: input.settings.margin,
+                count: None,
+            },
+        ],
         &AtomicBool::new(false),
         |_, _| {},
         |_, _| {},
     )
     .unwrap();
     assert!(sheets.len() > 1);
-    assert!(sheets[0].original);
+    assert_eq!(sheets[0].sheet, 0);
+    assert!(sheets.iter().skip(1).all(|s| s.sheet == 1));
     assert!(sheets[0].layout.placements.len() < 4);
     assert_eq!(sheets.iter().map(|s| s.layout.placements.len()).sum::<usize>(), 16);
     for sheet in &sheets {
@@ -60,7 +81,7 @@ fn remnant_overflow_uses_fresh_stock_and_preserves_every_copy() {
                     && bounds.min.y >= 1.
                     && bounds.max.y <= 59.
             );
-            if sheet.original {
+            if sheet.sheet == 0 {
                 assert!(bounds.min.x > 76.);
             }
         }
@@ -165,21 +186,37 @@ fn copies_beyond_the_preparation_limit_start_a_new_sheet() {
     let mut input = request();
     input.items = vec![Item { contours: vec![rect(0., 0., 10., 10.)], quantity: 5 }];
     input.sheet_limit = SheetLimit { contours: 2, curves: 100_000 };
-    let sheets =
-        openlaser_nest::nest_sheets(&input, None, &AtomicBool::new(false), |_, _| {}, |_, _| {})
-            .unwrap();
+    let sheets = openlaser_nest::nest_sheets(
+        &input,
+        &repeated(&input),
+        &AtomicBool::new(false),
+        |_, _| {},
+        |_, _| {},
+    )
+    .unwrap();
     let counts: Vec<_> = sheets.iter().map(|s| s.layout.placements.len()).collect();
     assert_eq!(counts, [2, 2, 1]);
     assert!(nest(&input, &AtomicBool::new(false), |_, _| {}).is_err());
     input.sheet_limit = SheetLimit { contours: 5000, curves: 7 };
-    let sheets =
-        openlaser_nest::nest_sheets(&input, None, &AtomicBool::new(false), |_, _| {}, |_, _| {})
-            .unwrap();
+    let sheets = openlaser_nest::nest_sheets(
+        &input,
+        &repeated(&input),
+        &AtomicBool::new(false),
+        |_, _| {},
+        |_, _| {},
+    )
+    .unwrap();
     assert!(sheets.iter().all(|s| s.layout.placements.len() == 1), "4 lines per copy, 7 per sheet");
     input.sheet_limit = SheetLimit { contours: 5000, curves: 3 };
     assert!(
-        openlaser_nest::nest_sheets(&input, None, &AtomicBool::new(false), |_, _| {}, |_, _| {})
-            .is_err()
+        openlaser_nest::nest_sheets(
+            &input,
+            &repeated(&input),
+            &AtomicBool::new(false),
+            |_, _| {},
+            |_, _| {}
+        )
+        .is_err()
     );
 }
 
@@ -198,9 +235,14 @@ fn compaction_never_loosens_the_first_fit() {
         rotation: NestRotation::Any,
     };
     input.time_limit = Duration::from_secs(2);
-    let sheets =
-        openlaser_nest::nest_sheets(&input, None, &AtomicBool::new(false), |_, _| {}, |_, _| {})
-            .unwrap();
+    let sheets = openlaser_nest::nest_sheets(
+        &input,
+        &repeated(&input),
+        &AtomicBool::new(false),
+        |_, _| {},
+        |_, _| {},
+    )
+    .unwrap();
     assert_eq!(sheets.len(), 1);
     let right = sheets[0]
         .layout
@@ -228,9 +270,14 @@ fn a_single_column_sheet_keeps_its_first_fit() {
         rotation: NestRotation::Fixed,
     };
     input.time_limit = Duration::from_secs(2);
-    let sheets =
-        openlaser_nest::nest_sheets(&input, None, &AtomicBool::new(false), |_, _| {}, |_, _| {})
-            .unwrap();
+    let sheets = openlaser_nest::nest_sheets(
+        &input,
+        &repeated(&input),
+        &AtomicBool::new(false),
+        |_, _| {},
+        |_, _| {},
+    )
+    .unwrap();
     assert_eq!(sheets.iter().map(|s| s.layout.placements.len()).sum::<usize>(), 2);
 }
 
@@ -244,7 +291,7 @@ fn a_running_search_shows_each_sheet_as_it_stands() {
     let shown = std::sync::Mutex::new(Vec::new());
     let sheets = openlaser_nest::nest_sheets(
         &input,
-        None,
+        &repeated(&input),
         &AtomicBool::new(false),
         |_, _| {},
         |s, changed| {
@@ -396,4 +443,58 @@ fn concave_crossing_is_rejected_even_when_segment_ends_are_inside() {
         curves: vec![Curve::Line { start: Point::new(15., 80.), end: Point::new(80., 15.) }],
     };
     assert!(openlaser_nest::check_inside(&stock, &[diagonal], 0.).is_err());
+}
+
+/// Earlier sheets fill first; a part too big for a remnant goes on the next
+/// kind; counts are kept, and running out says how many parts fit.
+#[test]
+fn chosen_sheets_fill_in_order_within_their_counts() {
+    let mut input = request();
+    input.items = vec![
+        Item { contours: vec![rect(0., 0., 70., 40.)], quantity: 1 },
+        Item { contours: vec![rect(0., 0., 15., 15.)], quantity: 3 },
+    ];
+    input.settings.rotation = NestRotation::Fixed;
+    input.settings.spacing = 1.;
+    input.settings.margin = 1.;
+    input.time_limit = Duration::from_secs(5);
+    let remnant = Sheet {
+        stock: rect(0., 0., 40., 40.),
+        cutouts: Vec::new(),
+        rectangular: true,
+        margin: 1.,
+        count: Some(1),
+    };
+    let full = Sheet {
+        stock: rect(0., 0., 100., 60.),
+        cutouts: Vec::new(),
+        rectangular: true,
+        margin: 1.,
+        count: Some(1),
+    };
+    let sheets = openlaser_nest::nest_sheets(
+        &input,
+        &[remnant.clone(), full.clone()],
+        &AtomicBool::new(false),
+        |_, _| {},
+        |_, _| {},
+    )
+    .unwrap();
+    let on = |kind: usize| {
+        sheets.iter().filter(|s| s.sheet == kind).map(|s| s.layout.placements.len()).sum::<usize>()
+    };
+    // The large part cannot go on the remnant; the small ones fill it first.
+    assert_eq!(on(0), 3);
+    assert_eq!(on(1), 1);
+
+    input.items[1].quantity = 40;
+    let error = openlaser_nest::nest_sheets(
+        &input,
+        &[remnant, full],
+        &AtomicBool::new(false),
+        |_, _| {},
+        |_, _| {},
+    )
+    .unwrap_err();
+    assert!(error.0.contains("fit on the chosen sheets; add sheets"), "{}", error.0);
 }

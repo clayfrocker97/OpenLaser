@@ -17,6 +17,11 @@ parts: number,
  */
 coverage: number,
 /**
- * Fresh stock instead of the original remnant.
+ * Which of the requested stock sources it is; with none requested, 0
+ * is the draft's stock and 1 full sheets after a remnant.
  */
-fresh: boolean, };
+source: number,
+/**
+ * Outer width and height of the sheet in millimetres.
+ */
+size: [number, number], };

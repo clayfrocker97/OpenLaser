@@ -58,6 +58,9 @@ pub fn router(shared: Shared, ui_dir: std::path::PathBuf) -> Router {
         .route("/api/postflight/dismiss", post(dismiss_postflight))
         .route("/api/sheets", get(sheet_history))
         .route("/api/sheets/{id}", get(sheet_view).post(save_remnant))
+        .route("/api/sheets/{id}/folder", post(set_remnant_folder))
+        .route("/api/stock", post(add_stock))
+        .route("/api/stock/{id}", post(change_stock).delete(remove_stock))
         .route("/api/jobs/{id}/cut-sheet", post(report_cut_sheet))
         .route("/api/parts", post(import_part))
         .route("/api/parts/review", post(review_part))
@@ -1294,7 +1297,46 @@ async fn save_remnant(
     Path(id): Path<String>,
     Json(change): Json<crate::stock_store::SaveRemnant>,
 ) -> Reply {
-    shared.lock().await.sheet_store.save(&id, &change)?;
+    let mut c = shared.lock().await;
+    c.sheet_store.save(&id, &change)?;
+    c.library_changed();
+    Ok(ok())
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct FolderChoice {
+    folder: Option<Id>,
+}
+
+async fn set_remnant_folder(
+    State(shared): State<Shared>,
+    Path(id): Path<String>,
+    Json(choice): Json<FolderChoice>,
+) -> Reply {
+    shared.lock().await.set_remnant_folder(&id, choice.folder)?;
+    Ok(ok())
+}
+
+async fn add_stock(
+    State(shared): State<Shared>,
+    Json(new): Json<crate::inventory::NewStock>,
+) -> Reply {
+    let id = shared.lock().await.add_stock(new)?;
+    Ok(Json(json!({ "ok": true, "id": id })))
+}
+
+async fn change_stock(
+    State(shared): State<Shared>,
+    Path(id): Path<String>,
+    Json(change): Json<crate::inventory::StockChange>,
+) -> Reply {
+    shared.lock().await.change_stock(&Id::from(id.as_str()), change)?;
+    Ok(ok())
+}
+
+async fn remove_stock(State(shared): State<Shared>, Path(id): Path<String>) -> Reply {
+    shared.lock().await.remove_stock(&Id::from(id.as_str()))?;
     Ok(ok())
 }
 async fn report_cut_sheet(State(shared): State<Shared>, Path(id): Path<String>) -> Reply {

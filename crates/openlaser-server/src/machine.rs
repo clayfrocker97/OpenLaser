@@ -1401,6 +1401,7 @@ async fn start_run(
                 held.as_ref().filter(|h| !h.dry_run).and_then(|h| h.sheet.as_deref())
             {
                 coordinator.sheet_store.begin(plan)?;
+                coordinator.library_changed();
             }
         }
         let running = shared.machine.start_run_at(program, requested).await?;

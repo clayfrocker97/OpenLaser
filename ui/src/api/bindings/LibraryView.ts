@@ -3,7 +3,9 @@ import type { Folder } from "./Folder";
 import type { JobView } from "./JobView";
 import type { PartView } from "./PartView";
 import type { RecipeView } from "./RecipeView";
+import type { SheetView } from "./SheetView";
 import type { SkippedView } from "./SkippedView";
+import type { StockItem } from "./StockItem";
 
 /**
  * The library, summarised.
@@ -25,6 +27,14 @@ recipes: Array<RecipeView>,
  * Every job.
  */
 jobs: Array<JobView>,
+/**
+ * Full sheets on the rack.
+ */
+stock: Array<StockItem>,
+/**
+ * Remnants ready to nest on.
+ */
+remnants: Array<SheetView>,
 /**
  * Library files left out when it opened, untouched on disk.
  */

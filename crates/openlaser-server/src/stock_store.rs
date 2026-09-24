@@ -41,6 +41,29 @@ pub struct SheetPlan {
     clearance: f64,
 }
 
+impl SheetPlan {
+    /// Width and height when the sheet is a whole rectangle, not a remnant.
+    pub(crate) fn full_sheet(&self) -> Option<[f64; 2]> {
+        let rectangle = self.parent.is_none()
+            && self.boundary_known
+            && self.existing.is_empty()
+            && self.outline.curves.len() == 4
+            && self.outline.curves.iter().all(|c| match c {
+                Curve::Line { start, end } => {
+                    (start.x - end.x).abs() < 1e-9 || (start.y - end.y).abs() < 1e-9
+                }
+                Curve::Arc { .. } => false,
+            });
+        let bounds = self.outline.bounds().filter(|_| rectangle)?;
+        Some([bounds.max.x - bounds.min.x, bounds.max.y - bounds.min.y])
+    }
+
+    /// The laser, material and thickness it was cut with.
+    pub(crate) fn material(&self) -> (LaserMode, &str, f64) {
+        (self.mode, &self.material, self.thickness_mm)
+    }
+}
+
 /// Material state, independent of any later job edits.
 #[cfg_attr(feature = "typescript", derive(ts_rs::TS), ts(export))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -65,6 +88,9 @@ struct Record {
     plan: SheetPlan,
     removed: Vec<Contour>,
     reported: bool,
+    /// The library folder a remnant is kept in, or the root.
+    #[serde(default)]
+    folder: Option<Id>,
 }
 
 /// An inspected sheet or completion record, with display geometry only.
@@ -103,6 +129,8 @@ pub struct SheetView {
     pub cutouts: Vec<Vec<[f64; 2]>>,
     /// Inherited minimum margin for prior kerf and leads, in millimetres.
     pub clearance: f64,
+    /// The library folder a remnant is kept in, or the root.
+    pub folder: Option<Id>,
 }
 
 /// A page of sheet history, newest first.
@@ -202,7 +230,29 @@ impl Store {
             outline: display(&p.outline),
             cutouts: p.existing.iter().chain(&record.removed).map(display).collect(),
             clearance: p.clearance,
+            folder: record.folder.clone(),
         })
+    }
+
+    /// Every remnant ready to nest on, newest first.
+    pub(crate) fn remnants(&self) -> Vec<SheetView> {
+        self.records
+            .iter()
+            .rev()
+            .filter(|(id, r)| r.state == SheetState::Remnant && !self.used(id))
+            .filter_map(|(id, _)| self.view(id).ok())
+            .collect()
+    }
+
+    /// Keeps a remnant in a library folder.
+    pub(crate) fn set_folder(&mut self, id: &str, folder: Option<Id>) -> Result<()> {
+        let mut record = self
+            .records
+            .get(id)
+            .cloned()
+            .ok_or_else(|| Error::Missing("that sheet does not exist".into()))?;
+        record.folder = folder;
+        self.write(record)
     }
 
     pub(crate) fn page(&self, before: Option<&str>, remnants: bool) -> Result<SheetPage> {
@@ -271,20 +321,24 @@ impl Store {
             plan: plan.clone(),
             removed: plan.areas.iter().map(|a| a.outline.clone()).collect(),
             reported: false,
+            folder: None,
         })
     }
 
+    /// Records how a run on the sheet ended; true when this completes it
+    /// for the first time.
     pub(crate) fn finish(
         &mut self,
         plan: &SheetPlan,
         completed: bool,
         executed: &[usize],
-    ) -> Result<()> {
+    ) -> Result<bool> {
         let mut record = self
             .records
             .get(plan.id.as_str())
             .cloned()
             .ok_or_else(|| fail("missing admitted sheet"))?;
+        let first = completed && record.state != SheetState::Completed;
         record.revision += 1;
         record.state = if completed { SheetState::Completed } else { SheetState::Interrupted };
         if completed {
@@ -295,7 +349,8 @@ impl Store {
                 .map(|a| a.outline.clone())
                 .collect();
         }
-        self.write(record)
+        self.write(record)?;
+        Ok(first)
     }
 
     pub(crate) fn save(&mut self, id: &str, change: &SaveRemnant) -> Result<()> {
@@ -610,10 +665,18 @@ impl Coordinator {
                     .collect::<Vec<_>>()
             })
             .unwrap_or_default();
-        self.sheet_store.finish(&plan, completed, &executed)?;
+        // A completed sheet came off the rack; a stopped one may be
+        // restarted, so it counts only once it completes.
+        if self.sheet_store.finish(&plan, completed, &executed)?
+            && let Err(error) = self.take_sheet(&plan)
+        {
+            tracing::warn!(%error, "sheet count on the rack not updated");
+        }
         if completed {
             self.completed_sheet = Some(plan.id.to_string());
         }
+        // This can run inside a publish, so the view is only rebuilt here.
+        self.refresh_library();
         Ok(())
     }
 
@@ -642,7 +705,10 @@ impl Coordinator {
             removed: plan.areas.iter().map(|a| a.outline.clone()).collect(),
             plan: (*plan).clone(),
             reported: true,
+            folder: None,
         })?;
+        // A past cut: its sheet left the rack before it was counted.
+        self.library_changed();
         Ok(id)
     }
 }
