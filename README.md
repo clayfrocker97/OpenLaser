@@ -25,7 +25,7 @@ control into one application. A Rust server runs on the machine PC and serves
 a touch interface on the desktop and phones on the local network. Your parts,
 jobs and settings stay on that PC.
 
-**0.1.0-alpha.3 — source alpha.** This repository contains source and documentation;
+**0.1.0-alpha.4 — source alpha.** This repository contains source and documentation;
 prebuilt application binaries are not published. Automated checks cover offline
 preparation, compilation and a loopback controller simulator. Physical
 compatibility and commissioning across machine variants remain unverified. Keep

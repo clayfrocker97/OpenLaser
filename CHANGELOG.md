@@ -2,9 +2,9 @@
 
 Versions use Semantic Versioning, with prerelease identifiers for alpha builds.
 
-## Unreleased — 0.1.0-alpha.4
+## 0.1.0-alpha.4 — review candidate
 
-Work in progress on the `alpha.4` branch. Not published.
+Local review candidate built on 2026-09-24. Not published.
 
 ### Build
 
@@ -27,9 +27,15 @@ Work in progress on the `alpha.4` branch. Not published.
 
 - Four type sizes (13, 15, 18 and 24 px), nothing smaller, and every control
   at least 44 px. The phone and desktop layouts switch live as the window
-  resizes. Fit frames the parts, and cut lines are brighter.
+  resizes. Fit frames the sheet and its parts, and cut lines are brighter.
 
 ### Run and jog
+
+- One Run chip beside Cut / Dry run says the next step (connect, home XY,
+  home Z, calibrate Z, set origin) or why Start waits. Cut, dry run, frame
+  and the layer views float over the machine area.
+- Start needs Z calibrated for the current material at the current W table
+  position; a changed material, reconnection or moved table asks again.
 
 - A 3×3 jog pad with diagonals. A tap moves one step (0.1, 1 or 10 mm); a
   press held past 0.4 s jogs continuously and stops on release. Go to X/Y
@@ -39,8 +45,14 @@ Work in progress on the `alpha.4` branch. Not published.
 
 ### Setup and sheets
 
-- The stock chooser rotates a sheet, offers common sheet sizes laid along the
-  bed and keeps saved sizes. Add text moved from the parts library to Setup
+- Sheets on hand: full sheets per material, thickness and laser with counts,
+  kept in library folders beside their jobs, with remnants alongside. A
+  completed cut takes one off.
+- A nest fills several kinds of sheet in order: a suggested remnant, then
+  sheets on hand, then new sheets, each within its count. The progress bar
+  keeps moving while the search packs.
+- The sheet chooser rotates a sheet, offers common sheet sizes laid along the
+  bed and keeps saved sizes on the machine for every screen. Add text moved from the parts library to Setup
   and joins the open job.
 - The drawing bar is one row: editing tools appear only with a selection, and
   Order drags the tools into your own sequence.
@@ -79,8 +91,8 @@ Work in progress on the `alpha.4` branch. Not published.
 - Laser-on and gas-on time per gas from the compiled program and each run's
   actual figures; Settings → Gas costs (refill or bulk price, compressor air,
   flow from the nozzle or a fixed L/min, currency); a Gas & laser card with
-  past runs and totals; a 60-second gas calibration. Flow estimates are not
-  yet checked against a machine.
+  past runs and totals; a 60-second gas calibration. Imperial units show gas
+  in cubic feet. Flow estimates are not yet checked against a machine.
 
 ## 0.1.0-alpha.3 — review candidate
 

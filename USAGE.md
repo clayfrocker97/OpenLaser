@@ -1,6 +1,6 @@
 # OpenLaser setup and operator manual
 
-**Version 0.1.0-alpha.3 · Alpha documentation**
+**Version 0.1.0-alpha.4 · Alpha documentation**
 
 The public repository provides source and documentation; prebuilt application
 binaries are not published. Start with the [source build instructions](README.md#build-from-source).
@@ -40,9 +40,9 @@ The release packages are:
 
 | Package | Contents |
 | --- | --- |
-| `OpenLaser-0.1.0-alpha.3-windows-x86_64.zip` | 64-bit Windows executable, simulator launcher and documentation |
-| `OpenLaser-0.1.0-alpha.3-macos-universal.zip` | Intel / Apple Silicon application, simulator launcher and documentation |
-| `OpenLaser-0.1.0-alpha.3-source.zip` | Matching source, embedded UI build and build instructions |
+| `OpenLaser-0.1.0-alpha.4-windows-x86_64.zip` | 64-bit Windows executable, simulator launcher and documentation |
+| `OpenLaser-0.1.0-alpha.4-macos-universal.zip` | Intel / Apple Silicon application, simulator launcher and documentation |
+| `OpenLaser-0.1.0-alpha.4-source.zip` | Matching source, embedded UI build and build instructions |
 
 ### Windows
 
@@ -248,17 +248,28 @@ with nesting.
 
 ## Nest parts and reuse a remnant
 
-Open **Nest parts** from Setup. Select the intended stock, preview the sheets,
-then apply the result. Stock selection by itself does not rearrange parts.
+Open **Nest parts** from Setup. **Sheets, filled in order** lists what the nest
+may use; preview the sheets, then apply the result. Choosing sheets by itself
+does not rearrange parts.
+
+The list starts with a suggestion: the smallest matching remnant that holds the
+whole job (or, failing that, the largest one that takes a fair share of it),
+then matching sheets on the rack, then new sheets of the current size for
+whatever is left. Only sheets of the recipe's laser, material and thickness are
+offered. **Add sheets** adds rack sheets, a remnant, new sheets of a size, or a
+closed drawing outline; the x leaves a kind out and **Suggest** restores the
+suggestion. A kind of sheet is opened only when parts go on it, so unused
+sheets stay on the rack.
 
 | Option | Effect |
 | --- | --- |
-| Rectangular stock | New sheet with the entered dimensions |
-| Drawing outline | Use a closed drawing contour as the stock boundary; it is excluded from cutting |
-| Remnant stock | Use a saved stock boundary while avoiding recorded cut areas |
+| Rack sheets | Up to the chosen number of sheets on hand, of that size |
+| Remnant | A saved remnant, used once, avoiding recorded cut areas |
+| New sheets | As many sheets of the entered size as the parts need |
+| Drawing outline | Use a closed drawing contour as the sheet boundary; it is excluded from cutting |
 | Selected part quantity | Total copies, including the original; select one part/group to edit it (1–500) |
 | Part spacing | Gap between newly nested parts |
-| Edge margin | Clearance from the stock boundary |
+| Edge margin | Clearance from the sheet boundary |
 | Extra remnant clearance | Additional room around old cutouts and the remnant edge for alignment |
 | Dense | Allow any rotation angle |
 | Keep grain | Allow 0° / 180° rotations |
@@ -278,11 +289,19 @@ and then press **Apply layout** or **Apply N sheets**. Until Apply, the result i
 If the drawing changes, preview again. Undo restores the previous applied layout.
 Saving a multi-sheet set creates a folder with one job per sheet.
 
-When parts overflow, additional fresh sheets are generated. A remnant is used
-only on the first sheet; overflow uses fresh **rectangular** stock of the same
-bounding dimensions. Review and supply those additional sheets before running.
+Each numbered sheet says which kind it is (a remnant's name, rack or new).
+Supply every sheet before running it.
 
-### Save the stock left after a cut
+### Sheets on hand
+
+**Parts → Sheets → On hand** lists full sheets by material and thickness, with
+remnants of the same material beside them. **Add sheets** takes a material from
+the recipes, a size and a count; the same material and size in the same folder
+adds up, either way round. Tap a row to change its count, keep it in a folder
+beside its jobs, or remove the size. A completed cut on a full sheet takes one
+off the matching entry; dry runs, stopped runs and cuts marked afterwards do not.
+
+### Save the sheet left after a cut
 
 1. Complete the run, then open **Parts → Sheets → Cut history**.
 2. Inspect the actual sheet and record the usable remnant. If the original job
