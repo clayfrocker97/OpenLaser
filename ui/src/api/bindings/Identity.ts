@@ -3,11 +3,11 @@
 /**
  * The controller's identity.
  */
-export type Identity = {
+export type Identity = { 
 /**
  * The product id; 103 for the MCC100.
  */
-product_id: number,
+product_id: number, 
 /**
  * The program version; 20177 for firmware 201.77.
  */

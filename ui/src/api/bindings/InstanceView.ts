@@ -3,11 +3,11 @@
 /**
  * A physical contour instance before feature preparation.
  */
-export type InstanceView = {
+export type InstanceView = { 
 /**
  * The contour in the source drawing.
  */
-source: number,
+source: number, 
 /**
  * The placed copy of that drawing.
  */

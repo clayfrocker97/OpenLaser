@@ -1430,8 +1430,14 @@ impl crate::Coordinator {
         if self.operation == Some(owner) {
             if let Some(current) = &held {
                 if fresh {
-                    if let Some(draft) = &mut self.draft {
+                    // A dry run traces the same sheet, so it leaves an each-run
+                    // origin for the cut that follows. A real run uses it up,
+                    // and the placement view shows that.
+                    if !execution.compiled.dry_run
+                        && let Some(draft) = &mut self.draft
+                    {
                         draft.capture_used = true;
+                        self.draft_changed();
                     }
                     let hash =
                         self.files.backup.as_ref().map(|f| f.sha256.clone()).unwrap_or_default();

@@ -3,11 +3,11 @@
 /**
  * Whether one command would be accepted.
  */
-export type Gate = {
+export type Gate = { 
 /**
  * Whether it would.
  */
-ok: boolean,
+ok: boolean, 
 /**
  * Why not, when not.
  */

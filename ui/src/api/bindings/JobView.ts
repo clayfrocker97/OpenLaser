@@ -7,63 +7,63 @@ import type { SheetInfo } from "./SheetInfo";
 /**
  * A saved job.
  */
-export type JobView = {
+export type JobView = { 
 /**
  * Membership in a saved sheet set.
  */
-sheet: SheetInfo | null,
+sheet: SheetInfo | null, 
 /**
  * Extent of the saved placements, including scaling and removed contours.
  */
-bounds: Bounds | null,
+bounds: Bounds | null, 
 /**
  * Thumbnail of the saved placements.
  */
-outline: Array<Array<[number, number]>>,
+outline: Array<Array<[number, number]>>, 
 /**
  * Number of saved placed contours.
  */
-contours: number,
+contours: number, 
 /**
  * Searchable operator tags.
  */
-tags: Array<string>,
+tags: Array<string>, 
 /**
  * Operator notes.
  */
-notes: string,
+notes: string, 
 /**
  * Requested production quantity.
  */
-quantity: number,
+quantity: number, 
 /**
  * Its id.
  */
-id: Id,
+id: Id, 
 /**
  * Its name.
  */
-name: string,
+name: string, 
 /**
  * Its folder.
  */
-folder: Id | null,
+folder: Id | null, 
 /**
  * The parts it cuts, in the order of its drawing.
  */
-parts: Array<Id>,
+parts: Array<Id>, 
 /**
  * The recipe it was saved with.
  */
-recipe: RecipeView,
+recipe: RecipeView, 
 /**
  * Which features are on.
  */
-features_on: Array<string>,
+features_on: Array<string>, 
 /**
  * Whether it is starred.
  */
-favourite: boolean,
+favourite: boolean, 
 /**
  * When it last changed.
  */

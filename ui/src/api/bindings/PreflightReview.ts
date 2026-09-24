@@ -5,31 +5,31 @@ import type { PreflightIntent } from "./PreflightIntent";
 /**
  * The exact checks displayed before an operation.
  */
-export type PreflightReview = {
+export type PreflightReview = { 
 /**
  * Freshness token, invalid after relevant changes or application restart.
  */
-token: string,
+token: string, 
 /**
  * What the confirmation admits.
  */
-intent: PreflightIntent,
+intent: PreflightIntent, 
 /**
  * Checks in order; indexes are their IDs within this review.
  */
-steps: Array<Check>,
+steps: Array<Check>, 
 /**
  * Opted-in checks satisfied by current, fresh machine or job state.
  */
-satisfied: Array<number>,
+satisfied: Array<number>, 
 /**
  * Required gases from the compiled cutting, piercing, residue and film passes.
  */
-gases: Array<string>,
+gases: Array<string>, 
 /**
  * Whether a gas-readiness checkbox is required.
  */
-confirm_gas: boolean,
+confirm_gas: boolean, 
 /**
  * Whether the compiled program has its laser off.
  */

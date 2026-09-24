@@ -5,27 +5,27 @@ import type { ProgramState } from "./ProgramState";
 /**
  * The last program.
  */
-export type ProgramView = {
+export type ProgramView = { 
 /**
  * Where it stands.
  */
-state: ProgramState,
+state: ProgramState, 
 /**
  * Whether feedback was captured after FIFO start was acknowledged.
  */
-started: boolean,
+started: boolean, 
 /**
  * Blocks acknowledged by the controller.
  */
-uploaded: number,
+uploaded: number, 
 /**
  * Blocks in the program.
  */
-total: number,
+total: number, 
 /**
  * The execution checkpoint captured at the pause or stop.
  */
-checkpoint: CheckpointView | null,
+checkpoint: CheckpointView | null, 
 /**
  * Why it stopped early, if it did.
  */

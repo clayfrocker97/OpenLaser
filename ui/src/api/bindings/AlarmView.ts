@@ -4,43 +4,43 @@ import type { ReliefView } from "./ReliefView";
 /**
  * One alarm row.
  */
-export type AlarmView = {
+export type AlarmView = { 
 /**
  * Whether the cause is present, distinct from retained reset state.
  */
-active: boolean,
+active: boolean, 
 /**
  * The actual relief offered for this row, shown before activation.
  */
-relief: ReliefView,
+relief: ReliefView, 
 /**
  * The vendor's id, when it emits one.
  */
-id: number | null,
+id: number | null, 
 /**
  * Where the row came from.
  */
-source: string,
+source: string, 
 /**
  * The vendor's label, or the host rule's.
  */
-label: string,
+label: string, 
 /**
  * The plain name operators read, such as "Emergency stop pressed".
  */
-title: string,
+title: string, 
 /**
  * One sentence on how to clear the row.
  */
-fix: string,
+fix: string, 
 /**
  * Whether the row blocks operations.
  */
-blocking: boolean,
+blocking: boolean, 
 /**
  * Whether the row stays until relieved even when the cause is gone.
  */
-latched: boolean,
+latched: boolean, 
 /**
  * Seconds since the row appeared.
  */

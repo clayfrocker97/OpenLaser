@@ -6,27 +6,27 @@ import type { FileView } from "./FileView";
 /**
  * The machine files as loaded, and the layer banks they hold.
  */
-export type FilesView = {
+export type FilesView = { 
 /**
  * The machine backup, once read.
  */
-backup: FileView | null,
+backup: FileView | null, 
 /**
  * Why it could not be read.
  */
-error: string | null,
+error: string | null, 
 /**
  * The layer banks it holds.
  */
-banks: Array<BankView>,
+banks: Array<BankView>, 
 /**
  * The gas selections with a valve, 0 to 5.
  */
-gases: Array<number>,
+gases: Array<number>, 
 /**
  * What each laser's process can do, for the recipe editor.
  */
-capabilities: Array<CapabilitiesView>,
+capabilities: Array<CapabilitiesView>, 
 /**
  * The travel of X and Y in millimetres, lower then upper, as the
  * backup gives it; the bed is drawn from this before connecting.

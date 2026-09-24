@@ -3,11 +3,11 @@
 /**
  * A point, or a displacement, in millimetres.
  */
-export type Point = {
+export type Point = { 
 /**
  * The X coordinate.
  */
-x: number,
+x: number, 
 /**
  * The Y coordinate.
  */

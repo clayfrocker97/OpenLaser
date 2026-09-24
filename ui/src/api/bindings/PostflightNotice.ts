@@ -3,11 +3,11 @@
 /**
  * A pending completion, included in the event stream for every open client.
  */
-export type PostflightNotice = {
+export type PostflightNotice = { 
 /**
  * Unique to this completion and server session.
  */
-id: string,
+id: string, 
 /**
  * Name of the job that completed.
  */

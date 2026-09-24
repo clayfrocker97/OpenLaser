@@ -5,19 +5,19 @@ import type { PassKind } from "./PassKind";
 /**
  * One process in the admitted pass plan.
  */
-export type PassView = {
+export type PassView = { 
 /**
  * Its ordinal in the original job, preserved through continuation.
  */
-ordinal: number,
+ordinal: number, 
 /**
  * What the process does.
  */
-kind: PassKind,
+kind: PassKind, 
 /**
  * The physical instances from which this prepared path was made.
  */
-instances: Array<InstanceView>,
+instances: Array<InstanceView>, 
 /**
  * Requested cooling points omitted by the native endpoint tolerance.
  */

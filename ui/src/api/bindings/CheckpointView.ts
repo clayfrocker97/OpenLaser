@@ -3,15 +3,15 @@
 /**
  * An execution checkpoint.
  */
-export type CheckpointView = {
+export type CheckpointView = { 
 /**
  * The item tag being executed.
  */
-item: number,
+item: number, 
 /**
  * Progress within the item.
  */
-progress: number,
+progress: number, 
 /**
  * X and Y where the machine stopped, in millimetres.
  */

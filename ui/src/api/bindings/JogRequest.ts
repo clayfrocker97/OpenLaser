@@ -3,23 +3,23 @@
 /**
  * A jog request from the UI.
  */
-export type JogRequest = {
+export type JogRequest = { 
 /**
  * 0 for X, 1 for Y.
  */
-axis: number,
+axis: number, 
 /**
  * The direction: positive or negative.
  */
-positive: boolean,
+positive: boolean, 
 /**
  * The step in millimetres, or `None` for a held jog to the limit.
  */
-step_mm: number | null,
+step_mm: number | null, 
 /**
  * Fast or slow.
  */
-fast: boolean,
+fast: boolean, 
 /**
  * For a diagonal jog, the direction of the other axis. Both axes travel
  * the same distance, so the head moves at 45° and stops at whichever

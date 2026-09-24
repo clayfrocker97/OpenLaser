@@ -5,19 +5,19 @@ import type { Money } from "./Money";
 /**
  * Where a gas comes from and what it costs.
  */
-export type Source = { "kind": "refill",
+export type Source = { "kind": "refill", 
 /**
  * The price of one refill; zero until the shop enters it.
  */
-price: Money,
+price: Money, 
 /**
  * The gas one cylinder holds at standard conditions.
  */
-volume: CubicMeters, } | { "kind": "bulk",
+volume: CubicMeters, } | { "kind": "bulk", 
 /**
  * The price per standard cubic metre.
  */
-price_per_m3: Money, } | { "kind": "compressor",
+price_per_m3: Money, } | { "kind": "compressor", 
 /**
  * Running cost per hour.
  */

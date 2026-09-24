@@ -4,7 +4,7 @@ import type { LitersPerMinute } from "./LitersPerMinute";
 /**
  * How the flow of a gas is known.
  */
-export type Flow = { "kind": "estimated" } | { "kind": "manual",
+export type Flow = { "kind": "estimated" } | { "kind": "manual", 
 /**
  * The flow.
  */

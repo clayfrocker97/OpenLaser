@@ -4,15 +4,15 @@ import type { Repair } from "./Repair";
 /**
  * What import repaired in a drawing.
  */
-export type Repairs = {
+export type Repairs = { 
 /**
  * Gaps closed between ends that nearly met.
  */
-gaps: Array<Repair>,
+gaps: Array<Repair>, 
 /**
  * Curves dropped because another on the same layer already cuts them.
  */
-duplicates: Array<Repair>,
+duplicates: Array<Repair>, 
 /**
  * Entities drawn upside down, with a flipped extrusion direction, and
  * mirrored into place.

@@ -7,35 +7,35 @@ import type { MmPerSecond } from "./MmPerSecond";
 /**
  * Micro-joints: short gaps in the cut that hold a part in the sheet.
  */
-export type Joints = {
+export type Joints = { 
 /**
  * Where the joints go.
  */
-placement: JointPlacement,
+placement: JointPlacement, 
 /**
  * How wide each joint is along the contour.
  */
-width: Millimeters,
+width: Millimeters, 
 /**
  * Contours smaller than this in both directions get no joints.
  */
-minimum_size: Millimeters,
+minimum_size: Millimeters, 
 /**
  * Joint only outlines, never holes.
  */
-outer_only: boolean,
+outer_only: boolean, 
 /**
  * On an open contour, put a joint at its start as well.
  */
-open_start: boolean,
+open_start: boolean, 
 /**
  * How the laser behaves in a joint.
  */
-behaviour: JointBehaviour,
+behaviour: JointBehaviour, 
 /**
  * A slower speed through the joint.
  */
-slow_speed: MmPerSecond | null,
+slow_speed: MmPerSecond | null, 
 /**
  * Pierce again after each joint.
  */

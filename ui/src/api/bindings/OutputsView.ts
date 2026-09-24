@@ -3,28 +3,28 @@
 /**
  * Which manual outputs the machine has.
  */
-export type OutputsView = {
+export type OutputsView = { 
 /**
  * A red pointer.
  */
-pointer: boolean,
+pointer: boolean, 
 /**
  * Selected source's red-light output, zero when unassigned.
  */
-pointer_port: number,
+pointer_port: number, 
 /**
  * A shutter or laser gate.
  */
-shutter: boolean,
+shutter: boolean, 
 /**
  * Selected source's gate output, zero when unassigned.
  */
-shutter_port: number,
+shutter_port: number, 
 /**
  * Gas selectors with a valve: low air, oxygen, nitrogen, high air,
  * oxygen, nitrogen.
  */
-gas: [boolean, boolean, boolean, boolean, boolean, boolean],
+gas: [boolean, boolean, boolean, boolean, boolean, boolean], 
 /**
  * A head that can be jogged.
  */

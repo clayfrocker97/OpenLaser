@@ -4,19 +4,19 @@ import type { AlarmRecord } from "./AlarmRecord";
 /**
  * Alarms grouped under one application restart separator.
  */
-export type AlarmSession = {
+export type AlarmSession = { 
 /**
  * File schema version.
  */
-version: number,
+version: number, 
 /**
  * Unique application start ID and pagination cursor.
  */
-id: string,
+id: string, 
 /**
  * Application start time in seconds since the epoch.
  */
-started: number,
+started: number, 
 /**
  * Alarm summaries; their active state is historical for earlier sessions.
  */

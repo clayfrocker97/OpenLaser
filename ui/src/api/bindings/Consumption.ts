@@ -8,27 +8,27 @@ import type { Seconds } from "./Seconds";
 /**
  * A job's or run's laser time, gas and cost.
  */
-export type Consumption = {
+export type Consumption = { 
 /**
  * Laser-on time.
  */
-laser: Seconds,
+laser: Seconds, 
 /**
  * Pierces.
  */
-pierces: number,
+pierces: number, 
 /**
  * Length cut.
  */
-cut: Millimeters,
+cut: Millimeters, 
 /**
  * The nozzle the recipe fits, if it names one.
  */
-nozzle: Nozzle | null,
+nozzle: Nozzle | null, 
 /**
  * Gas by gas and pressure.
  */
-gases: Array<GasLine>,
+gases: Array<GasLine>, 
 /**
  * The total gas cost, when every gas used is priced.
  */

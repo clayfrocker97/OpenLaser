@@ -5,11 +5,11 @@ import type { Spot } from "./Spot";
 /**
  * Where cooling stops go.
  */
-export type CoolingPlacement = { "automatic": {
+export type CoolingPlacement = { "automatic": { 
 /**
  * A stop where the contour starts.
  */
-at_start: boolean,
+at_start: boolean, 
 /**
  * A stop at every corner sharper than this interior angle.
  */

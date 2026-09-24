@@ -4,19 +4,19 @@ import type { Id } from "./Id";
 /**
  * A folder in the parts library.
  */
-export type Folder = {
+export type Folder = { 
 /**
  * Its id.
  */
-id: Id,
+id: Id, 
 /**
  * Its name.
  */
-name: string,
+name: string, 
 /**
  * The folder it sits in, or the root.
  */
-parent: Id | null,
+parent: Id | null, 
 /**
  * Whether it is starred.
  */

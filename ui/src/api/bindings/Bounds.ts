@@ -4,11 +4,11 @@ import type { Point } from "./Point";
 /**
  * An axis-aligned box.
  */
-export type Bounds = {
+export type Bounds = { 
 /**
  * The lowest X and Y.
  */
-min: Point,
+min: Point, 
 /**
  * The highest X and Y.
  */

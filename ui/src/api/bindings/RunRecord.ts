@@ -6,43 +6,43 @@ import type { RunOutcome } from "./RunOutcome";
 /**
  * One run of a job and what it spent.
  */
-export type RunRecord = {
+export type RunRecord = { 
 /**
  * Stable identity.
  */
-id: string,
+id: string, 
 /**
  * The authoring document it ran from, as `job-…`, `draft-…` or `part-…`.
  */
-key: string,
+key: string, 
 /**
  * The saved job, if it was one.
  */
-job: Id | null,
+job: Id | null, 
 /**
  * The job's name when it ran.
  */
-name: string,
+name: string, 
 /**
  * When it started, in seconds since the epoch.
  */
-started: number,
+started: number, 
 /**
  * When it last ended.
  */
-finished: number,
+finished: number, 
 /**
  * Done or stopped.
  */
-outcome: RunOutcome,
+outcome: RunOutcome, 
 /**
  * The share of the job's cut length that ran, 0 to 1.
  */
-fraction: number,
+fraction: number, 
 /**
  * Laser time, gas and cost of what ran, priced when it ended.
  */
-consumption: Consumption,
+consumption: Consumption, 
 /**
  * The currency symbol it was priced in.
  */

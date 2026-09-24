@@ -3,15 +3,15 @@
 /**
  * One machine file.
  */
-export type FileView = {
+export type FileView = { 
 /**
  * The file name.
  */
-name: string,
+name: string, 
 /**
  * Its size.
  */
-bytes: number,
+bytes: number, 
 /**
  * Its hash.
  */

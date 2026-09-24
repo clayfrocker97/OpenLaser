@@ -4,15 +4,15 @@ import type { OperationKind } from "./OperationKind";
 /**
  * The active operation.
  */
-export type OperationView = {
+export type OperationView = { 
 /**
  * Its kind.
  */
-kind: OperationKind,
+kind: OperationKind, 
 /**
  * Its phase, as a short label.
  */
-phase: string,
+phase: string, 
 /**
  * Seconds since it started.
  */

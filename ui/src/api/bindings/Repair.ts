@@ -4,16 +4,16 @@ import type { Point } from "./Point";
 /**
  * One repair and where it was made.
  */
-export type Repair = {
+export type Repair = { 
 /**
  * Where, in millimetres.
  */
-at: Point,
+at: Point, 
 /**
  * How large: the width of a closed gap or the length of a dropped
  * curve, in millimetres; zero for a mirrored entity.
  */
-size: number,
+size: number, 
 /**
  * The drawing layer.
  */

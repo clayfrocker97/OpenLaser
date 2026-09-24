@@ -4,15 +4,15 @@ import type { AlarmSession } from "./AlarmSession";
 /**
  * A page of restart groups, newest first.
  */
-export type HistoryPage = {
+export type HistoryPage = { 
 /**
  * Current application session, for labelling rather than live alarm state.
  */
-current: string,
+current: string, 
 /**
  * Up to ten restart groups.
  */
-sessions: Array<AlarmSession>,
+sessions: Array<AlarmSession>, 
 /**
  * Cursor for older groups, if more remain.
  */

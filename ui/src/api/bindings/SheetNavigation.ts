@@ -4,11 +4,11 @@ import type { SheetTab } from "./SheetTab";
 /**
  * Small navigation data; only the active sheet sends prepared canvas geometry.
  */
-export type SheetNavigation = {
+export type SheetNavigation = { 
 /**
  * Zero-based selected entry.
  */
-active: number,
+active: number, 
 /**
  * Sheets in numbered order.
  */

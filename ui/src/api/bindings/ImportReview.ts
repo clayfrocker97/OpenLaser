@@ -8,47 +8,47 @@ import type { SizeCheck } from "./SizeCheck";
 /**
  * What importing a file would make, for review before it is kept.
  */
-export type ImportReview = {
+export type ImportReview = { 
 /**
  * The file's name.
  */
-name: string,
+name: string, 
 /**
  * The layers with geometry, and which are imported.
  */
-layers: Array<ImportLayer>,
+layers: Array<ImportLayer>, 
 /**
  * How an SVG's size was read; absent for DXF.
  */
-scale: ScaleReview | null,
+scale: ScaleReview | null, 
 /**
  * What import repaired, and where.
  */
-repairs: Repairs,
+repairs: Repairs, 
 /**
  * Whether the size is plausible; absent when nothing is imported.
  */
-size: SizeCheck | null,
+size: SizeCheck | null, 
 /**
  * The extent of the imported geometry.
  */
-bounds: Bounds | null,
+bounds: Bounds | null, 
 /**
  * How many contours would be imported.
  */
-contours: number,
+contours: number, 
 /**
  * The contours that are open.
  */
-open: Array<number>,
+open: Array<number>, 
 /**
  * The closed contours that cross themselves.
  */
-crossing: Array<number>,
+crossing: Array<number>, 
 /**
  * Every contour as a polyline, for the preview.
  */
-outline: Array<Array<[number, number]>>,
+outline: Array<Array<[number, number]>>, 
 /**
  * Notices to read before keeping the part.
  */

@@ -364,3 +364,43 @@ async fn calibration_keeps_normal_kerf_leads_and_editing_with_correction_off() {
     c.change_placement(PlacementChange::Head {}).unwrap();
     assert_eq!(c.document().draft.unwrap().placement.mode, PlacementMode::Head);
 }
+
+/// A dry run traces the same sheet, so it must not use up an each-run
+/// origin: the cut that follows starts where the trace did, wherever the
+/// dry run left the head. A real run does use it, and the view says so.
+#[tokio::test]
+async fn a_dry_run_keeps_the_each_run_origin_and_a_real_run_uses_it() {
+    let (simulator, shared) = start("dry-run-origin").await;
+    setup(&shared).await;
+    home(&shared).await;
+    move_to(&shared, [150., 120.]).await;
+    let revision = shared.lock().await.document().draft_revision;
+    placement::change(&shared, PlacementChange::SetOrigin {}, revision).await.unwrap();
+    near(shared.lock().await.draft.as_ref().unwrap().origin().unwrap(), [150., 120.]);
+    simulator.control().time_scale(20.);
+    let finished = |shared: Shared| async move {
+        until(&shared, 20, |d| {
+            d.machine.operation.is_none()
+                && d.machine.program.as_ref().is_some_and(|p| p.state == ProgramState::Completed)
+        })
+        .await;
+    };
+
+    machine::compile(&shared, true).await.unwrap();
+    common::run(&shared).await.unwrap();
+    finished(shared.clone()).await;
+    move_to(&shared, [190., 160.]).await;
+    assert!(shared.lock().await.document().draft.unwrap().placement.captured);
+
+    machine::compile(&shared, false).await.unwrap();
+    placement::prepare(&shared).await.unwrap();
+    near(shared.lock().await.draft.as_ref().unwrap().origin().unwrap(), [150., 120.]);
+    common::run(&shared).await.unwrap();
+    finished(shared.clone()).await;
+    near(shared.lock().await.document().execution.unwrap().origin, [150., 120.]);
+    assert!(
+        !shared.lock().await.document().draft.unwrap().placement.captured,
+        "a real run uses up an each-run origin"
+    );
+    openlaser_server::shutdown(&shared).await.unwrap();
+}

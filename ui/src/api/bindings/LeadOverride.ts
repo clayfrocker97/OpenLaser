@@ -7,15 +7,15 @@ import type { Spot } from "./Spot";
  * that contour through moves, copies and bridge operations; it does not
  * change the cutting start. A missing role inherits its job default.
  */
-export type LeadOverride = {
+export type LeadOverride = { 
 /**
  * A retained point on the owning source contour, before compensation.
  */
-location: Spot,
+location: Spot, 
 /**
  * The local entry definition, if edited.
  */
-entry: Lead | null,
+entry: Lead | null, 
 /**
  * The local exit definition, if edited.
  */

@@ -4,11 +4,11 @@ import type { Checklist } from "./Checklist";
 /**
  * Editable pause checks for each laser mode.
  */
-export type PauseDefaults = {
+export type PauseDefaults = { 
 /**
  * Fiber pause checks.
  */
-fiber: Checklist,
+fiber: Checklist, 
 /**
  * CO2 pause checks.
  */

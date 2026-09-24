@@ -27,7 +27,9 @@ pub enum PlacementMode {
 pub struct PlacementView {
     /// Positioning method.
     pub mode: PlacementMode,
-    /// A fixed fixture or captured head location is available.
+    /// A fixed fixture, or a head location captured and not yet used by a
+    /// real run, is available. An each-run origin a run has used is replaced
+    /// at the next run's start, so it no longer counts as set.
     pub captured: bool,
     /// Correction awaits a physical location; the current preview is nominal.
     pub correction_pending: bool,
@@ -64,7 +66,7 @@ pub(crate) fn is_head(draft: &Draft) -> bool {
 pub(crate) fn view(draft: &Draft) -> PlacementView {
     PlacementView {
         mode: if is_head(draft) { PlacementMode::Head } else { PlacementMode::Fixed },
-        captured: draft.current.sheet_offset.is_some(),
+        captured: draft.current.sheet_offset.is_some() && !(is_head(draft) && draft.capture_used),
         correction_pending: draft.current.correction.is_some()
             && draft.current.sheet_offset.is_none(),
         saved: draft.saved_base.as_ref().is_some_and(|saved| matches_saved(draft, saved)),

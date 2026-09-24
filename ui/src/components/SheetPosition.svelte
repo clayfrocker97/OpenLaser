@@ -18,7 +18,8 @@
   const placement = $derived(draft?.placement);
   const fixed = $derived(placement?.mode === 'fixed');
   const completed = $derived(!!doc.execution && !doc.execution.frame && ['completed', 'stopped'].includes(doc.machine.program?.state ?? ''));
-  const disabled = $derived(busy || !access.canControl || !!doc.machine.operation || !draft || completed || doc.machine.program?.state === 'held');
+  // After a finished run an each-run origin can be set for the next sheet; an absolute one stays.
+  const disabled = $derived(busy || !access.canControl || !!doc.machine.operation || !draft || (completed && fixed) || doc.machine.program?.state === 'held');
   const position = $derived(doc.machine.feedback?.position_mm.slice(0, 2) as [number, number] | undefined);
 
   // The method is chosen with a tap; only the held Set origin takes the position.
@@ -55,9 +56,9 @@
   <section class="sheet-position" class:compact aria-label="Sheet origin">
     {#if collapsed}
       <div class="origin-line">
-        <span><strong>Origin set</strong> · {fixed ? 'Absolute' : 'Each run'}{#if draft.origin} · X {distance(draft.origin[0])} · Y {distance(draft.origin[1])} {unitLabel('mm')}{/if}</span>
+        <span><strong>Origin set</strong> · {fixed ? 'Absolute' : 'Each run'} {#if draft.origin} · X {distance(draft.origin[0])} · Y {distance(draft.origin[1])} {unitLabel('mm')}{/if}</span>
         {#if !placement.saved && (draft.job || fixed) && !completed}<button class="text-button" disabled={disabled || !draft.recipe} onclick={save}>Save job</button>{/if}
-        {#if !completed}<button class="text-button" disabled={disabled} onclick={() => (changing = true)}>Change</button>{/if}
+        {#if !completed || !fixed}<button class="text-button" disabled={disabled} onclick={() => (changing = true)}>Change</button>{/if}
       </div>
     {:else}
       <div class="position-title"><strong>Sheet origin</strong>{#if !disabled && !doc.readiness.set_origin.ok && doc.readiness.set_origin.reason}<span class="origin-reason">{plain(doc.readiness.set_origin.reason).text}</span>{/if}{#if changing}<button class="text-button" onclick={() => (changing = false)}>Done</button>{/if}</div>
@@ -65,7 +66,7 @@
         <button aria-pressed={method === 'head'} disabled={disabled} title="Set the origin at the head for each new run" onclick={chooseEachRun}>Each run</button>
         <button aria-pressed={method === 'fixed'} disabled={disabled} title="Keep one machine position for a fixture" onclick={() => (method = 'fixed')}>Absolute</button>
       </div>
-      {#if !completed}
+      {#if !completed || !fixed}
         <HoldButton class="set-origin" kind="zero" disabled={disabled || !doc.readiness.set_origin.ok} title="Set the origin where the head is" onhold={setOrigin}>
           Set origin here{#if position} · X {distance(position[0])} · Y {distance(position[1])}{/if}
         </HoldButton>

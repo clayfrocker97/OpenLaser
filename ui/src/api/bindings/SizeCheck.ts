@@ -3,20 +3,20 @@
 /**
  * Whether the drawing's size is plausible for this machine.
  */
-export type SizeCheck = {
+export type SizeCheck = { 
 /**
  * The width and height of the drawing, in millimetres.
  */
-size: [number, number],
+size: [number, number], 
 /**
  * The width and height of the bed, when the machine is known.
  */
-bed: [number, number] | null,
+bed: [number, number] | null, 
 /**
  * Larger than the bed, turned either way, or than any bed when none is
  * known.
  */
-exceeds_bed: boolean,
+exceeds_bed: boolean, 
 /**
  * So small that its units are probably wrong.
  */

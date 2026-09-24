@@ -4,19 +4,19 @@ import type { Supply } from "./Supply";
 /**
  * Settings → Gas costs: the currency and every gas's supply.
  */
-export type GasCosts = {
+export type GasCosts = { 
 /**
  * The currency symbol money is shown with.
  */
-currency: string,
+currency: string, 
 /**
  * Nitrogen.
  */
-nitrogen: Supply,
+nitrogen: Supply, 
 /**
  * Oxygen.
  */
-oxygen: Supply,
+oxygen: Supply, 
 /**
  * Air.
  */

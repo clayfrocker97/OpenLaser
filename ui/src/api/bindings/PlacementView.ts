@@ -4,19 +4,21 @@ import type { PlacementMode } from "./PlacementMode";
 /**
  * Per-run captures are transient; absolute fixture coordinates belong to the job.
  */
-export type PlacementView = {
+export type PlacementView = { 
 /**
  * Positioning method.
  */
-mode: PlacementMode,
+mode: PlacementMode, 
 /**
- * A fixed fixture or captured head location is available.
+ * A fixed fixture, or a head location captured and not yet used by a
+ * real run, is available. An each-run origin a run has used is replaced
+ * at the next run's start, so it no longer counts as set.
  */
-captured: boolean,
+captured: boolean, 
 /**
  * Correction awaits a physical location; the current preview is nominal.
  */
-correction_pending: boolean,
+correction_pending: boolean, 
 /**
  * The method and fixture values match the saved job.
  */

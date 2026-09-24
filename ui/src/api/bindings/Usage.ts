@@ -7,19 +7,19 @@ import type { Seconds } from "./Seconds";
  * What a program, or a part of it, spends: laser time, gas time per gas
  * and pressure, pierces and cut length.
  */
-export type Usage = {
+export type Usage = { 
 /**
  * Time the laser output is on.
  */
-laser: Seconds,
+laser: Seconds, 
 /**
  * Gas valve time, one entry per gas and pressure.
  */
-gases: Array<GasTime>,
+gases: Array<GasTime>, 
 /**
  * How many times the program pierces.
  */
-pierces: number,
+pierces: number, 
 /**
  * Length cut with the beam on, leads included.
  */

@@ -5,11 +5,11 @@ import type { Milliseconds } from "./Milliseconds";
 /**
  * Cooling stops: the head waits with the laser off.
  */
-export type Cooling = {
+export type Cooling = { 
 /**
  * How long each stop lasts.
  */
-dwell: Milliseconds,
+dwell: Milliseconds, 
 /**
  * Where the stops go.
  */

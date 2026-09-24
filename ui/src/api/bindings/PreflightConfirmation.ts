@@ -3,15 +3,15 @@
 /**
  * A fresh operator response. Never persisted or reused for a later run.
  */
-export type PreflightConfirmation = {
+export type PreflightConfirmation = { 
 /**
  * Token from the review shown to the operator.
  */
-token: string,
+token: string, 
 /**
  * Index of each checked step.
  */
-checked: Array<number>,
+checked: Array<number>, 
 /**
  * Operator confirmation of the displayed gas supplies.
  */
