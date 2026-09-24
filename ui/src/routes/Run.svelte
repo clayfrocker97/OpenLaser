@@ -288,7 +288,7 @@
           {#if !execution?.frame}<span>{execution && !recovering && program?.state === 'completed' ? 'done' : eta}</span>{/if}
         </div>
         <span class="float-spacer"></span>
-        <div class="run-status"><StatusLine status={chipText} gates={running || paused || step ? [] : chipGates} tone={step ? 'warn' : statusTone} alarms={false} /></div>
+        <div class="run-chip"><StatusLine status={chipText} gates={running || paused || step ? [] : chipGates} tone={step ? 'warn' : statusTone} alarms={false} /></div>
       </div>
       <div class="run-layers">
         {#if canRecover && !recoveryEditor}
@@ -370,9 +370,9 @@
 .run-layers { position:absolute; left:14px; bottom:14px; display:flex; flex-wrap:wrap; gap:6px; align-items:center; max-width:calc(100% - 260px); }
 .run-layers .seg, .run-layers .legend-chip { background:var(--panel); }
 .run-layers .spacer { display:none; }
-.run-status { min-width:0; max-width:420px; }
-.run-status :global(.status-summary) { background:var(--panel); }
-.run-float .run-meta { min-height:44px; padding:0 12px; border:1px solid var(--line); border-radius:12px; background:var(--panel); }
+.run-chip { min-width:0; max-width:420px; }
+.run-chip :global(.status-summary) { min-height:52px; border:0; border-radius:12px; background:var(--panel); }
+.run-float .run-meta { min-height:52px; padding:0 12px; border:1px solid var(--line); border-radius:12px; background:var(--panel); }
 .float-spacer { flex:1; }
 .run-float { position:absolute; left:14px; right:14px; top:14px; display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
 .run-float .seg { background:var(--panel); }
