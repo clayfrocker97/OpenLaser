@@ -30,7 +30,7 @@
   import { explain, plural } from '../../lib/format';
   import { withBusy } from '../../lib/busy';
   import { about, apply, centre, mirror, mirrorVertical, rotation, scaling, svgMatrix, tenth, translate, type Point } from '../../lib/transform';
-  import { boxOfBounds, pathOf, type Box } from '../../lib/svg';
+  import { pathOf, type Box } from '../../lib/svg';
   import {
     drawingPath, hitPath, boundsOfShapes, marqueeGroups, unionBounds, axisAlignedBounds, transformedBounds, BoundsIndex, inverseBounds,
   } from '../../lib/viewer-geometry';
@@ -56,15 +56,28 @@
   const toDrawing = (p: Point): Point => [p[0] - zero[0], p[1] - zero[1]];
 
   const view = new Viewport();
-  // Fit frames the parts; the bed is only the fallback with nothing drawn.
+  /** The sheet and the parts on it, in drawing coordinates: what Fit frames. */
+  const content = $derived.by(() => {
+    // While nesting, the old layout is not on the sheet shown.
+    const parts = ui.nestPreview ? ui.nestPreview.bounds : ui.nestLive ? null : preview?.bounds;
+    const points = [...stockOutline, ...(parts ? [[parts.min.x, parts.min.y], [parts.max.x, parts.max.y]] : [])];
+    if (!points.length) return null;
+    const xs = points.map((p) => p[0]!), ys = points.map((p) => p[1]!);
+    return { minX: Math.min(...xs), maxX: Math.max(...xs), minY: Math.min(...ys), maxY: Math.max(...ys) };
+  });
+  // Fit frames the sheet and its parts; the bed is only the fallback with nothing drawn.
   const fit = () => {
     view.setLimit(frame.bed);
-    if (preview?.bounds) { const b = boxOfBounds(preview.bounds); view.fit({ minX: b.minX + zero[0], maxX: b.maxX + zero[0], minY: b.minY + zero[1], maxY: b.maxY + zero[1] }); }
+    const b = content;
+    if (b) view.fit({ minX: b.minX + zero[0], maxX: b.maxX + zero[0], minY: b.minY + zero[1], maxY: b.maxY + zero[1] });
     else if (frame.bed) view.home();
   };
   let fitted = '';
+  // Refit on a new job, and when nesting shows a sheet of another size.
+  const sheetKey = $derived(content && (ui.nestPreview || ui.nestLive)
+    ? [content.minX, content.minY, content.maxX, content.maxY].map((v) => Math.round(v)).join(',') : '');
   $effect(() => {
-    const key = `${draft?.generation ?? ''}/${draft?.job ?? ''}/${frame.bed ? 'bed' : ''}/${preview?.bounds ? 'parts' : ''}`;
+    const key = `${draft?.generation ?? ''}/${draft?.job ?? ''}/${frame.bed ? 'bed' : ''}/${content ? 'parts' : ''}/${sheetKey}`;
     if (key !== fitted) { fitted = key; untrack(fit); }
   });
   $effect(() => () => { ui.picking = null; });
@@ -431,7 +444,7 @@
       api.pick(at, 10 * view.mmPerPixel, false, revision).then(async ({ pick }) => {
         if (!ui.nestPicking || !pick || server.doc?.draft?.revision !== revision) return;
         await api.setStock({ kind: 'outline', contour: pick.owner }, revision);
-        ui.nestPicking = false; selected = []; ui.say('Outline set as stock · excluded from cutting');
+        ui.nestPicking = false; selected = []; ui.say('Outline set as the sheet · excluded from cutting');
       }).catch(fail);
       return;
     }
