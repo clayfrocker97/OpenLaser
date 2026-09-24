@@ -67,9 +67,9 @@ Local review candidate built on 2026-09-24. Not published.
   machining unless given their own; leads, joints, cooling, kerf and start
   can be set per layer. A drawing of several layers asks for a recipe on
   each before it compiles.
-- A tap selects the part whose line is nearest, within a fingertip halo;
-  inside a small hole takes the hole, and empty space inside a large outline
-  takes nothing. A second tap takes one shape of it, so inner shapes can be
+- A tap selects the part whose line is nearest. Inside a shape each line's
+  halo grows until it meets the next, so the middle of a hole takes the
+  hole; outside every shape a halo reaches a fingertip. A second tap takes one shape of it, so inner shapes can be
   moved to another layer. The selection glows, so it shows on touch
   screens; one shape taken alone glows strongly and the rest of its part
   fades. A drag inside the selection's box moves it. Layer colours leave out

@@ -32,7 +32,7 @@
   import { pathOf, type Box } from '../../lib/svg';
   import { layerColor } from '../../lib/drawing-layers';
   import {
-    drawingPath, hitPath, boundsOfShapes, marqueeGroups, nearestShape, smallShapeAround, unionBounds, axisAlignedBounds, transformedBounds, BoundsIndex, inverseBounds,
+    drawingPath, hitPath, boundsOfShapes, marqueeGroups, pickLine, unionBounds, axisAlignedBounds, transformedBounds, BoundsIndex, inverseBounds,
   } from '../../lib/viewer-geometry';
   import type { Features, PreviewContour, Spot, Transform } from '../../api';
 
@@ -111,7 +111,7 @@
   /** One shape of the selected part, tapped again to take it alone: a hole
    *  inside a part, a mark around a hole. Parts still move as a whole. */
   let shape = $state<number | null>(null);
-  /** Half a fingertip, in pixels: how far from a line a tap still takes it. */
+  /** Half a fingertip, in pixels: how far outside every shape a tap still takes a line. */
   const HALO = 20;
   const selectedSet = $derived(new Set(selected));
   $effect(() => { if (shape !== null && !contoursOf(selected).includes(shape)) shape = null; });
@@ -457,14 +457,11 @@
     }
     if (ui.nestShown) return;
     if (ui.picking) { pickAt(at); return; }
-    // Each line has a halo a fingertip wide; where halos overlap the nearest
-    // line wins, so a hole inside a ring can be tapped. Inside a
-    // fingertip-sized hole takes the hole; other empty space, inside a
-    // large outline or not, takes nothing. A tap again on a selected part takes the
+    // Each line has a halo: inside a shape it grows until it meets the next
+    // line's, so the nearest line always wins and the middle of a hole takes
+    // the hole; outside every shape it is a fingertip wide. A tap again on a selected part takes the
     // one shape under the finger.
-    const shown = (c: PreviewContour) => !hidden(c.layer);
-    const hit = nearestShape(shapes, boundsIndex, at, HALO * view.mmPerPixel, shown)
-      ?? smallShapeAround(shapes, boundsIndex, at, 5 * HALO * view.mmPerPixel, shown);
+    const hit = pickLine(shapes, boundsIndex, at, HALO * view.mmPerPixel, (c) => !hidden(c.layer));
     if (!hit) { if (!additive) { selected = []; shape = null; } return; }
     const n = hit.group;
     const one = hit.contour.sources.length === 1 ? hit.contour.sources[0]! : null;
