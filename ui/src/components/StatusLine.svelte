@@ -6,20 +6,22 @@
   import { setupAlarms } from '../lib/setup-alarms';
   import { alarmTitles, blockedControls, plain, type NamedGate, type Plain } from '../lib/plain';
 
-  let { status, gates = [], tone = 'info' }: {
+  let { status, gates = [], tone = 'info', alarms: withAlarms = true }: {
     /** The line itself: plain text, or a raw reason to put in plain words. */
     status: Plain | string;
     /** Controls whose unavailability the details explain. */
     gates?: NamedGate[];
     tone?: 'info' | 'ready' | 'warn';
+    /** Whether the details list alarms; off where the bell already does. */
+    alarms?: boolean;
   } = $props();
 
   let open = $state(false);
   const line = $derived(typeof status === 'string' ? plain(status, server.doc?.machine.alarms) : status);
   // A reason the line already gives is not repeated underneath it.
   const blocked = $derived(blockedControls(gates).filter((group) => group.reason.text !== line.text));
-  const alarms = $derived((server.doc?.machine.alarms ?? []).filter((alarm) => alarm.blocking));
-  const setup = $derived(setupAlarms(server.doc));
+  const alarms = $derived(withAlarms ? (server.doc?.machine.alarms ?? []).filter((alarm) => alarm.blocking) : []);
+  const setup = $derived(withAlarms ? setupAlarms(server.doc) : []);
   const details = $derived([...new Set([line.detail, ...blocked.map((b) => b.reason.detail)].filter((d): d is string => !!d))]);
   const expandable = $derived(blocked.length > 0 || alarms.length > 0 || setup.length > 0 || details.length > 0);
   const shownTone = $derived(alarms.length + setup.length > 0 && tone !== 'ready' ? 'warn' : tone);

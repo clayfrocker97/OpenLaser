@@ -27,6 +27,7 @@
   import { beginRun } from '../lib/run-actions';
   import { cutHistory } from '../lib/cut-history';
   import { nextStep } from '../lib/next-step';
+  import { isSetupAlarm } from '../lib/setup-alarms';
 
   let { compact = false, recoveryEditor = false }: { compact?: boolean; recoveryEditor?: boolean } = $props();
   const doc = $derived(server.doc!);
@@ -163,6 +164,10 @@
   let preflight = $state<PreflightReview | null>(null);
   let reviewing = $state(false);
   let choosingRun = $state(false);
+  // The chip never speaks for alarms: the bell does. Blocked only by alarms, it says Not ready.
+  const alarmReason = (reason: string | null | undefined) => !!reason && (/alarms? (are|is) active/.test(reason) || isSetupAlarm(reason));
+  const chipText = $derived(step ?? (choosingRun ? 'Preparing…' : !running && !paused && alarmReason(doc.readiness.run.reason) ? 'Not ready' : message));
+  const chipGates = $derived(statusGates.filter(([, gate]) => !alarmReason(gate.reason)));
   async function chooseRun(dryRun: boolean): Promise<void> {
     if (choosingRun || draft?.dry_run === dryRun) return;
     choosingRun = true;
@@ -282,7 +287,7 @@
             <button class:on={draft.dry_run} disabled={choosingRun || !doc.readiness.compile.ok || !!machine.operation} onclick={() => chooseRun(true)}>Dry run</button>
           </div>
         {/if}
-        <div class="run-status"><StatusLine status={step ?? (choosingRun ? 'Preparing…' : message)} gates={running || paused || step ? [] : statusGates} tone={step ? 'warn' : statusTone} /></div>
+        <div class="run-status"><StatusLine status={chipText} gates={running || paused || step ? [] : chipGates} tone={step ? 'warn' : statusTone} alarms={false} /></div>
       </div>
       <div class="run-layers">
         {#if canRecover && !recoveryEditor}
