@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { calibrationStatus, duration, gasLabel, gasOfSelector, litres, measuredLitres, money, pricePerM3, totals, volume } from './gas';
 import type { Consumption, GasCosts, RunRecord } from '../api';
+import { toDisplay, toSource, unitLabel } from './units.svelte';
 
 const consumption = (litresUsed: number | null, cost: number | null, laser = 60): Consumption => ({
   laser, pierces: 2, cut: 100, nozzle: null, cost,
@@ -47,5 +48,23 @@ describe('gas and laser figures', () => {
     expect(calibrationStatus(costs, 'nitrogen')).toMatch(/Not calibrated/);
     expect(calibrationStatus(costs, 'oxygen')).toMatch(/Manual flow/);
     expect(calibrationStatus(costs, 'air')).toMatch(/^Calibrated ×1\.12 · .* · 6\.00 bar · 1\.50 mm single$/);
+  });
+});
+
+describe('imperial gas units', () => {
+  it('shows gas volumes in cubic feet', () => {
+    expect(volume(850, 'imperial')).toBe('30.0 ft³');
+    expect(volume(28316.846592, 'imperial')).toBe('1,000 ft³');
+    expect(volume(850, 'metric')).toBe('850 L');
+  });
+
+  it('converts flow, cylinder volume, weight and price per volume', () => {
+    expect(toDisplay(10, 'L/min', 'imperial')).toBeCloseTo(21.1888, 3);
+    expect(unitLabel('L/min', 'imperial')).toBe('ft³/h');
+    expect(toDisplay(9, 'm³', 'imperial')).toBeCloseTo(317.832, 2);
+    expect(toDisplay(10, 'kg', 'imperial')).toBeCloseTo(22.0462, 3);
+    // $52 per m³ is about $1.47 per cubic foot, and back again exactly.
+    expect(toDisplay(52, '/m³', 'imperial')).toBeCloseTo(1.4725, 3);
+    expect(toSource(toDisplay(52, '/m³', 'imperial'), '/m³', 'imperial')).toBeCloseTo(52, 9);
   });
 });

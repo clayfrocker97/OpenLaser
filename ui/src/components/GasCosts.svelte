@@ -10,6 +10,7 @@
   import { GASES, GAS_COLORS, GAS_NAMES, calibrationStatus, money, pricePerM3 } from '../lib/gas';
   import GasCalibration from './GasCalibration.svelte';
   import { withBusy } from '../lib/busy';
+  import { quantity, toDisplay, unitLabel } from '../lib/units.svelte';
 
   const saved = $derived(server.doc!.gas.costs);
   const problem = $derived(server.doc!.gas.error);
@@ -46,7 +47,7 @@
       return source.cost_per_hour > 0 ? `${money(source.cost_per_hour, costs.currency)} per hour open` : 'No running cost yet';
     }
     const m3 = pricePerM3(source);
-    return m3 === null ? 'No price yet' : `${money(m3, costs.currency)} per m³`;
+    return m3 === null ? 'No price yet' : `${money(toDisplay(m3, '/m³'), costs.currency)} per ${unitLabel('m³')}`;
   };
   type Refill = Extract<Source, { kind: 'refill' }>;
   type Bulk = Extract<Source, { kind: 'bulk' }>;
@@ -67,7 +68,7 @@
       v => { if (v > 0) change(c => { c[gas].source = { ...source, volume: v }; }); });
   }
   function editBulkPrice(gas: GasKind, source: Bulk): void {
-    number(`${GAS_NAMES[gas]} price per m³`, source.price_per_m3, costs.currency,
+    number(`${GAS_NAMES[gas]} price per ${unitLabel('m³')}`, source.price_per_m3, '/m³',
       v => change(c => { c[gas].source = { ...source, price_per_m3: v }; }));
   }
   function editRunningCost(gas: GasKind, source: Compressor): void {
@@ -88,7 +89,7 @@
 
 <div class="setting-group gas-costs"><h3>Gas costs</h3>
   <p class="intro">
-    Prices turn each job's gas time into money on the Setup and Run screens.
+    Prices turn each compiled job's gas time into money on the Setup screen.
     Flow is estimated from the recipe's nozzle and pressure unless you enter one; calibrate it with a 60-second test.
   </p>
   {#if problem}<p class="warn-text intro">{problem}</p>{/if}
@@ -116,7 +117,7 @@
           </button>
           {#if gas !== 'air'}
             <button class:on={supply.source.kind === 'bulk'} aria-pressed={supply.source.kind === 'bulk'} onclick={() => setSource(gas, 'bulk')}>
-              Bulk per m³
+              Bulk per {unitLabel('m³')}
             </button>
           {/if}
         </div>
@@ -129,13 +130,13 @@
         </div>
         <div class="setting">
           <div class="lbl">Cylinder volume<small>Gas content at standard conditions</small></div>
-          <button class="val" data-numpad onclick={() => editVolume(gas, source)}>{source.volume} m³</button>
+          <button class="val" data-numpad onclick={() => editVolume(gas, source)}>{quantity(source.volume, 'm³', 1)}</button>
         </div>
       {:else if supply.source.kind === 'bulk'}
         {@const source = supply.source}
         <div class="setting">
-          <div class="lbl">Price per m³</div>
-          <button class="val" data-numpad onclick={() => editBulkPrice(gas, source)}>{money(source.price_per_m3, costs.currency)}</button>
+          <div class="lbl">Price per {unitLabel('m³')}</div>
+          <button class="val" data-numpad onclick={() => editBulkPrice(gas, source)}>{money(toDisplay(source.price_per_m3, '/m³'), costs.currency)}</button>
         </div>
       {:else}
         {@const source = supply.source}
@@ -144,7 +145,7 @@
           <button class="val" data-numpad onclick={() => editRunningCost(gas, source)}>{money(source.cost_per_hour, costs.currency)}/h</button>
         </div>
       {/if}
-      <div class="setting"><div class="lbl">Flow<small>L/min</small></div>
+      <div class="setting"><div class="lbl">Flow<small>{unitLabel('L/min')}</small></div>
         <div class="seg" role="group" aria-label="{GAS_NAMES[gas]} flow">
           <button class:on={supply.flow.kind === 'estimated'} aria-pressed={supply.flow.kind === 'estimated'} onclick={() => estimateFlow(gas)}>
             Nozzle estimate
@@ -156,7 +157,7 @@
         {@const rate = supply.flow.rate}
         <div class="setting">
           <div class="lbl">Flow rate<small>Used for every nozzle and pressure</small></div>
-          <button class="val" data-numpad onclick={() => editFlowRate(gas, rate)}>{rate} L/min</button>
+          <button class="val" data-numpad onclick={() => editFlowRate(gas, rate)}>{quantity(rate, 'L/min', 1)}</button>
         </div>
       {/if}
       <div class="setting">

@@ -2,6 +2,11 @@
 export type UnitSystem = 'metric' | 'imperial';
 type Conversion = { unit: string; factor: number; offset?: number; digits?: number };
 
+/** Exact by definition: one cubic foot is 0.3048³ m³. */
+const LITRES_PER_CUBIC_FOOT = 28.316846592;
+/** Exact by definition. */
+const KILOGRAMS_PER_POUND = 0.45359237;
+
 const imperial: Record<string, Conversion> = {
   mm: { unit: 'in', factor: 1 / 25.4, digits: 4 },
   'mm²': { unit: 'in²', factor: 1 / 25.4 ** 2, digits: 3 },
@@ -24,6 +29,13 @@ const imperial: Record<string, Conversion> = {
   MPa: { unit: 'psi', factor: 1000000 / 6894.757293168, digits: 2 },
   kPa: { unit: 'psi', factor: 1000 / 6894.757293168, digits: 2 },
   '°C': { unit: '°F', factor: 1.8, offset: 32, digits: 1 },
+  // Gas: US shops count cylinders and flow in cubic feet at standard conditions.
+  L: { unit: 'ft³', factor: 1 / LITRES_PER_CUBIC_FOOT, digits: 2 },
+  'm³': { unit: 'ft³', factor: 1000 / LITRES_PER_CUBIC_FOOT, digits: 1 },
+  'L/min': { unit: 'ft³/h', factor: 60 / LITRES_PER_CUBIC_FOOT, digits: 1 },
+  kg: { unit: 'lb', factor: 1 / KILOGRAMS_PER_POUND, digits: 2 },
+  /** A price per cubic metre, shown per cubic foot. */
+  '/m³': { unit: '/ft³', factor: LITRES_PER_CUBIC_FOOT / 1000, digits: 4 },
 };
 
 function remembered(): UnitSystem {

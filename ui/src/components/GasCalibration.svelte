@@ -90,7 +90,7 @@
   }
   const num = (label: string, value: number, unit: string, set: (v: number) => void, min = 0) =>
     osk.number(label, value, unit, v => { if (Number.isFinite(v) && v >= min) set(v); });
-  const beforeLabel = $derived(method === 'pressure' ? 'Cylinder pressure before' : method === 'weight' ? 'Cylinder weight before' : method === 'meter' ? 'Flow meter reading' : 'Litres used');
+  const beforeLabel = $derived(method === 'pressure' ? 'Cylinder pressure before' : method === 'weight' ? 'Cylinder weight before' : method === 'meter' ? 'Flow meter reading' : 'Volume used');
   const unit = $derived(method === 'pressure' ? 'bar' : method === 'weight' ? 'kg' : method === 'meter' ? 'L/min' : 'L');
 </script>
 

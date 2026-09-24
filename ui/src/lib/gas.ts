@@ -2,7 +2,7 @@
 // (crates/openlaser-server/src/gas); this file only formats the figures,
 // totals the run history and turns a flow-test reading into litres.
 import type { Consumption, GasCosts, GasKind, GasRouteView, RunRecord, Source } from '../api';
-import { quantity } from './units.svelte';
+import { quantity, toDisplay, units } from './units.svelte';
 
 export const GAS_NAMES: Record<GasKind, string> = { nitrogen: 'N₂', oxygen: 'O₂', air: 'Air' };
 export const GAS_COLORS: Record<GasKind, string> = { nitrogen: 'var(--gas-n2)', oxygen: 'var(--gas-o2)', air: 'var(--gas-air)' };
@@ -26,10 +26,14 @@ export function duration(seconds: number): string {
   return `${(s / 3600).toFixed(1)} h`;
 }
 
-/** "850 L" or "2.10 m³". */
-export function volume(litres: number | null | undefined): string {
+/** "850 L" or "2.10 m³"; in imperial "30.0 ft³" or "1,250 ft³". */
+export function volume(litres: number | null | undefined, system = units.system): string {
   if (litres === null || litres === undefined || !Number.isFinite(litres)) return '—';
   const l = Math.max(0, litres);
+  if (system === 'imperial') {
+    const cubicFeet = toDisplay(l, 'L', system);
+    return cubicFeet < 100 ? `${cubicFeet.toFixed(1)} ft³` : `${Math.round(cubicFeet).toLocaleString('en-US')} ft³`;
+  }
   return Math.round(l) < 1000 ? `${Math.round(l)} L` : `${(l / 1000).toFixed(2)} m³`;
 }
 
@@ -86,7 +90,7 @@ export const METHODS: { id: Method; label: string; hint: string }[] = [
   { id: 'pressure', label: 'Cylinder pressure', hint: 'Read the cylinder gauge before and after' },
   { id: 'weight', label: 'Cylinder weight', hint: 'Weigh the cylinder before and after' },
   { id: 'meter', label: 'Flow meter', hint: 'Read the flow meter while the gas flows' },
-  { id: 'litres', label: 'Litres used', hint: 'Enter the litres the test used' },
+  { id: 'litres', label: 'Volume used', hint: 'Enter the gas the test used' },
 ];
 
 /** The litres a flow test used from the operator's readings.
