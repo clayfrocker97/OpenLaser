@@ -18,11 +18,13 @@
     return [...all].sort((a, b) => same(a) - same(b) || a.name.localeCompare(b.name) || a.thickness_mm - b.thickness_mm);
   });
   async function choose(recipe: string | null | 'off'): Promise<void> {
+    // Closing clears the parent's layer, so take what this needs first.
+    const { name, output } = layer;
     onclose();
     try {
-      if (recipe === 'off') { await api.changeLayers({ kind: 'output', layer: layer.name, on: false }); return; }
-      if (!layer.output) await api.changeLayers({ kind: 'output', layer: layer.name, on: true });
-      await api.changeLayers({ kind: 'recipe', layer: layer.name, recipe });
+      if (recipe === 'off') { await api.changeLayers({ kind: 'output', layer: name, on: false }); return; }
+      if (!output) await api.changeLayers({ kind: 'output', layer: name, on: true });
+      await api.changeLayers({ kind: 'recipe', layer: name, recipe });
     } catch (error) { ui.say(explain(error), true); }
   }
 </script>
