@@ -249,22 +249,32 @@ with nesting.
 
 ## Layers
 
-Each layer of a drawing can be cut with its own recipe. Open **Layers** in the
-drawing bar:
+Layers work as in LightBurn's Cuts / Layers list. Open **Layers** in the
+drawing bar, or tap the Layers card in Setup's side panel.
 
-- **Choose a recipe or Ignore.** A drawing of one layer uses the job's recipe.
-  With more than one layer to cut, every layer needs a choice before the job
-  compiles: **Job recipe**, any recipe for the same laser, or **Ignore** to
-  leave it uncut.
-- **Engrave** marks a layer on the surface: no kerf, leads, micro-joints or
-  cooling, it never counts as a hole or a part outline, and it runs before the
-  cuts. Pair it with an engraving recipe (low Peak Current, higher Cut Height).
-- **Rename** a layer by tapping its name.
-- **Move shapes to a layer…** lets you tap shapes one at a time, whichever
-  layer they are on, then send them to a layer or a new one. Every copy of a
-  shape moves with it; Undo moves them back.
+- **Order.** Layers run top to bottom; drag a layer's grip to move it. Until
+  you do, layers of smaller shapes run first, so a layer of holes runs
+  before the outlines around them.
+- **Colour.** A layer takes its colour from the DXF (layer or entity colour)
+  or the SVG (stroke colour); shapes of another colour than their layer's
+  come in as a layer of their own, such as `0 Red`. Tap the swatch to change
+  it. **Show** hides a layer on screen only.
+- **Output.** Off leaves the layer uncut. With more than one layer to output,
+  each needs a recipe before the job compiles: **Job recipe** or any recipe
+  for the same laser.
+- **Cut or Mark.** Cut goes through the sheet: those shapes make the parts
+  and their holes. Mark traces the surface: a mark is never a part or a hole,
+  and it has no leads, kerf, joints or cooling unless it has machining of
+  its own. Use Mark with an engraving recipe for bend lines or countersinks.
+- **Machining per layer.** Leads, microjoints, cooling, kerf and start can be
+  set for one layer: choose the layer under **Applies to** in the tool's
+  panel. Places picked on the drawing stay the job's.
+- **Moving shapes.** Tap a part to select it; tap one of its shapes again to
+  take that shape alone, such as the hole inside a countersink. **Layer** in
+  the drawing bar moves the selection to a layer or a new one. Rename a layer
+  by tapping its name.
 
-Layer choices and moved shapes are saved with the job.
+Layers are saved with the job.
 
 ## Nest parts and reuse a remnant
 

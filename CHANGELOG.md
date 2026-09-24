@@ -61,10 +61,18 @@ Local review candidate built on 2026-09-24. Not published.
 
 ### Layers
 
-- Each layer can be cut with its own recipe, engraved on the surface (no
-  kerf, leads or joints, before the cuts) or ignored. A drawing of several
-  layers asks for a choice on each before it compiles. Layers can be renamed,
-  and shapes picked on the drawing move to another or a new layer.
+- Layers as in LightBurn: ordered top to bottom by drag, each with a colour
+  (from DXF layer and entity colours and SVG strokes), Output, Show, a
+  recipe, and Cut or Mark. Marks never make holes or parts and carry no
+  machining unless given their own; leads, joints, cooling, kerf and start
+  can be set per layer. A drawing of several layers asks for a recipe on
+  each before it compiles.
+- A tap selects the part whose line is nearest; a second tap takes one shape
+  of it, so inner shapes can be moved to another layer.
+- The machining bar and the drawing bar are one component, arranged with
+  Order the same way; machining tools have icons.
+- Setup's side panel fits without scrolling: a one-row material with its
+  values, a Layers card, and gas and laser folded to one line.
 
 ### Materials and recipes
 
