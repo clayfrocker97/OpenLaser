@@ -4,27 +4,27 @@ import type { Id } from "./Id";
 /**
  * One retained draft in the pending-edits review.
  */
-export type PendingDraft = { 
+export type PendingDraft = {
 /**
  * Retained draft identity, independent of the active page.
  */
-key: string, 
+key: string,
 /**
  * Name of the saved job or of its parts.
  */
-name: string, 
+name: string,
 /**
  * The parts it cuts.
  */
-parts: Array<Id>, 
+parts: Array<Id>,
 /**
  * Saved job, if there is one.
  */
-job: Id | null, 
+job: Id | null,
 /**
  * Whether it has a material and can be saved as a job.
  */
-can_save: boolean, 
+can_save: boolean,
 /**
  * Missing or invalid source that prevents opening this retained draft.
  */

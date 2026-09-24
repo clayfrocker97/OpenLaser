@@ -7,43 +7,43 @@ import type { HeadSetup } from "./HeadSetup";
  * `duty` the part of each pulse period it is on; the interface names them
  * Power and Duty (see `ui/DESIGN.md`).
  */
-export type RecipeSummary = { 
+export type RecipeSummary = {
 /**
  * `CutSpeed` in millimetres per second.
  */
-speed: string | null, 
+speed: string | null,
 /**
  * Peak power in percent: `CutPeakCurrent`.
  */
-peak: string | null, 
+peak: string | null,
 /**
  * Duty cycle in percent: `CutPower` on a fiber laser, `CutDuty` on CO2.
  */
-duty: string | null, 
+duty: string | null,
 /**
  * `CutFreq` in hertz.
  */
-frequency: string | null, 
+frequency: string | null,
 /**
  * `CutGasType`, the gas selection 0 to 5.
  */
-gas: string | null, 
+gas: string | null,
 /**
  * `CutAirPressure` in bar.
  */
-pressure: string | null, 
+pressure: string | null,
 /**
  * `CutHeight`, the nozzle gap while cutting, in millimetres.
  */
-height: string | null, 
+height: string | null,
 /**
  * The nozzle, focus and lens the head is set up with.
  */
-setup: HeadSetup, 
+setup: HeadSetup,
 /**
  * The ordinary piercing stages the machining type runs, 0 for none.
  */
-pierce_stages: number, 
+pierce_stages: number,
 /**
  * Whether smooth piercing replaces the stages.
  */

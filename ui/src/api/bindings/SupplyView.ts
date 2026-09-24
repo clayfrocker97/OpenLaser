@@ -5,11 +5,11 @@ import type { Money } from "./Money";
 /**
  * One gas's derived figures for the settings page.
  */
-export type SupplyView = { 
+export type SupplyView = {
 /**
  * Which gas.
  */
-gas: GasKind, 
+gas: GasKind,
 /**
  * The price per standard cubic metre, when priced by volume.
  */

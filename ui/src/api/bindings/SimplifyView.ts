@@ -4,31 +4,31 @@ import type { Id } from "./Id";
 /**
  * What simplifying a part's drawing does, and the part it made once saved.
  */
-export type SimplifyView = { 
+export type SimplifyView = {
 /**
  * Lines and arcs before.
  */
-curves_before: number, 
+curves_before: number,
 /**
  * Lines and arcs after.
  */
-curves_after: number, 
+curves_after: number,
 /**
  * Contours before.
  */
-contours_before: number, 
+contours_before: number,
 /**
  * Contours after.
  */
-contours_after: number, 
+contours_after: number,
 /**
  * Contours dropped for repeating another on the same layer.
  */
-repeats: number, 
+repeats: number,
 /**
  * Contours dropped for being smaller than the tolerance.
  */
-specks: number, 
+specks: number,
 /**
  * The simplified part, once saved.
  */

@@ -6,23 +6,23 @@ import type { SupplyView } from "./SupplyView";
 /**
  * Gas costs as every screen sees them.
  */
-export type GasView = { 
+export type GasView = {
 /**
  * Changes when prices or recorded runs change.
  */
-revision: number, 
+revision: number,
 /**
  * The saved settings.
  */
-costs: GasCosts, 
+costs: GasCosts,
 /**
  * Derived prices, in [`GasKind::ALL`] order.
  */
-supplies: Array<SupplyView>, 
+supplies: Array<SupplyView>,
 /**
  * One run of the job being set up, once it is compiled.
  */
-estimate: Consumption | null, 
+estimate: Consumption | null,
 /**
  * Why saved prices or runs could not be read or written.
  */

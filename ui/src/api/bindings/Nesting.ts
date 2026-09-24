@@ -5,11 +5,11 @@ import type { NestStock } from "./NestStock";
 /**
  * Nesting authoring data saved with a job and in undo history.
  */
-export type Nesting = { 
+export type Nesting = {
 /**
  * The stock outline.
  */
-stock: NestStock, 
+stock: NestStock,
 /**
  * Minimum spacing and allowed rotations.
  */

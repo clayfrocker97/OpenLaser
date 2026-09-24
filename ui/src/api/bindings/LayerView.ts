@@ -3,11 +3,11 @@
 /**
  * One drawing layer.
  */
-export type LayerView = { 
+export type LayerView = {
 /**
  * Its name in the drawing.
  */
-name: string, 
+name: string,
 /**
  * How many contours lie on it.
  */

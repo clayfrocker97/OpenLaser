@@ -5,15 +5,15 @@ import type { Transform } from "./Transform";
  * A contour of a drawing on the sheet: which one, which copy of the
  * drawing it belongs to, and where it lies.
  */
-export type Placed = { 
+export type Placed = {
 /**
  * The drawing contour.
  */
-source: number, 
+source: number,
 /**
  * Which copy of the drawing; the drawing itself is 0.
  */
-copy: number, 
+copy: number,
 /**
  * Where it lies.
  */

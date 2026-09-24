@@ -5,11 +5,11 @@ import type { NozzleType } from "./NozzleType";
 /**
  * The nozzle a recipe fits.
  */
-export type Nozzle = { 
+export type Nozzle = {
 /**
  * Exit diameter.
  */
-diameter: Millimeters, 
+diameter: Millimeters,
 /**
  * Single or double layer.
  */

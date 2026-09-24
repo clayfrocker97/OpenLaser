@@ -8,51 +8,51 @@ import type { RecipeSummary } from "./RecipeSummary";
  * What a vendor recipe file would add, for the operator to review before
  * anything is saved.
  */
-export type RecipePreview = { 
+export type RecipePreview = {
 /**
  * The file's name.
  */
-file_name: string, 
+file_name: string,
 /**
  * The material read from the name, or the whole name.
  */
-name: string, 
+name: string,
 /**
  * Which laser the bank is for.
  */
-laser: LaserMode, 
+laser: LaserMode,
 /**
  * The sheet thickness read from the name, 0 when it is not there.
  */
-thickness_mm: number, 
+thickness_mm: number,
 /**
  * The assist gas, named as the library names it.
  */
-gas: string, 
+gas: string,
 /**
  * The vendor layer bank.
  */
-layer: number, 
+layer: number,
 /**
  * The process words from the name.
  */
-tags: Array<string>, 
+tags: Array<string>,
 /**
  * The vendor's note.
  */
-note: string, 
+note: string,
 /**
  * The nozzle, focus and lens read from the note and names.
  */
-setup: HeadSetup, 
+setup: HeadSetup,
 /**
  * The headline values.
  */
-summary: RecipeSummary, 
+summary: RecipeSummary,
 /**
  * The file's hash.
  */
-sha256: string, 
+sha256: string,
 /**
  * A recipe already imported from these exact bytes.
  */

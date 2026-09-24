@@ -3,15 +3,15 @@
 /**
  * Selected contours whose shared spans can be cut once.
  */
-export type CommonEdges = { 
+export type CommonEdges = {
 /**
  * Placed contour identities, before bridges.
  */
-contours: Array<number>, 
+contours: Array<number>,
 /**
  * Maximum separation for equivalent spans, in millimetres.
  */
-tolerance: number, 
+tolerance: number,
 /**
  * Permit retracing a shared span to connect remaining cuts on one contour.
  */

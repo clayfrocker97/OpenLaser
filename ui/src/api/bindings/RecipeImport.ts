@@ -6,47 +6,47 @@ import type { NozzleKind } from "./NozzleKind";
  * How to save an imported vendor recipe file, after the operator
  * reviewed its preview. Sent as the query of the upload.
  */
-export type RecipeImport = { 
+export type RecipeImport = {
 /**
  * The file's name, which the material, thickness and gas are read from.
  */
-name: string, 
+name: string,
 /**
  * The material to file it under instead of the one in the name.
  */
-material?: string, 
+material?: string,
 /**
  * The sheet thickness instead of the one in the name.
  */
-thickness_mm?: number, 
+thickness_mm?: number,
 /**
  * The recipe it replaces: its values, note and file change, while its
  * id, photo, star and film process stay.
  */
-replace?: Id, 
+replace?: Id,
 /**
  * Adds it even when the same file is already in the library under
  * the same material, thickness and gas.
  */
-keep_both: boolean, 
+keep_both: boolean,
 /**
  * Whether the four setup values below are confirmed: each present one
  * is kept and each absent one cleared. Otherwise what the file's note
  * and names say is kept.
  */
-setup: boolean, 
+setup: boolean,
 /**
  * Confirmed nozzle bore in millimetres.
  */
-nozzle_diameter_mm?: string, 
+nozzle_diameter_mm?: string,
 /**
  * Confirmed nozzle construction.
  */
-nozzle?: NozzleKind, 
+nozzle?: NozzleKind,
 /**
  * Confirmed manual focus offset in millimetres.
  */
-focus_mm?: string, 
+focus_mm?: string,
 /**
  * Confirmed lens focal length in millimetres.
  */

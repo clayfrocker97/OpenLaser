@@ -5,23 +5,23 @@ import type { RecipeSummary } from "./RecipeSummary";
 /**
  * The material identity shown beside an immutable execution.
  */
-export type MaterialView = { 
+export type MaterialView = {
 /**
  * The material name.
  */
-name: string, 
+name: string,
 /**
  * Sheet thickness in millimetres.
  */
-thickness_mm: number, 
+thickness_mm: number,
 /**
  * The assist gas.
  */
-gas: string, 
+gas: string,
 /**
  * The laser this recipe uses.
  */
-laser: LaserMode, 
+laser: LaserMode,
 /**
  * The recipe's headline values as the program was compiled with them.
  */

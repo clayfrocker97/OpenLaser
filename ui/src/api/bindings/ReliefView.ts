@@ -3,11 +3,11 @@
 /**
  * What relieving an alarm does.
  */
-export type ReliefView = { 
+export type ReliefView = {
 /**
  * Operator-facing action name.
  */
-label: string, 
+label: string,
 /**
  * Whether the action can command axis movement.
  */

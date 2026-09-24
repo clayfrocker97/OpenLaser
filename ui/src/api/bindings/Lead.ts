@@ -6,19 +6,19 @@ import type { Millimeters } from "./Millimeters";
 /**
  * One lead.
  */
-export type Lead = { 
+export type Lead = {
 /**
  * Its shape.
  */
-shape: LeadShape, 
+shape: LeadShape,
 /**
  * The length of the straight part.
  */
-length: Millimeters, 
+length: Millimeters,
 /**
  * The radius of the arc part.
  */
-radius: Millimeters, 
+radius: Millimeters,
 /**
  * The angle between the lead and the contour, or the arc's sweep.
  */

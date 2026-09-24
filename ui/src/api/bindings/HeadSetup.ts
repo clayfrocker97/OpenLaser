@@ -5,19 +5,19 @@ import type { NozzleKind } from "./NozzleKind";
  * The head setup found in a recipe's words. Each number keeps the text it
  * was written with, without a leading `+`, so `2.0` stays `2.0`.
  */
-export type HeadSetup = { 
+export type HeadSetup = {
 /**
  * Nozzle bore in millimetres, such as `1.5`.
  */
-nozzle_diameter_mm: string | null, 
+nozzle_diameter_mm: string | null,
 /**
  * Single or double layer.
  */
-nozzle: NozzleKind | null, 
+nozzle: NozzleKind | null,
 /**
  * Manual focus offset in millimetres, negative into the sheet.
  */
-focus_mm: string | null, 
+focus_mm: string | null,
 /**
  * Lens focal length in millimetres, such as `150`.
  */

@@ -6,15 +6,15 @@ import type { Source } from "./Source";
 /**
  * The shop's supply of one gas.
  */
-export type Supply = { 
+export type Supply = {
 /**
  * Where it comes from and its price.
  */
-source: Source, 
+source: Source,
 /**
  * How its flow is known.
  */
-flow: Flow, 
+flow: Flow,
 /**
  * The latest flow test, if one was saved.
  */

@@ -5,31 +5,31 @@ import type { Measurement } from "./Measurement";
 /**
  * Save a partial measurement set, apply a complete one, or pause future use.
  */
-export type CorrectionChange = { "action": "measure", 
+export type CorrectionChange = { "action": "measure",
 /**
  * Current form revision.
  */
-revision: number, 
+revision: number,
 /**
  * Which laser was measured.
  */
-mode: LaserMode, 
+mode: LaserMode,
 /**
  * Nine effective X/Y measurements, with empty cells allowed while editing.
  */
-measurements: [Measurement | null, Measurement | null, Measurement | null, Measurement | null, Measurement | null, Measurement | null, Measurement | null, Measurement | null, Measurement | null], 
+measurements: [Measurement | null, Measurement | null, Measurement | null, Measurement | null, Measurement | null, Measurement | null, Measurement | null, Measurement | null, Measurement | null],
 /**
  * Enable after validating all nine cells.
  */
-apply: boolean, } | { "action": "enable", 
+apply: boolean, } | { "action": "enable",
 /**
  * Current form revision.
  */
-revision: number, 
+revision: number,
 /**
  * Which laser to change.
  */
-mode: LaserMode, 
+mode: LaserMode,
 /**
  * Whether to use the active profile.
  */

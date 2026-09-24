@@ -9,27 +9,27 @@ import type { Seconds } from "./Seconds";
 /**
  * One gas's share of a job or run.
  */
-export type GasLine = { 
+export type GasLine = {
 /**
  * Which gas.
  */
-gas: GasKind, 
+gas: GasKind,
 /**
  * Its gauge pressure.
  */
-pressure: Bar, 
+pressure: Bar,
 /**
  * Valve-open time.
  */
-seconds: Seconds, 
+seconds: Seconds,
 /**
  * The flow used, when known.
  */
-flow: LitersPerMinute | null, 
+flow: LitersPerMinute | null,
 /**
  * The volume, when the flow is known.
  */
-litres: Liters | null, 
+litres: Liters | null,
 /**
  * The cost, when priced.
  */

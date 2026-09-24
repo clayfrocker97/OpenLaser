@@ -3,15 +3,15 @@
 /**
  * A reset result kept as history, never an acknowledgement requirement.
  */
-export type ResetRecord = { 
+export type ResetRecord = {
 /**
  * Time the attempt finished.
  */
-at: number, 
+at: number,
 /**
  * Whether the controller operation succeeded.
  */
-ok: boolean, 
+ok: boolean,
 /**
  * Failure detail, if the operation failed.
  */

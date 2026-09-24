@@ -4,15 +4,15 @@ import type { PathKind } from "./PathKind";
 /**
  * A sampled motion section of the program.
  */
-export type Move = { 
+export type Move = {
 /**
  * What the laser does along it.
  */
-kind: PathKind, 
+kind: PathKind,
 /**
  * The pass, for progress.
  */
-pass: number | null, 
+pass: number | null,
 /**
  * The polyline.
  */

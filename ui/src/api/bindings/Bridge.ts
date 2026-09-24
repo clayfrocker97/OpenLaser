@@ -4,11 +4,11 @@ import type { Pick } from "./Pick";
 /**
  * One bridge, between two picked points.
  */
-export type Bridge = { 
+export type Bridge = {
 /**
  * One end.
  */
-first: Pick, 
+first: Pick,
 /**
  * The other end.
  */

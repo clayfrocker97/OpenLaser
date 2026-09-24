@@ -3,19 +3,19 @@
 /**
  * A layer of the file that holds geometry.
  */
-export type ImportLayer = { 
+export type ImportLayer = {
 /**
  * The name, as the file writes it.
  */
-name: string, 
+name: string,
 /**
  * Whether the file turns it off or freezes it.
  */
-hidden: boolean, 
+hidden: boolean,
 /**
  * Whether its geometry is imported.
  */
-imported: boolean, 
+imported: boolean,
 /**
  * How many entities it holds.
  */

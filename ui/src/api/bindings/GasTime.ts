@@ -6,15 +6,15 @@ import type { Seconds } from "./Seconds";
 /**
  * Time one gas flowed at one pressure.
  */
-export type GasTime = { 
+export type GasTime = {
 /**
  * Which gas.
  */
-gas: GasKind, 
+gas: GasKind,
 /**
  * The regulated gauge pressure it flowed at.
  */
-pressure: Bar, 
+pressure: Bar,
 /**
  * How long its valve was open.
  */

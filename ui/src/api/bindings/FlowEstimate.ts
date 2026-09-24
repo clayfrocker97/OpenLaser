@@ -4,11 +4,11 @@ import type { Liters } from "./Liters";
 /**
  * What the model expects over a flow test.
  */
-export type FlowEstimate = { 
+export type FlowEstimate = {
 /**
  * Uncalibrated.
  */
-estimated: Liters, 
+estimated: Liters,
 /**
  * With the gas's current calibration.
  */

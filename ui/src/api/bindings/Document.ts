@@ -21,103 +21,103 @@ import type { State } from "./State";
 /**
  * The whole state, as JSON.
  */
-export type Document = { 
+export type Document = {
 /**
  * Most recent completed sheet; history geometry loads on demand.
  */
-completed_sheet: string | null, 
+completed_sheet: string | null,
 /**
  * Retained original execution and recovery choices.
  */
-recovery: RecoveryView | null, 
+recovery: RecoveryView | null,
 /**
  * Retained authoring edits that could not be written to disk.
  */
-persistence_error: string | null, 
+persistence_error: string | null,
 /**
  * Revision of persisted preflight defaults.
  */
-preflight_revision: number, 
+preflight_revision: number,
 /**
  * Pending checklist for the last successfully completed job.
  */
-postflight: PostflightNotice | null, 
+postflight: PostflightNotice | null,
 /**
  * Alarm recording health; historical rows load only when requested.
  */
-alarm_history: HistoryStatus, 
+alarm_history: HistoryStatus,
 /**
  * Active host process overrides.
  */
-soft: SoftView, 
+soft: SoftView,
 /**
  * How long held controls must be held, the same on every screen.
  */
-hold: HoldTimes, 
+hold: HoldTimes,
 /**
  * Gas prices and the current job's estimate.
  */
-gas: GasView, 
+gas: GasView,
 /**
  * Changes with every publication.
  */
-revision: number, 
+revision: number,
 /**
  * The controller task's state.
  */
-machine: State, 
+machine: State,
 /**
  * Whether head calibration applies to the current material.
  */
-calibration: CalibrationView, 
+calibration: CalibrationView,
 /**
  * The operating mode the host is set to.
  */
-mode: LaserMode | null, 
+mode: LaserMode | null,
 /**
  * The machine files, once bound.
  */
-bindings: BindingsView | null, 
+bindings: BindingsView | null,
 /**
  * Why the machine files could not be bound.
  */
-bindings_error: string | null, 
+bindings_error: string | null,
 /**
  * The machine files.
  */
-files: FilesView, 
+files: FilesView,
 /**
  * The library.
  */
-library: LibraryView, 
+library: LibraryView,
 /**
  * The job being set up.
  */
-draft: DraftView | null, 
+draft: DraftView | null,
 /**
  * Changes even when the draft is cleared.
  */
-draft_revision: number, 
+draft_revision: number,
 /**
  * The immutable view of the last admitted program.
  */
-execution: ExecutionView | null, 
+execution: ExecutionView | null,
 /**
  * Progress interpreted against that program's pass identities.
  */
-progress: ProgressView | null, 
+progress: ProgressView | null,
 /**
  * Whether a held program can be resumed.
  */
-can_resume: boolean, 
+can_resume: boolean,
 /**
  * Which commands the server would accept now, and why not otherwise.
  */
-readiness: Readiness, 
+readiness: Readiness,
 /**
  * The last thing worth telling the operator.
  */
-message: Message | null, 
+message: Message | null,
 /**
  * The computer's side of the machine link.
  */

@@ -6,31 +6,31 @@ import type { Usage } from "./Usage";
 /**
  * The compiled program, summarised.
  */
-export type Compiled = { 
+export type Compiled = {
 /**
  * Whether it is a dry run.
  */
-dry_run: boolean, 
+dry_run: boolean,
 /**
  * The predictable duration in seconds.
  */
-seconds: number, 
+seconds: number,
 /**
  * Every pass, including its original identity after a continuation.
  */
-plan: Array<PassView>, 
+plan: Array<PassView>,
 /**
  * Where each pass pierces or starts, in drawing coordinates.
  */
-pierces: Array<[number, number]>, 
+pierces: Array<[number, number]>,
 /**
  * How many upload blocks.
  */
-blocks: number, 
+blocks: number,
 /**
  * The travel and cut moves for the run page, in drawing coordinates.
  */
-moves: Array<Move>, 
+moves: Array<Move>,
 /**
  * Laser time, gas time, pierces and cut length of one run.
  */

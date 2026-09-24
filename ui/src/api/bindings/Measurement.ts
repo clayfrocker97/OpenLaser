@@ -3,11 +3,11 @@
 /**
  * Effective centreline dimensions of one cooled coupon, in millimetres.
  */
-export type Measurement = { 
+export type Measurement = {
 /**
  * Width along the machine X axis.
  */
-x: number, 
+x: number,
 /**
  * Height along the machine Y axis.
  */

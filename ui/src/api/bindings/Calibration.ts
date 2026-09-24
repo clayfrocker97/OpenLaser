@@ -6,27 +6,27 @@ import type { Nozzle } from "./Nozzle";
 /**
  * A saved 60-second flow test: the measured over the estimated volume.
  */
-export type Calibration = { 
+export type Calibration = {
 /**
  * Measured litres over estimated litres; multiplies every estimate.
  */
-factor: number, 
+factor: number,
 /**
  * When it was measured, in seconds since the epoch.
  */
-at: number, 
+at: number,
 /**
  * The test pressure.
  */
-pressure: Bar, 
+pressure: Bar,
 /**
  * The nozzle fitted for the test.
  */
-nozzle: Nozzle, 
+nozzle: Nozzle,
 /**
  * What the uncalibrated model expected over the test.
  */
-estimated: Liters, 
+estimated: Liters,
 /**
  * What the operator measured.
  */

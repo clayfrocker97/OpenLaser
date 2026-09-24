@@ -4,27 +4,27 @@ import type { Id } from "./Id";
 /**
  * A rename, a move to a folder, or a star.
  */
-export type ItemChange = { 
+export type ItemChange = {
 /**
  * Operator tags.
  */
-tags?: Array<string>, 
+tags?: Array<string>,
 /**
  * Operator notes.
  */
-notes?: string, 
+notes?: string,
 /**
  * Requested production quantity.
  */
-quantity?: number, 
+quantity?: number,
 /**
  * The new name.
  */
-name?: string, 
+name?: string,
 /**
  * The new folder; `Some(None)` moves to the root.
  */
-folder?: Id | null, 
+folder?: Id | null,
 /**
  * Starred or not.
  */

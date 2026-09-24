@@ -5,11 +5,11 @@ import type { SvgUnits } from "./SvgUnits";
 /**
  * How an SVG's size was read.
  */
-export type ScaleReview = { 
+export type ScaleReview = {
 /**
  * How the document declares its size.
  */
-units: SvgUnits, 
+units: SvgUnits,
 /**
  * The scale applied to its pixels; absent when it is in real units.
  */

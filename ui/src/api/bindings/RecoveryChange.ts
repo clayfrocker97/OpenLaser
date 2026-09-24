@@ -3,19 +3,19 @@
 /**
  * A selection change never sends a machine command.
  */
-export type RecoveryChange = { "kind": "select", 
+export type RecoveryChange = { "kind": "select",
 /**
  * The original pass index.
  */
-pass: number, 
+pass: number,
 /**
  * Fraction of its executed path.
  */
-fraction: number, } | { "kind": "previous" } | { "kind": "next" } | { "kind": "backward", 
+fraction: number, } | { "kind": "previous" } | { "kind": "next" } | { "kind": "backward",
 /**
  * Distance in millimetres.
  */
-distance: number, } | { "kind": "forward", 
+distance: number, } | { "kind": "forward",
 /**
  * Distance in millimetres.
  */

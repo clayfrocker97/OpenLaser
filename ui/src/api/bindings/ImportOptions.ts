@@ -4,12 +4,12 @@ import type { SvgScale } from "./SvgScale";
 /**
  * How the operator asks for a file to be imported.
  */
-export type ImportOptions = { 
+export type ImportOptions = {
 /**
  * The layers to import, by name; absent imports every layer the file
  * does not turn off or freeze.
  */
-layers?: Array<string>, 
+layers?: Array<string>,
 /**
  * The scale of an SVG sized in pixels; absent uses what its author
  * implies, or 96 pixels per inch.
