@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { axisAlignedBounds, boundsOfShapes, BoundsIndex, drawingPath, hitPath, inverseBounds, marqueeGroups, overlaps, transformedBounds } from './viewer-geometry';
+import { axisAlignedBounds, boundsOfShapes, BoundsIndex, drawingPath, hitPath, inverseBounds, marqueeGroups, nearestShape, overlaps, transformedBounds } from './viewer-geometry';
 import { boxOf, pathOf } from './svg';
 import type { PreviewContour, Transform } from '../api';
 
@@ -60,5 +60,14 @@ describe('viewer bounds and cached paths', () => {
       }
     }
     expect(inverseBounds(camera, [0, 0, 0, 0, 0, 0])).toBeNull();
+  });
+
+  it('takes the shape whose line is nearest a tap, not the one drawn on top', () => {
+    const ring = (r: number, source: number) => ({ sources: [source], layer: 'CSK', paths: [{ kind: 'cut', points: Array.from({ length: 65 }, (_, i) => [r * Math.cos(i / 32 * Math.PI), r * Math.sin(i / 32 * Math.PI)]) }] }) as never;
+    const shapes = new Map([[0, [ring(4, 1), ring(7, 2)]]]);
+    const index = new BoundsIndex(boundsOfShapes(shapes));
+    expect((nearestShape(shapes, index, [4.4, 0], 2)!.contour as { sources: number[] }).sources).toEqual([1]);
+    expect((nearestShape(shapes, index, [6.2, 0], 2)!.contour as { sources: number[] }).sources).toEqual([2]);
+    expect(nearestShape(shapes, index, [20, 20], 2)).toBeNull();
   });
 });

@@ -20,6 +20,33 @@ function boundsOfContour(contour: PreviewContour): Box | null {
   if (!contourBounds.has(contour)) contourBounds.set(contour, boxOf(contour.paths.map(p => p.points)));
   return contourBounds.get(contour) ?? null;
 }
+/** The shape whose line runs nearest `at`, within `tolerance`, so a tap
+ *  on a hole inside a ring takes the hole, whichever is drawn on top. */
+export function nearestShape(
+  shapes: Map<number, PreviewContour[]>, index: BoundsIndex, at: [number, number], tolerance: number,
+  shown: (contour: PreviewContour) => boolean = () => true,
+): { group: number; contour: PreviewContour } | null {
+  const [x, y] = at;
+  let best: { group: number; contour: PreviewContour } | null = null;
+  let nearest = tolerance;
+  const box = { minX: x - tolerance, maxX: x + tolerance, minY: y - tolerance, maxY: y + tolerance };
+  for (const group of index.query(box)) {
+    for (const contour of shapes.get(group) ?? []) {
+      if (!shown(contour)) continue;
+      for (const path of contour.paths) {
+        for (let i = 1; i < path.points.length; i++) {
+          const [ax, ay] = path.points[i - 1]!, [bx, by] = path.points[i]!;
+          const dx = bx - ax, dy = by - ay, length = dx * dx + dy * dy;
+          const t = length ? Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / length)) : 0;
+          const distance = Math.hypot(x - (ax + t * dx), y - (ay + t * dy));
+          if (distance < nearest) { nearest = distance; best = { group, contour }; }
+        }
+      }
+    }
+  }
+  return best;
+}
+
 /** A marquee touches any member of a group; empty space between members does not count. */
 export function marqueeGroups(shapes: Map<number, PreviewContour[]>, index: BoundsIndex, box: Box): number[] {
   return index.query(box).filter(g => shapes.get(g)?.some(c => {

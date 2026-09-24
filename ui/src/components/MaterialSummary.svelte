@@ -4,15 +4,22 @@
   // pierce, in that order and under those names on every screen. `grid`
   // lays every value out as a tile, `—` where the recipe does not say;
   // `line` runs the values that are set together as one wrapping line for
-  // lists and narrow headers. Nothing here is a control.
+  // lists and narrow headers; `compact` is the grid as small name and value
+  // pairs, three to a row, for a side panel. Nothing here is a control.
   import { summaryItems, type SummarySource } from '../lib/summary';
 
-  let { source, variant = 'grid' }: { source: SummarySource; variant?: 'grid' | 'line' } = $props();
+  let { source, variant = 'grid' }: { source: SummarySource; variant?: 'grid' | 'line' | 'compact' } = $props();
   const items = $derived(summaryItems(source));
 </script>
 
 {#if variant === 'line'}
   <span class="summary-line">{#each items.filter((i) => i.set) as item, n (item.key)}{#if n}<span class="sep" aria-hidden="true">·</span>{' '}{/if}<span class="item"><span class="k">{item.label}</span> {item.value}</span>{/each}</span>
+{:else if variant === 'compact'}
+  <dl class="summary-compact">
+    {#each items as item (item.key)}
+      <div class:unset={!item.set}><dt>{item.label}</dt><dd>{item.value}</dd></div>
+    {/each}
+  </dl>
 {:else}
   <dl class="summary-grid">
     {#each items as item (item.key)}
@@ -27,6 +34,11 @@
   .summary-grid dt { font-size: var(--t-sm); color: var(--ink-3); }
   .summary-grid dd { margin: 0; font-size: var(--t-base); font-weight: 700; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
   .summary-grid .unset dd { color: var(--ink-3); font-weight: 600; }
+  .summary-compact { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 12px; margin: 0; }
+  .summary-compact div { display: flex; flex-direction: column; gap: 0; min-width: 0; padding: 1px 0; }
+  .summary-compact dt { font-size: var(--t-sm); color: var(--ink-3); white-space: nowrap; }
+  .summary-compact dd { margin: 0; font-size: var(--t-sm); font-weight: 700; font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .summary-compact .unset dd { color: var(--ink-3); font-weight: 600; }
   .summary-line { font-size: var(--t-sm); color: var(--ink-2); line-height: 1.5; overflow-wrap: anywhere; }
   .summary-line .item { white-space: nowrap; font-variant-numeric: tabular-nums; }
   .summary-line .k { color: var(--ink-3); }

@@ -45,11 +45,21 @@
     ui.tab = 'machine';
   }
   const unpriced = $derived(!!estimate && estimate.cost === null);
+  /** Folded, the card is one line: laser time, gas and cost for one run. */
+  let open = $state(false);
+  const brief = $derived(!estimate ? 'After compiling'
+    : [duration(estimate.laser), perRun === null ? null : `${volume(perRun)} ${gasLabel(estimate)}`,
+      estimate.cost === null ? null : money(estimate.cost, currency)].filter(Boolean).join(' · '));
   const costNote = $derived(perRun === null ? 'Set the nozzle in the recipe, or a manual flow, to estimate gas.' : 'Enter gas prices to see costs.');
 </script>
 
-<div class="card2 gas-card">
-  <div class="card2-head"><h3>Gas &amp; laser</h3>
+<div class="card2 gas-card" class:folded={!open}>
+  <button class="fold" aria-expanded={open} onclick={() => (open = !open)}>
+    <span><strong>Gas &amp; laser</strong><small>{brief}</small></span>
+    <i class="ic ic-chev-down" class:open></i>
+  </button>
+  {#if open}
+  <div class="card2-head"><span></span>
     <div class="runs" role="group" aria-label="Runs">
       <button class="step" aria-label="One run fewer" disabled={runs <= 1} onclick={() => step(-1)}>−</button>
       <span class="count"><b>{runs}</b> {runs === 1 ? 'run' : 'runs'}</span>
@@ -95,9 +105,17 @@
       <p class="note">Costs appear here after the first run.</p>
     {/if}
   </div>
+  {/if}
 </div>
 
 <style>
+  .gas-card.folded { padding-top:4px; padding-bottom:4px; }
+  .fold { display:flex; align-items:center; justify-content:space-between; gap:10px; min-height:52px; padding:0; border:0; background:transparent; color:var(--ink); font:inherit; text-align:left; cursor:pointer; }
+  .fold > span { display:grid; gap:2px; min-width:0; }
+  .fold strong { font-size:var(--t-base); }
+  .fold small { font-size:var(--t-sm); color:var(--ink-3); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .fold .ic { flex:none; transition:transform .15s; }
+  .fold .ic.open { transform:rotate(180deg); }
   .gas-card h4 { margin: 0; font-size: var(--t-sm); font-weight: 700; color: var(--ink-2); }
   .runs { display: flex; align-items: center; gap: 8px; }
   .step { width: 44px; height: 44px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel-2); color: var(--ink); font-size: var(--t-lg); font-weight: 700; cursor: pointer; }

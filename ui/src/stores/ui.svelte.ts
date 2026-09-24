@@ -23,10 +23,10 @@ export interface Picking {
   features: Features;
   preview?: Preview;
   marks: [number, number][];
-  feature: 'joints' | 'cooling' | 'start' | 'bridges' | 'order' | 'layer';
+  feature: 'joints' | 'cooling' | 'start' | 'bridges' | 'order';
   /** The first end of the bridge being placed. */
   first: Pick | null;
-  /** The contours tapped so far, for a manual order or to move to a layer. */
+  /** The contours tapped so far, for a manual order. */
   order: number[];
   /** The geometry on which the pending picks were made. */
   revision: number;
@@ -35,7 +35,7 @@ export interface Picking {
 }
 
 /** The drawing bar's default order: view tools, then editing tools, then history. */
-const DRAW_BAR = ['fit', 'zoom-in', 'zoom-out', 'layers', 'snap', 'grid', 'mirror-x', 'mirror-y', 'turn', 'scale', 'center', 'reset', 'group', 'ungroup', 'copy', 'paste', 'delete', 'deselect', 'undo', 'redo'];
+const DRAW_BAR = ['fit', 'zoom-in', 'zoom-out', 'layers', 'snap', 'grid', 'layer', 'mirror-x', 'mirror-y', 'turn', 'scale', 'center', 'reset', 'group', 'ungroup', 'copy', 'paste', 'delete', 'deselect', 'undo', 'redo'];
 
 /** A saved order keeps only known tools and gains tools added since it was saved. */
 function withAll(order: string[], all: string[]): string[] {
@@ -84,7 +84,9 @@ class Ui {
    *  the library is not picking. */
   partPicks = $state<string[] | null>(null);
   selectedRecipe = $state<string | null>(null);
-  setupPanel = $state<FeatureId | 'copy' | 'clipboard' | 'nest' | null>(null);
+  setupPanel = $state<FeatureId | 'copy' | 'clipboard' | 'nest' | 'layers' | null>(null);
+  /** The layer the machining panels edit; none edits the job's own. */
+  machiningLayer = $state<string | null>(null);
   nestPreview = $state<Preview | null>(null);
   nestStock = $state<{ outline: number[][]; cutouts: number[][][] } | null>(null);
   /** Where a running nesting search has the parts, for the canvas. */

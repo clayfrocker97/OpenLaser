@@ -2,6 +2,7 @@
   import { plain } from '../../lib/plain';
   import { displayNumber, quantity, unitLabel } from '../../lib/units.svelte';
   import MaterialSheet from './MaterialSheet.svelte';
+  import LayerRecipeChooser from './LayerRecipeChooser.svelte';
   import MaterialSummary from '../../components/MaterialSummary.svelte';
   import PreflightEditor from '../../components/PreflightEditor.svelte';
   import { pictureOf } from '../../lib/materials';
@@ -9,7 +10,9 @@
   import { server } from '../../stores/server.svelte';
   import { ui } from '../../stores/ui.svelte';
   import { osk } from '../../lib/osk.svelte';
-  import { ago, explain, laserLabel, plural, seconds, size } from '../../lib/format';
+  import { explain, laserLabel, plural, recipeLabel, seconds, size } from '../../lib/format';
+  import { layerColor } from '../../lib/drawing-layers';
+  import type { DraftLayer } from '../../api';
   import { TOOLS, isOn } from '../../lib/features';
   import AddParts from '../../components/AddParts.svelte';
   import CreateText from '../../components/CreateText.svelte';
@@ -42,6 +45,16 @@
     return copies > 1 ? `${copies} copies · Select` : `${plural(contours, 'path')} · Select`;
   }
 
+  /** Several layers to output: each needs a recipe or to be off. */
+  const layersAsking = $derived(draft.layers.filter((l) => l.output).length > 1);
+  const layersMissing = $derived(layersAsking && draft.layers.some((l) => l.output && !l.chosen));
+  function layerHow(layer: DraftLayer): string {
+    if (!layer.output) return 'Off';
+    if (!layer.chosen) return layersAsking ? 'Choose a recipe' : 'Job recipe';
+    return `${layer.mode === 'mark' ? 'Mark · ' : ''}${layer.recipe ? recipeLabel(layer.recipe) : 'Job recipe'}`;
+  }
+
+  let choosing = $state<DraftLayer | null>(null);
   let sheet = $state(false);
   let checklist = $state(false);
 
@@ -72,17 +85,13 @@
     });
   }
 
-  function sheetKey(e: KeyboardEvent): void {
-    if (e.key === 'Enter') sheet = true;
-  }
-
   function review(dryRun: boolean): void {
     run(async () => { if (draft.dry_run !== dryRun) await api.compile(dryRun); }, () => { ui.tab = 'run'; });
   }
 </script>
 
 <div class="job-scroll">
-<div class="card2">
+<div class="card2 compact">
   <div class="card2-head">
     <div><h3>Parts</h3><span class="muted">{partsLabel}</span></div>
     <div class="parts-actions">
@@ -107,36 +116,46 @@
   {/if}
 </div>
 
-<div class="card2" role="button" tabindex="0" onclick={() => (sheet = true)} onkeydown={sheetKey}>
-  <div class="card2-head"><h3>Material</h3><span class="link">Change</span></div>
-  {#if recipe}
-    {@const art = pictureOf(recipe.name, recipe.photo)}
-    <div class="mat-line">
-      {#if art}<img class="swatch lg" src={art} alt="">{:else}<span class="swatch lg" style="background:var(--panel-2)"></span>{/if}
-      <div>
-        <div class="big">{recipe.name}</div>
-        <div class="muted">{quantity(recipe.thickness_mm, 'mm')} · {recipe.gas} · {laserLabel(recipe.laser)}</div>
-      </div>
-    </div>
-    <MaterialSummary source={recipe} />
-  {:else}
-    <div class="mat-line">
-      <span class="swatch lg" style="background:var(--warn-soft)"></span>
-      <div><div class="big warn-text">Choose a material</div><div class="muted">Required before running</div></div>
-    </div>
-  {/if}
+<div class="card2 compact">
+  <button class="mat-row" onclick={() => (sheet = true)}>
+    {#if recipe}
+      {@const art = pictureOf(recipe.name, recipe.photo)}
+      {#if art}<img class="swatch" src={art} alt="">{:else}<span class="swatch" style="background:var(--panel-2)"></span>{/if}
+      <span class="mat-text">
+        <strong>{recipe.name}</strong>
+        <small>{quantity(recipe.thickness_mm, 'mm')} · {recipe.gas} · {laserLabel(recipe.laser)}</small>
+      </span>
+    {:else}
+      <span class="swatch" style="background:var(--warn-soft)"></span>
+      <span class="mat-text"><strong class="warn-text">Choose a material</strong><small>Required before running</small></span>
+    {/if}
+    <span class="link">Change</span>
+  </button>
+  {#if recipe}<MaterialSummary source={recipe} variant="compact" />{/if}
+</div>
+
+<div class="card2 layers-card" class:needs={layersMissing}>
+  <div class="card2-head"><h3>Layers</h3><button class="btn btn-ghost" onclick={() => (ui.setupPanel = 'layers')}>Edit</button></div>
+  <div class="layer-lines">
+    {#each draft.layers.slice(0, 4) as layer (layer.name)}
+      {@const needs = layersAsking && layer.output && !layer.chosen}
+      <button class="layer-line" class:off={!layer.output} class:needs onclick={() => (choosing = layer)}>
+        <span class="layer-swatch" class:mark={layer.mode === 'mark'} style:--layer={layerColor(draft.layers, layer.name) ?? 'var(--cut)'}></span>
+        <span class="layer-name">{layer.name}</span>
+        <span class="layer-how">{needs ? 'Choose…' : layerHow(layer)}</span>
+        <i class="ic ic-chev-right"></i>
+      </button>
+    {/each}
+  </div>
+  {#if draft.layers.length > 4}<button class="btn btn-ghost block" onclick={() => (ui.setupPanel = 'layers')}>{draft.layers.length - 4} more layers</button>{/if}
 </div>
 
 {#if draft.calibration}<p class="correction-status">Correction off</p>{:else if draft.correction}<p class="correction-status">Matrix correction</p>{/if}
 
-<div class="card2">
-  <div class="card2-head"><h3>Machining</h3><span class="muted">{on} of {optional} on</span></div>
-  <div class="muted">{#if draft.feature_source}Prefilled from <strong>{draft.feature_source.name}</strong> · {ago(draft.feature_source.at)}{:else}Defaults for this recipe{/if}</div>
-</div>
-
-<div class="card2">
-  <div class="card2-head">
-    <div><h3>Preflight</h3><span class="muted">{preflightLabel}</span></div>
+<div class="card2 compact rows">
+  <div class="info-row">
+    <span><strong>Machining</strong><small>{on} of {optional} on{#if draft.feature_source} · from {draft.feature_source.name}{/if}</small></span>
+    <span><strong>Preflight</strong><small>{preflightLabel}</small></span>
     <button class="btn btn-ghost" onclick={() => (checklist = true)}>Edit</button>
   </div>
 </div>
@@ -161,6 +180,7 @@
   <button class="btn btn-primary xl block" onclick={() => review(false)} disabled={!doc.readiness.compile.ok} title={doc.readiness.compile.reason ?? ''}>Go to Run →</button>
 </div>
 
+{#if choosing}<LayerRecipeChooser layer={choosing} onclose={() => (choosing = null)} />{/if}
 {#if sheet}<MaterialSheet onclose={() => (sheet = false)} />{/if}
 {#if adding}<AddParts onclose={() => (adding = false)} />{/if}
 {#if texting}<CreateText onclose={() => (texting = false)} />{/if}
@@ -169,7 +189,7 @@
 <style>
   /* The cards scroll on a short screen; saving and Go to Run stay in reach. */
   .parts-actions { display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
-  .job-scroll { flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; display:flex; flex-direction:column; gap:12px; margin:-2px; padding:2px; }
+  .job-scroll { flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; display:flex; flex-direction:column; gap:8px; margin:-2px; padding:2px; }
   .stack { flex-shrink:0; }
   .correction-status { padding:10px 12px; font-size:var(--t-sm); color:var(--ink-3); border-left:2px solid var(--accent); }
   .job-parts { list-style:none; margin:0; padding:0; display:grid; gap:6px; max-height:220px; overflow-y:auto; }
@@ -179,4 +199,31 @@
   }
   .job-part span { font-weight:600; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .job-part small { flex:none; color:var(--ink-3); font-size:var(--t-sm); }
+  .compact { padding:10px 12px; gap:8px; }
+  .mat-row { display:flex; align-items:center; gap:12px; min-height:52px; padding:0; border:0; background:transparent; color:var(--ink); font:inherit; text-align:left; cursor:pointer; }
+  .mat-row .swatch { flex:none; width:40px; height:40px; border-radius:8px; object-fit:cover; }
+  .mat-text { flex:1; min-width:0; display:grid; gap:2px; }
+  .mat-text strong { font-size:var(--t-base); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .mat-text small { font-size:var(--t-sm); color:var(--ink-3); }
+  .rows { gap:0; padding-top:4px; padding-bottom:4px; }
+  .info-row { display:flex; align-items:center; justify-content:space-between; gap:10px; min-height:44px; }
+  .info-row > span { flex:1; }
+  .info-row > span { display:grid; gap:2px; min-width:0; }
+  .info-row strong { font-size:var(--t-base); }
+  .info-row small { font-size:var(--t-sm); color:var(--ink-3); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .info-row .btn { min-height:44px; }
+  .layers-card { padding:10px 12px; gap:8px; }
+  .layers-card.needs { border-color:var(--warn); }
+  .layer-lines { display:grid; gap:6px; }
+  .layer-line {
+    width:100%; min-height:44px; display:flex; align-items:center; gap:10px; padding:0 8px 0 12px; min-width:0;
+    border:1px solid var(--line); border-radius:10px; background:var(--panel-2); color:var(--ink); font:inherit; text-align:left; cursor:pointer;
+  }
+  .layer-line.off { opacity:.55; }
+  .layer-line.needs { border-color:var(--warn); }
+  .layer-line.needs .layer-how { color:var(--warn); font-weight:600; }
+  .layer-swatch { flex:none; width:16px; height:16px; border-radius:4px; background:var(--layer); }
+  .layer-swatch.mark { background:transparent; border:2px dashed var(--layer); }
+  .layer-name { font-weight:600; font-size:var(--t-base); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .layer-how { margin-left:auto; flex:none; max-width:55%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--ink-3); font-size:var(--t-sm); }
 </style>

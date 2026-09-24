@@ -19,7 +19,6 @@
       case 'start': return 'Tap a contour where its cut should start';
       case 'bridges': return picking.first ? 'Tap the other end of the bridge' : 'Tap the first end of the bridge';
       case 'order': return `Tap the contours in cutting order · ${picked} of ${total}`;
-      case 'layer': return `Tap the shapes to move to a layer · ${picking.order.length} picked`;
     }
   });
   function cancelBridgeEnd(): void {

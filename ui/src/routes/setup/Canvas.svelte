@@ -10,8 +10,7 @@
   // snaps to a contour and the feature takes the spot.
   import { untrack, type Snippet } from 'svelte';
   import Stage from '../../components/Stage.svelte';
-  import DrawingToolbar, { type DrawTool } from './DrawingToolbar.svelte';
-  import LayersPopover from './LayersPopover.svelte';
+  import ToolBar, { type Tool } from './ToolBar.svelte';
   import LayerAssign from './LayerAssign.svelte';
   import PickBar from './PickBar.svelte';
   import SelectionHud from './SelectionHud.svelte';
@@ -31,13 +30,14 @@
   import { withBusy } from '../../lib/busy';
   import { about, apply, centre, mirror, mirrorVertical, rotation, scaling, svgMatrix, tenth, translate, type Point } from '../../lib/transform';
   import { pathOf, type Box } from '../../lib/svg';
+  import { layerColor } from '../../lib/drawing-layers';
   import {
-    drawingPath, hitPath, boundsOfShapes, marqueeGroups, unionBounds, axisAlignedBounds, transformedBounds, BoundsIndex, inverseBounds,
+    drawingPath, hitPath, boundsOfShapes, marqueeGroups, nearestShape, unionBounds, axisAlignedBounds, transformedBounds, BoundsIndex, inverseBounds,
   } from '../../lib/viewer-geometry';
   import type { Features, PreviewContour, Spot, Transform } from '../../api';
 
-  let { rail, selectedContours = $bindable([]), orderProgress = 0, clipboard = $bindable(null), pasting = $bindable(false), pasteSettings }: {
-    rail: Snippet; selectedContours?: number[]; orderProgress?: number; clipboard?: CopiedShapes | null; pasting?: boolean; pasteSettings: PasteSettings;
+  let { selectedContours = $bindable([]), orderProgress = 0, clipboard = $bindable(null), pasting = $bindable(false), pasteSettings }: {
+    selectedContours?: number[]; orderProgress?: number; clipboard?: CopiedShapes | null; pasting?: boolean; pasteSettings: PasteSettings;
   } = $props();
 
   const doc = $derived(server.doc!);
@@ -45,8 +45,10 @@
   const scene = $derived(server.canvasDraft);
   const updating = $derived(draft?.error === 'preparing geometry');
   const layers = $derived(draft?.layers ?? []);
-  /** Engraved layers draw dashed: marked on the surface, not cut through. */
-  const engraved = $derived(new Set(layers.filter((l) => l.engrave && !l.ignored).map((l) => l.name)));
+  /** Marked layers draw dashed: traced on the surface, not cut through. */
+  const marked = $derived(new Set(layers.filter((l) => l.mode === 'mark').map((l) => l.name)));
+  /** Each layer's colour; none draws in the screen's cut colour. */
+  const colors = $derived(new Map(layers.map((l) => [l.name, layerColor(layers, l.name)])));
   const preview = $derived(!updating && ui.picking?.revision === draft?.revision ? (ui.picking?.preview ?? scene?.preview ?? null) : scene?.preview ?? null);
   const groups = $derived(scene?.groups ?? []);
   const stockOutline = $derived(ui.nestPreview ? ui.nestStock?.outline ?? scene?.stock_outline ?? [] : ui.nestLive?.stock_outline ?? scene?.stock_outline ?? []);
@@ -106,8 +108,12 @@
 
   // The selection, and the transform drawn on it before the server has it.
   let selected = $state<number[]>([]);
+  /** One shape of the selected part, tapped again to take it alone: a hole
+   *  inside a part, a mark around a hole. Parts still move as a whole. */
+  let shape = $state<number | null>(null);
   const selectedSet = $derived(new Set(selected));
-  $effect(() => { selectedContours = updating ? [] : contoursOf(selected); });
+  $effect(() => { if (shape !== null && !contoursOf(selected).includes(shape)) shape = null; });
+  $effect(() => { selectedContours = updating ? [] : shape !== null ? [shape] : contoursOf(selected); });
   let local = $state<{ groups: number[]; m: Transform } | null>(null);
   const movingSet = $derived(new Set(local?.groups ?? []));
   const movingAll = $derived(!!local && movingSet.size === groups.length);
@@ -151,6 +157,8 @@
   const selectionLocked = $derived(canvasBusy || !selection);
   /** The selection box and its HUD are drawn. */
   const selectionShown = $derived(!!selection && !canvasTaken);
+  /** Moving, turning and sizing take whole parts, not one shape of a part. */
+  const transformLocked = $derived(selectionLocked || shape !== null);
 
   // The clipboard snapshots the selection; one add request pastes a whole batch.
   let pending = $state<number[] | null>(null);
@@ -193,15 +201,19 @@
     });
   }
 
-  // The drawing bar's tools; DrawingToolbar lays them out and orders them.
+  // The drawing bar's tools; ToolBar lays them out and orders them, as it does the machining bar.
   const hasGroup = () => selected.some(g => (groups[g]?.length ?? 0) > 1);
-  const DRAW_TOOLS: Record<string, DrawTool> = {
+  const DRAW_TOOLS: Record<string, Tool> = {
     fit: { label: 'Fit', title: 'Frame the parts', when: 'idle', icon: 'ic-fit', disabled: () => false, run: () => fit() },
     'zoom-in': { label: 'Zoom in', when: 'idle', icon: 'ic-plus', disabled: () => false, run: () => view.zoom(1.25) },
     'zoom-out': { label: 'Zoom out', when: 'idle', icon: 'ic-minus', disabled: () => false, run: () => view.zoom(0.8) },
     layers: {
-      label: 'Layers', when: 'idle', icon: 'ic-layers', on: () => layersOpen,
-      disabled: () => !layers.length, run: () => { layersOpen = !layersOpen; },
+      label: 'Layers', when: 'idle', icon: 'ic-layers', on: () => ui.setupPanel === 'layers',
+      disabled: () => !layers.length, run: () => { ui.setupPanel = ui.setupPanel === 'layers' ? null : 'layers'; },
+    },
+    layer: {
+      label: 'Layer', title: 'Move the selection to a layer', when: 'selected', icon: 'ic-layers',
+      disabled: () => selectionLocked, run: () => { assigning = shape !== null ? [shape] : contoursOf(selected); },
     },
     snap: {
       label: 'Snap', when: 'idle', text: () => (ui.snap ? 'On' : 'Off'), on: () => ui.snap,
@@ -210,28 +222,28 @@
     grid: { label: 'Grid', when: 'idle', text: () => quantity(ui.grid, 'mm'), disabled: () => false, run: () => gridSize() },
     'mirror-x': {
       label: 'Mirror X', title: 'Mirror horizontally', when: 'selected', icon: 'ic-mirror',
-      disabled: () => selectionLocked, run: () => act('mirror'),
+      disabled: () => transformLocked, run: () => act('mirror'),
     },
     'mirror-y': {
       label: 'Mirror Y', title: 'Mirror vertically', when: 'selected', icon: 'ic-mirror vertical',
-      disabled: () => selectionLocked, run: () => act('vertical'),
+      disabled: () => transformLocked, run: () => act('vertical'),
     },
     turn: {
       label: '90°', title: 'Turn the selection a quarter turn', when: 'selected', icon: 'ic-rotate',
-      disabled: () => selectionLocked, run: () => act('turn'),
+      disabled: () => transformLocked, run: () => act('turn'),
     },
-    scale: { label: 'Scale', when: 'selected', text: () => '%', disabled: () => selectionLocked, run: () => resize('scale') },
+    scale: { label: 'Scale', when: 'selected', text: () => '%', disabled: () => transformLocked, run: () => resize('scale') },
     center: {
       label: 'Center', title: 'Center on the bed', when: 'selected', icon: 'ic-target',
-      disabled: () => selectionLocked || !frame.bed, run: () => centerOnBed(),
+      disabled: () => transformLocked || !frame.bed, run: () => centerOnBed(),
     },
     reset: {
       label: 'Reset', title: 'Put the selection back where the drawing has it', when: 'selected', icon: 'ic-reset',
-      disabled: () => selectionLocked, run: () => act('reset'),
+      disabled: () => transformLocked, run: () => act('reset'),
     },
     group: {
       label: 'Group', title: 'Group the selected shapes', when: 'selected', absent: () => selected.length < 2,
-      disabled: () => selectionLocked || selected.length < 2, run: () => groupSelection(true),
+      disabled: () => transformLocked || selected.length < 2, run: () => groupSelection(true),
     },
     ungroup: {
       label: 'Ungroup', title: 'Ungroup the selected shapes', when: 'selected', absent: () => !hasGroup(),
@@ -239,7 +251,7 @@
     },
     copy: {
       label: 'Copy', title: 'Copy the selection', when: 'selected', icon: 'ic-copy', on: () => ui.setupPanel === 'clipboard',
-      disabled: () => pasting || selectionLocked, run: () => copy(),
+      disabled: () => pasting || transformLocked, run: () => copy(),
     },
     paste: {
       label: 'Paste', title: 'Paste one copy', when: 'always', icon: 'ic-paste', absent: () => !clipboard,
@@ -262,7 +274,7 @@
   }
   function remove(): void {
     if (updating || !selected.length) return;
-    api.remove(contoursOf(selected)).then(() => { selected = []; }).catch(fail);
+    api.remove(shape !== null ? [shape] : contoursOf(selected)).then(() => { selected = []; }).catch(fail);
   }
   const history = (back: boolean) => (back ? api.undo() : api.redo()).catch(fail);
   let groupKeys: string[][] = [];
@@ -445,9 +457,18 @@
     }
     if (ui.nestShown) return;
     if (ui.picking) { pickAt(at); return; }
-    const g = target.closest<SVGGElement>('[data-group]')?.dataset['group'];
+    // The nearest line wins, so a hole inside a ring can be tapped; a tap
+    // again on a selected part takes the one shape under the finger.
+    const hit = nearestShape(shapes, boundsIndex, at, 10 * view.mmPerPixel, (c) => !hidden(c.layer));
+    const g = hit?.group ?? target.closest<SVGGElement>('[data-group]')?.dataset['group'];
     if (g === undefined) { if (!additive) selected = []; return; }
     const n = Number(g);
+    const one = hit?.contour.sources.length === 1 ? hit.contour.sources[0]! : null;
+    if (!additive && one !== null && selected.length === 1 && selected[0] === n && (groups[n]?.length ?? 0) > 1) {
+      shape = shape === one ? null : one;
+      return;
+    }
+    shape = null;
     selected = additive ? (selected.includes(n) ? selected.filter((x) => x !== n) : [...selected, n]) : [n];
   }
 
@@ -515,14 +536,6 @@
           ui.picking = { ...picking, first: null };
           break;
         }
-        case 'layer': {
-          // Tapped again, a shape leaves the pick.
-          const picked = picking.order.includes(pick.spot.contour);
-          const order = picked ? picking.order.filter((c) => c !== pick.spot.contour) : [...picking.order, pick.spot.contour];
-          const at = draft.placed[pick.owner] ? apply(draft.placed[pick.owner]!.transform, pick.point) : pick.point;
-          ui.picking = { ...picking, order, marks: picked ? picking.marks : [...picking.marks, at] };
-          return;
-        }
         case 'order': {
           if (picking.order.includes(pick.spot.contour)) return;
           const group = candidates.find((group) => group.includes(pick.spot.contour));
@@ -547,11 +560,6 @@
     const picking = ui.picking;
     if (updating || !picking || pickBusy) return;
     if (picking.first) { ui.say('Complete or cancel the pending bridge end first.', true); return; }
-    if (picking.feature === 'layer') {
-      ui.picking = null;
-      if (picking.order.length) assigning = picking.order;
-      return;
-    }
     await withBusy((b) => (pickBusy = b), async () => {
       await api.setFeatures(picking.features, picking.revision);
       if (ui.picking === picking) ui.picking = null;
@@ -584,17 +592,8 @@
   const playback = $derived(ui.setupPanel === 'order' ? orderPosition(orderPaths, orderProgress) : null);
 
   // The drawing's layers: shown or hidden here, cut or skipped in the job.
-  let layersOpen = $state(false);
-  /** Shapes picked to move to a layer, while their layer is chosen. */
+  /** Shapes on their way to a layer, while their layer is chosen. */
   let assigning = $state<number[] | null>(null);
-  /** Picks shapes one by one, whatever layer they are on, to move to a layer. */
-  function pickForLayer(): void {
-    if (!draft) return;
-    layersOpen = false;
-    selected = [];
-    const features = { ...structuredClone($state.snapshot(draft.features)), skip_layers: [] };
-    ui.picking = { feature: 'layer', first: null, order: [], revision: draft.revision, features, marks: [] };
-  }
   const hidden = (layer: string) => ui.hiddenDrawingLayers.includes(layer);
 
   /** A mark size in millimetres that keeps its screen size. */
@@ -606,7 +605,7 @@
 </script>
 
 <div class="canvas-wrap">
-  <div class="rail" role="toolbar" tabindex="-1" aria-label="More tools">{@render rail()}</div>
+
   <Stage {view} bed={frame.bed} head={frame.head} origin={ui.nestShown ? null : frame.origin} {grab} {ondrag} {ondragend} {ontap} {onmarquee}>
     <g transform="translate({zero[0]} {zero[1]})">
     {#if stockOutline.length}
@@ -646,9 +645,11 @@
           transform={!movingAll && local && movingSet.has(g) ? svgMatrix(local.m) : ''}>
           {#each shapes.get(g) ?? [] as contour}
             {#if !hidden(contour.layer)}
+              <g class="contour" class:picked={shape !== null && contour.sources[0] === shape}>
               <path class="hit" d={hitPath(contour)} vector-effect="non-scaling-stroke"/>
               {#each contour.paths as path}
-                {#if ui.layerShown(path.kind)}<path class="path {path.kind}" class:engrave={engraved.has(contour.layer)} d={drawingPath(path.points)} vector-effect="non-scaling-stroke"/>{/if}
+                {#if ui.layerShown(path.kind)}<path class="path {path.kind}" class:mark={marked.has(contour.layer)}
+                  style:stroke={path.kind === 'cut' ? colors.get(contour.layer) : null} d={drawingPath(path.points)} vector-effect="non-scaling-stroke"/>{/if}
               {/each}
               {#if details && (ui.setupPanel !== 'nest' || on)}
                 {#if ui.layerShown('cooling')}
@@ -664,6 +665,7 @@
                 <text class="order-label" transform="translate({contour.start[0] + 1.5 * mark} {contour.start[1] + 1.5 * mark}) scale(1 -1)"
                   font-size={mark * 3}>{ranks.get(contour.sources[0]!) ?? contour.sources[0]! + 1}</text>
               {/if}
+              </g>
             {/if}
           {/each}
         </g>
@@ -682,7 +684,7 @@
         <path d="M{leadDrag.handle.anchor.join(' ')}L{leadDrag.point.join(' ')}" stroke="var(--accent)" stroke-width="2" vector-effect="non-scaling-stroke" />
       {/if}
       {#if firstEnd}<circle class="mark bridge" cx={firstEnd[0]} cy={firstEnd[1]} r={mark * 1.5} vector-effect="non-scaling-stroke"/>{/if}
-      {#if selection && selectionShown}
+      {#if selection && selectionShown && shape === null}
         <g class="gizmo">
           <rect class="sel-box" x={selection.minX - 2 * mark} y={selection.minY - 2 * mark}
             width={selection.maxX - selection.minX + 4 * mark} height={selection.maxY - selection.minY + 4 * mark} vector-effect="non-scaling-stroke"/>
@@ -699,15 +701,13 @@
       {#if ui.picking}
         <PickBar picking={ui.picking} picked={pickedCount} total={candidates.length} busy={updating || pickBusy} onfinish={finishPicks} />
       {/if}
-      {#if layersOpen && layers.length && draft}
-        <LayersPopover {layers} onpick={pickForLayer} onclose={() => (layersOpen = false)} />
-      {/if}
       {#if preview?.warnings.length}<div class="hint">{preview.warnings[0]}</div>{/if}
-      {#if selection && selectionShown}
+      {#if selection && selectionShown && shape === null}
         <SelectionHud {selection} {zero} disabled={updating} onplace={typed} onturn={turnBy} onresize={resize} />
       {/if}
     {/snippet}
   </Stage>
 </div>
-<DrawingToolbar tools={DRAW_TOOLS} selected={!!selection} />
+<ToolBar class="drawing-toolbar" label="Drawing tools" tools={DRAW_TOOLS} order={ui.drawBar} save={(order) => ui.setDrawBar(order)}
+  bind:editing={ui.editDrawBar} selected={!!selection} />
 {#if assigning}<LayerAssign contours={assigning} {layers} onclose={() => (assigning = null)} />{/if}

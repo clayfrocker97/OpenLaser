@@ -6,6 +6,7 @@
   import FeaturePanel from './setup/FeaturePanel.svelte';
   import CopyPanel from './setup/CopyPanel.svelte';
   import ClipboardPanel from './setup/ClipboardPanel.svelte';
+  import LayersPanel from './setup/LayersPanel.svelte';
   import NestPanel from './setup/NestPanel.svelte';
   import CreateText from '../components/CreateText.svelte';
   import { featureEdits } from '../stores/feature-edits';
@@ -14,8 +15,7 @@
   import { explain } from '../lib/format';
   import { pasteable, type CopiedShapes, type PasteSettings } from '../lib/copy-paste';
   import { TOOLS, isOn, stateOf, toggled } from '../lib/features';
-  import { flip } from 'svelte/animate';
-  import { Reorder } from '../lib/reorder.svelte';
+  import ToolBar, { type Tool } from './setup/ToolBar.svelte';
 
   let { compact = false }: { compact?: boolean } = $props();
   let canvasPanel = $state<HTMLElement | null>(null);
@@ -41,19 +41,6 @@
   let pasting = $state(false);
   let pasteSettings = $state<PasteSettings>({ count: 1, gap: 10, direction: 'right' });
 
-  // The L-shaped bar: the top row takes what fits, the rest goes down the rail.
-  let head = $state<HTMLDivElement | null>(null);
-  let cap = $state(6);
-  $effect(() => {
-    if (compact) { cap = tools.length; return; }
-    if (!head) return;
-    const measure = () => { cap = Math.max(1, Math.floor((head!.clientWidth - 176) / 126)); };
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(head);
-    return () => observer.disconnect();
-  });
-
   function runTool(id: string): void {
     if (id === 'nest') { ui.setupPanel = ui.setupPanel === 'nest' ? null : 'nest'; return; }
     if (id === 'copy') { ui.setupPanel = ui.setupPanel === 'copy' ? null : 'copy'; return; }
@@ -73,54 +60,25 @@
     }
   }
 
-  // Bar editing, as the mockup does it: ✕ removes, the star in the menu
-  // adds, and dragging reorders (lib/reorder).
-  const bar = new Reorder({
-    attribute: 'feature',
-    order: () => ui.favTools,
-    save: (order) => ui.setBar(order),
-    editing: () => ui.editBar,
-    horizontal: (tile) => !!tile.closest('.features'),
-  });
-
-  const tile = (id: string) => TOOLS.find((t) => t.id === id) ?? null;
+  /** The machining bar's tools, laid out and ordered by the same ToolBar as the drawing bar. */
+  const BAR_TOOLS = $derived(Object.fromEntries([
+    ...TOOLS.map((t): [string, Tool] => [t.id, {
+      label: t.short, when: 'always', icon: `ic-tool-${t.id}`, detail: () => (draft ? stateOf(draft.features, t.id) : ''),
+      on: () => ui.setupPanel === t.id, set: () => !!draft && isOn(draft.features, t.id), disabled: () => false, run: () => runTool(t.id),
+    }]),
+    ...EXTRA.map((t): [string, Tool] => [t.id, {
+      label: t.short, when: 'always', icon: t.id === 'nest' ? 'ic-tool-nest' : 'ic-copy', detail: () => 'tool', on: () => ui.setupPanel === t.id, disabled: () => false, run: () => runTool(t.id),
+    }]),
+  ]));
 
 </script>
 
-{#snippet feature(id: string, t: { short: string } | null)}
-  <button class="feature" data-feature={id} class:editing={ui.editBar} class:set={t && draft ? isOn(draft.features, id) : false} class:open={ui.setupPanel === id} class:tool={!t} class:placeholder={bar.dragging === id}
-    onclick={() => { if (!ui.editBar) runTool(id); }} onpointerdown={bar.down} onpointermove={bar.move} onpointerup={bar.up} onpointercancel={bar.up}>
-    {#if ui.editBar}<span class="remove" data-remove onclick={(e) => { e.stopPropagation(); ui.setBar(ui.favTools.filter((x) => x !== id)); }} role="button" tabindex="-1" onkeydown={() => undefined}><i class="ic ic-x"></i></span>{/if}
-    <span>{t ? t.short : EXTRA.find((x) => x.id === id)?.short}</span><span class="state">{t && draft ? stateOf(draft.features, id) : 'tool'}</span>
-  </button>
-{/snippet}
-
 <section class="panel main canvas-panel" bind:this={canvasPanel}>
-  <div class="setup-head" bind:this={head}>
-    <div class="features" role="toolbar" tabindex="-1" aria-label="Machining tools">
-      {#each tools.slice(0, cap) as id (id)}
-        {@const t = tile(id)}
-        <div class="slot" animate:flip={{ duration: 180 }}>{@render feature(id, t)}</div>
-      {/each}
-    </div>
-    <div class="all-tools">
-      <button class="feature all-btn" onclick={() => (menu = !menu)} hidden={ui.editBar}><span>All tools</span><span class="state">browse</span></button>
-      <!-- As on the drawing bar: Order, then drag the tools into place. -->
-      <button class="feature order-btn" class:on={ui.editBar} title={ui.editBar ? 'Finish arranging' : 'Drag the tools into your order'}
-        onclick={() => (ui.editBar = !ui.editBar)}><i class="ic {ui.editBar ? 'ic-check' : 'ic-grip'}"></i><span class="state">{ui.editBar ? 'Done' : 'Order'}</span></button>
-
-    </div>
-  </div>
+  <ToolBar class="setup-head" variant="names" label="Machining tools" tools={BAR_TOOLS} order={tools} save={(order) => ui.setBar(order)}
+    bind:editing={ui.editBar} more={{ label: 'All tools', detail: 'browse', run: () => (menu = !menu) }} />
 
   <SheetStrip />
-  <Canvas bind:this={canvas} bind:selectedContours bind:clipboard bind:pasting {pasteSettings} {orderProgress}>
-    {#snippet rail()}
-      {#each tools.slice(cap) as id (id)}
-        {@const t = tile(id)}
-        <div class="slot" animate:flip={{ duration: 180 }}>{@render feature(id, t)}</div>
-      {/each}
-    {/snippet}
-  </Canvas>
+  <Canvas bind:this={canvas} bind:selectedContours bind:clipboard bind:pasting {pasteSettings} {orderProgress} />
 </section>
 
 <aside class="panel side" class:spread={ui.setupPanel === null} bind:this={settingsPanel}>
@@ -135,6 +93,8 @@
       {clipboard} bind:settings={pasteSettings} {pasting}
       disabled={draft.error === 'preparing geometry' || !pasteable(clipboard, draft) || !!ui.picking || ui.nestShown || ui.nestPicking}
       onpaste={() => { void canvas?.paste(pasteSettings.count); }} />
+  {:else if ui.setupPanel === 'layers'}
+    <LayersPanel />
   {:else if ui.setupPanel === 'nest'}
     <NestPanel {selectedContours} onselectall={() => canvas?.selectAll()} />
   {:else if ui.setupPanel}
@@ -157,7 +117,9 @@
             class="tool-star" class:on={starred} aria-label="{starred ? 'Unstar' : 'Star'} {t.name}" aria-pressed={starred}
             onclick={() => ui.setBar(starred ? ui.favTools.filter(x => x !== t.id) : [...ui.favTools, t.id])}
           ><i class="ic {starred ? 'ic-star-fill' : 'ic-star'}"></i></button>
-          <button class="tool-open" onclick={() => { menu = false; runTool(t.id); }}><span>{t.name}</span><small>{t.meta}</small></button>
+          <button class="tool-open" onclick={() => { menu = false; runTool(t.id); }}>
+            <i class="ic {t.id === 'copy' ? 'ic-copy' : `ic-tool-${t.id}`}"></i><span class="tool-texts"><span>{t.name}</span><small>{t.meta}</small></span>
+          </button>
         </div>
       {/each}
     </div>
@@ -170,8 +132,10 @@
   .tool-choice { display: grid; grid-template-columns: 44px 1fr; min-width: 0; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); }
   .tool-star { width: 44px; min-height: 58px; border: 0; border-radius: 10px 0 0 10px; background: transparent; color: var(--ink-3); font-size: var(--t-lg); cursor: pointer; }
   .tool-star.on { color: var(--warn); }
+  .tool-open .ic { flex: none; width: 22px; height: 22px; }
+  .tool-texts { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
   .tool-open {
-    display: flex; flex-direction: column; justify-content: center; align-items: start; gap: 4px; min-width: 0; min-height: 58px;
+    display: flex; flex-direction: row; justify-content: flex-start; align-items: center; gap: 10px; min-width: 0; min-height: 58px;
     padding: 8px 10px 8px 0; border: 0; border-radius: 0 10px 10px 0; background: transparent; color: var(--ink); font: inherit;
     font-size: var(--t-sm); font-weight: 600; text-align: left; cursor: pointer;
   }
