@@ -28,6 +28,8 @@ Local review candidate built on 2026-09-24. Not published.
 - Four type sizes (13, 15, 18 and 24 px), nothing smaller, and every control
   at least 44 px. The phone and desktop layouts switch live as the window
   resizes. Fit frames the sheet and its parts, and cut lines are brighter.
+  A selection no longer has a drag handle to scale it; Scale and the typed
+  sizes set exact sizes.
 
 ### Run and jog
 
@@ -57,6 +59,13 @@ Local review candidate built on 2026-09-24. Not published.
 - The drawing bar is one row: editing tools appear only with a selection, and
   Order drags the tools into your own sequence.
 
+### Layers
+
+- Each layer can be cut with its own recipe, engraved on the surface (no
+  kerf, leads or joints, before the cuts) or ignored. A drawing of several
+  layers asks for a choice on each before it compiles. Layers can be renamed,
+  and shapes picked on the drawing move to another or a new layer.
+
 ### Materials and recipes
 
 - Import files, folders or a drop, with a review that assigns each file to a
@@ -64,6 +73,8 @@ Local review candidate built on 2026-09-24. Not published.
   Replace, Keep both or Skip, and reads nozzle, focus and lens from the notes
   and file names. One material summary everywhere; Power is the peak power
   and Duty the duty cycle.
+- Recipe fields use M-Laser's names (Cut Power, Peak Current, Cut Freq …),
+  with a line explaining the common ones.
 
 ### Settings
 

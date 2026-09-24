@@ -23,10 +23,10 @@ export interface Picking {
   features: Features;
   preview?: Preview;
   marks: [number, number][];
-  feature: 'joints' | 'cooling' | 'start' | 'bridges' | 'order';
+  feature: 'joints' | 'cooling' | 'start' | 'bridges' | 'order' | 'layer';
   /** The first end of the bridge being placed. */
   first: Pick | null;
-  /** The contours tapped so far, for a manual order. */
+  /** The contours tapped so far, for a manual order or to move to a layer. */
   order: number[];
   /** The geometry on which the pending picks were made. */
   revision: number;

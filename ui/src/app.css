@@ -360,8 +360,6 @@ html:not([data-layout="mobile"]) .toast.error { top: 80px; bottom: auto; }
 .lrow .eye.off .sw { opacity: .25; }
 .lrow .lname { font-weight: 700; font-size: var(--t-base); }
 .lrow .lmeta { font-size: var(--t-sm); color: var(--ink-3); }
-.lrow .seg { grid-column: 1 / -1; display: flex; }
-.lrow .seg button { min-height: 44px; padding: 0 10px; font-size: var(--t-sm); flex: 1; }
 .lrow .assign { min-height: 44px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel-2); font-size: var(--t-sm); font-weight: 600; cursor: pointer; }
 .list { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--panel); }
 .lrow2 { display: grid; grid-template-columns: 1fr auto; grid-template-areas: 'lbl chev' 'val chev'; align-items: center; column-gap: 10px; row-gap: 2px; width: 100%; min-height: 60px; padding: 8px 14px; border: 0; border-bottom: 1px solid var(--line); background: transparent; text-align: left; font: inherit; color: inherit; cursor: pointer; }
@@ -710,6 +708,7 @@ body.osk-open .app { padding-bottom: 0; }
 .path { fill: none; stroke-width: 2.25; stroke-linecap: round; stroke-linejoin: round; }
 .path.travel { stroke: #317ac2; stroke-dasharray: 7 4; }
 .path.cut { stroke: var(--cut); }
+.path.cut.engrave { stroke-dasharray: 4 3; }
 .path.film { stroke: #d08a1e; stroke-dasharray: 2 2; }
 .path.lead_in { stroke: #8f52c5; stroke-width: 2.8; }
 .path.lead_out { stroke: #208f8d; stroke-width: 2.8; }
@@ -914,7 +913,7 @@ body.osk-open .app { padding-bottom: 0; }
 .sheet-body .curve { display: flex; flex-direction: column; gap: 8px; }
 
 /* ---------- Picking on the drawing, order labels, bridges ---------- */
-.pick-bar { position: absolute; left: 50%; top: 8px; transform: translateX(-50%); display: flex; gap: 8px; align-items: center; padding: 6px 8px 6px 14px; border-radius: 14px; background: rgba(251,252,249,.97); border: 1px solid var(--accent); box-shadow: var(--shadow); z-index: 6; font-weight: 600; white-space: nowrap; }
+.pick-bar { position: absolute; left: 50%; top: 8px; transform: translateX(-50%); display: flex; gap: 8px; align-items: center; padding: 6px 8px 6px 14px; border-radius: 14px; background: var(--panel); color: var(--ink); border: 1px solid var(--accent); box-shadow: var(--shadow); z-index: 6; font-weight: 600; white-space: nowrap; }
 .pick-bar .btn { min-height: 44px; padding: 0 12px; }
 .order-label { font-family: var(--font); font-weight: 700; fill: var(--accent); paint-order: stroke; stroke: var(--panel); stroke-width: 0.6px; }
 .mark.bridge { fill: none; stroke: #8f52c5; stroke-width: 2.5; }

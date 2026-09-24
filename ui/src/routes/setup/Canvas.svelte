@@ -12,6 +12,7 @@
   import Stage from '../../components/Stage.svelte';
   import DrawingToolbar, { type DrawTool } from './DrawingToolbar.svelte';
   import LayersPopover from './LayersPopover.svelte';
+  import LayerAssign from './LayerAssign.svelte';
   import PickBar from './PickBar.svelte';
   import SelectionHud from './SelectionHud.svelte';
   import { Viewport } from '../../lib/viewport.svelte';
@@ -22,7 +23,6 @@
   import { copiedLeadOverrides, setLeadOverrides } from '../../lib/lead-overrides';
   import { draggedLead, leadHandlesOf, type LeadHandle } from '../../lib/lead-handles';
   import { pasteBatch, pasteable, type CopiedShapes, type PasteSettings } from '../../lib/copy-paste';
-  import { layersOf, partsOf } from '../../lib/job-parts';
   import { server } from '../../stores/server.svelte';
   import { ui } from '../../stores/ui.svelte';
   import { osk } from '../../lib/osk.svelte';
@@ -44,7 +44,9 @@
   const draft = $derived(doc.draft);
   const scene = $derived(server.canvasDraft);
   const updating = $derived(draft?.error === 'preparing geometry');
-  const layers = $derived(layersOf(partsOf(draft, doc.library.parts)));
+  const layers = $derived(draft?.layers ?? []);
+  /** Engraved layers draw dashed: marked on the surface, not cut through. */
+  const engraved = $derived(new Set(layers.filter((l) => l.engrave && !l.ignored).map((l) => l.name)));
   const preview = $derived(!updating && ui.picking?.revision === draft?.revision ? (ui.picking?.preview ?? scene?.preview ?? null) : scene?.preview ?? null);
   const groups = $derived(scene?.groups ?? []);
   const stockOutline = $derived(ui.nestPreview ? ui.nestStock?.outline ?? scene?.stock_outline ?? [] : ui.nestLive?.stock_outline ?? scene?.stock_outline ?? []);
@@ -513,6 +515,14 @@
           ui.picking = { ...picking, first: null };
           break;
         }
+        case 'layer': {
+          // Tapped again, a shape leaves the pick.
+          const picked = picking.order.includes(pick.spot.contour);
+          const order = picked ? picking.order.filter((c) => c !== pick.spot.contour) : [...picking.order, pick.spot.contour];
+          const at = draft.placed[pick.owner] ? apply(draft.placed[pick.owner]!.transform, pick.point) : pick.point;
+          ui.picking = { ...picking, order, marks: picked ? picking.marks : [...picking.marks, at] };
+          return;
+        }
         case 'order': {
           if (picking.order.includes(pick.spot.contour)) return;
           const group = candidates.find((group) => group.includes(pick.spot.contour));
@@ -537,6 +547,11 @@
     const picking = ui.picking;
     if (updating || !picking || pickBusy) return;
     if (picking.first) { ui.say('Complete or cancel the pending bridge end first.', true); return; }
+    if (picking.feature === 'layer') {
+      ui.picking = null;
+      if (picking.order.length) assigning = picking.order;
+      return;
+    }
     await withBusy((b) => (pickBusy = b), async () => {
       await api.setFeatures(picking.features, picking.revision);
       if (ui.picking === picking) ui.picking = null;
@@ -570,6 +585,16 @@
 
   // The drawing's layers: shown or hidden here, cut or skipped in the job.
   let layersOpen = $state(false);
+  /** Shapes picked to move to a layer, while their layer is chosen. */
+  let assigning = $state<number[] | null>(null);
+  /** Picks shapes one by one, whatever layer they are on, to move to a layer. */
+  function pickForLayer(): void {
+    if (!draft) return;
+    layersOpen = false;
+    selected = [];
+    const features = { ...structuredClone($state.snapshot(draft.features)), skip_layers: [] };
+    ui.picking = { feature: 'layer', first: null, order: [], revision: draft.revision, features, marks: [] };
+  }
   const hidden = (layer: string) => ui.hiddenDrawingLayers.includes(layer);
 
   /** A mark size in millimetres that keeps its screen size. */
@@ -623,7 +648,7 @@
             {#if !hidden(contour.layer)}
               <path class="hit" d={hitPath(contour)} vector-effect="non-scaling-stroke"/>
               {#each contour.paths as path}
-                {#if ui.layerShown(path.kind)}<path class="path {path.kind}" d={drawingPath(path.points)} vector-effect="non-scaling-stroke"/>{/if}
+                {#if ui.layerShown(path.kind)}<path class="path {path.kind}" class:engrave={engraved.has(contour.layer)} d={drawingPath(path.points)} vector-effect="non-scaling-stroke"/>{/if}
               {/each}
               {#if details && (ui.setupPanel !== 'nest' || on)}
                 {#if ui.layerShown('cooling')}
@@ -675,7 +700,7 @@
         <PickBar picking={ui.picking} picked={pickedCount} total={candidates.length} busy={updating || pickBusy} onfinish={finishPicks} />
       {/if}
       {#if layersOpen && layers.length && draft}
-        <LayersPopover {layers} skipped={draft.features.skip_layers} onclose={() => (layersOpen = false)} />
+        <LayersPopover {layers} onpick={pickForLayer} onclose={() => (layersOpen = false)} />
       {/if}
       {#if preview?.warnings.length}<div class="hint">{preview.warnings[0]}</div>{/if}
       {#if selection && selectionShown}
@@ -685,3 +710,4 @@
   </Stage>
 </div>
 <DrawingToolbar tools={DRAW_TOOLS} selected={!!selection} />
+{#if assigning}<LayerAssign contours={assigning} {layers} onclose={() => (assigning = null)} />{/if}

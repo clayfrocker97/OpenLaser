@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PartView } from '../api';
-import { hasAllParts, layersOf, livePicks, onlyPart, partsOf, sourceLabel, togglePick } from './job-parts';
+import { hasAllParts, livePicks, onlyPart, partsOf, sourceLabel, togglePick } from './job-parts';
 
 const part = (id: string, layers: [string, number][] = [['0', 1]]): PartView => ({
   tags: [], notes: '', quantity: 1, id, name: id.toUpperCase(), folder: null, file_name: `${id}.dxf`, bounds: null,
@@ -18,11 +18,6 @@ describe('job parts', () => {
     expect(hasAllParts({ parts: ['a', 'b'] }, library)).toBe(true);
     expect(hasAllParts({ parts: ['a', 'gone'] }, library)).toBe(false);
     expect(partsOf(null, library)).toEqual([]);
-  });
-
-  it('merges drawing layers across parts', () => {
-    expect(layersOf(library)).toEqual([{ name: '0', contours: 3 }, { name: 'Etch', contours: 4 }]);
-    expect(library[0]!.layers[0]!.contours).toBe(2);
   });
 
   it('labels the source files', () => {

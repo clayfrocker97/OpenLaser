@@ -24,6 +24,7 @@ on a working controller connection and is not a replacement for it.
 - [Run your first job](#run-your-first-job)
 - [Several parts in one job](#several-parts-in-one-job)
 - [Simplify a drawing](#simplify-a-drawing)
+- [Layers](#layers)
 - [Nest parts and reuse a remnant](#nest-parts-and-reuse-a-remnant)
 - [Pause, resume, stop and restart](#pause-resume-stop-and-restart)
 - [Materials and process settings](#materials-and-process-settings)
@@ -246,6 +247,25 @@ One sheet prepares up to 20 000 contours and 200 000 lines and arcs; nearest-nex
 cut ordering takes up to 10 000 contours. Split larger work over several sheets
 with nesting.
 
+## Layers
+
+Each layer of a drawing can be cut with its own recipe. Open **Layers** in the
+drawing bar:
+
+- **Choose a recipe or Ignore.** A drawing of one layer uses the job's recipe.
+  With more than one layer to cut, every layer needs a choice before the job
+  compiles: **Job recipe**, any recipe for the same laser, or **Ignore** to
+  leave it uncut.
+- **Engrave** marks a layer on the surface: no kerf, leads, micro-joints or
+  cooling, it never counts as a hole or a part outline, and it runs before the
+  cuts. Pair it with an engraving recipe (low Peak Current, higher Cut Height).
+- **Rename** a layer by tapping its name.
+- **Move shapes to a layer…** lets you tap shapes one at a time, whichever
+  layer they are on, then send them to a layer or a new one. Every copy of a
+  shape moves with it; Undo moves them back.
+
+Layer choices and moved shapes are saved with the job.
+
 ## Nest parts and reuse a remnant
 
 Open **Nest parts** from Setup. **Sheets, filled in order** lists what the nest
@@ -369,10 +389,12 @@ mode and recipe actions, and under it the recipe's summary. Under
 manual optical focus and lens focal length. Gas selection is beside the head
 setup controls. Cutting and piercing process values remain separate.
 
-Every screen summarises a recipe the same way: Speed, Power, Duty, Frequency,
-Gas with its pressure, Nozzle, Focus, Lens, Cut height and Pierce. **Power** is
-the laser's peak power setting in percent; **Duty** is the duty cycle, the part
-of each pulse period the beam is on.
+Recipe fields use M-Laser's names, so a recipe reads the same in both. Every
+screen summarises a recipe the same way: Cut Speed, Peak Current, Cut Power,
+Cut Freq, Gas with its pressure, Nozzle, Focus, Lens, Cut Height and Pierce.
+**Peak Current** is the laser's output while the beam is on, in percent of its
+rating; **Cut Power** is the PWM duty, the share of each pulse the beam is on.
+Common fields carry a line underneath saying what they do.
 
 Nozzle, optical focus and lens are operator setup values. Editing them does not
 move a focus motor or command Z. Source process values are retained on import.

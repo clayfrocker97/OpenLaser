@@ -1,7 +1,7 @@
 // The library parts a job cuts. A job's drawing is its parts' drawings
 // joined in order; the server lays them out side by side and keeps each
 // part's contours in one range of that drawing (DraftView.parts).
-import type { LayerView, PartView } from '../api';
+import type { PartView } from '../api';
 
 /** What a job refers to its parts by. */
 type Parts = { parts: ReadonlyArray<string | { id: string }> } | null | undefined;
@@ -22,17 +22,6 @@ export function onlyPart(job: Parts, library: readonly PartView[]): PartView | u
 /** Whether every part a saved job cuts is still in the library. */
 export function hasAllParts(job: Parts, library: readonly PartView[]): boolean {
   return ids(job).every((id) => library.some((part) => part.id === id));
-}
-
-/** Every drawing layer across the parts, with how many contours it holds. */
-export function layersOf(parts: readonly PartView[]): LayerView[] {
-  const layers: LayerView[] = [];
-  for (const layer of parts.flatMap((part) => part.layers)) {
-    const known = layers.find((l) => l.name === layer.name);
-    if (known) known.contours += layer.contours;
-    else layers.push({ ...layer });
-  }
-  return layers;
 }
 
 /** The files a job's parts came from, for a header: one file, or the first and a count. */
