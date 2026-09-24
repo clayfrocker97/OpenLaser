@@ -26,6 +26,7 @@
   import { restartAt } from '../lib/recovery';
   import { beginRun } from '../lib/run-actions';
   import { cutHistory } from '../lib/cut-history';
+  import { nextStep } from '../lib/next-step';
 
   let { compact = false, recoveryEditor = false }: { compact?: boolean; recoveryEditor?: boolean } = $props();
   const doc = $derived(server.doc!);
@@ -156,6 +157,9 @@
 
   let remnant = $state<string | null>(null);
   let showLayers = $state(false);
+  let layersOpen = $state(false);
+  let valuesOpen = $state(false);
+  const step = $derived(nextStep(doc));
   let preflight = $state<PreflightReview | null>(null);
   let reviewing = $state(false);
   let choosingRun = $state(false);
@@ -194,13 +198,14 @@
     <div class="crumb">
       <strong>{jobName}</strong>
       <span class="run-msg run-material">{material ? `${recipeLabel(material)} · ${laserLabel(material.laser)}` : 'No material'}</span>
+      {#if material}<button class="values-toggle" aria-expanded={valuesOpen} onclick={() => (valuesOpen = !valuesOpen)}>{valuesOpen ? 'Hide values' : 'Values'}</button>{/if}
       {#if draft?.calibration}
         <span class="run-msg run-correction">Correction off</span>
       {:else if !displayed && draft?.placement.correction_pending}
         <span class="run-msg run-correction">Correction pending position</span>
       {/if}
     </div>
-    {#if material}<details class="run-summary"><summary>Recipe values</summary><MaterialSummary source={material} variant="line" /></details>{/if}
+    {#if material && valuesOpen}<div class="run-summary"><MaterialSummary source={material} variant="line" /></div>{/if}
     <div class="run-meta">
       <strong>{execution?.frame ? 'Frame' : `${Math.round(pct)}%`}</strong>
       <span>{execution?.frame ? 'Laser off' : `${done} / ${contours} passes`}</span>
@@ -213,21 +218,6 @@
   {/if}
 
   {#if !recovering && !running && !paused}<SheetStrip />{/if}
-  {#if draft && !recovering && !running && !paused}
-    <div class="run-choice">
-      <span class="muted">{choosingRun ? 'Preparing…' : draft.dry_run ? 'Laser off' : ''}</span>
-      <div class="seg">
-        <button
-          class:on={!draft.dry_run}
-          disabled={choosingRun || !doc.readiness.compile.ok || !!machine.operation}
-          onclick={() => chooseRun(false)}>Cut</button>
-        <button
-          class:on={draft.dry_run}
-          disabled={choosingRun || !doc.readiness.compile.ok || !!machine.operation}
-          onclick={() => chooseRun(true)}>Dry run</button>
-      </div>
-    </div>
-  {/if}
   <Stage {view} variant="run-canvas" bed={frame.bed} head={frame.head} origin={frame.origin} ontap={pickRestart}>
     {#if draft?.stock_outline.length && !displayed}
       <g transform="translate({frame.zero[0]} {frame.zero[1]})">
@@ -285,21 +275,20 @@
       </g>
     {/if}
     {#snippet overlay()}
-      <div class="canvas-hud">
-        {#if frame.head}
-          <span>Head X {distance(frame.head[0] - frame.zero[0])}</span>
-          <span>Y {distance(frame.head[1] - frame.zero[1])}</span>
-          <span class="muted">job coordinates · {unitLabel('mm')}</span>
-        {:else}
-          <span>Connect for the head position</span>
+      <div class="run-float">
+        {#if draft && !recovering && !running && !paused}
+          <div class="seg">
+            <button class:on={!draft.dry_run} disabled={choosingRun || !doc.readiness.compile.ok || !!machine.operation} onclick={() => chooseRun(false)}>Cut</button>
+            <button class:on={draft.dry_run} disabled={choosingRun || !doc.readiness.compile.ok || !!machine.operation} onclick={() => chooseRun(true)}>Dry run</button>
+          </div>
         {/if}
-        <span class="sep"></span>
-        <span>{view.percent}%</span>
+        <span class="step-chip" class:ok={!step} role="status">{step ?? (choosingRun ? 'Preparing…' : `Ready · ${laserLabel(doc.mode)}`)}</span>
       </div>
       <div class="canvas-zoom">
         <button onclick={fit} title="Fit job"><i class="ic ic-fit"></i></button>
         <button onclick={() => view.zoom(1.25)} title="Zoom in"><i class="ic ic-plus"></i></button>
         <button onclick={() => view.zoom(0.8)} title="Zoom out"><i class="ic ic-minus"></i></button>
+        <span class="zoom-percent">{view.percent}%</span>
       </div>
     {/snippet}
   </Stage>
@@ -313,7 +302,7 @@
       <span class="recovery-key"><i></i>Selected restart</span>
       <span class="recovery-key finished-key"><i></i>Completed</span>
       <button class="legend-chip" onclick={() => showLayers = true}>Display layers…</button>
-    {:else}
+    {:else if layersOpen || recovering}
       {#each LAYERS as [layer, label]}
         <button class="legend-chip" class:off={!ui.layerShown(layer)} onclick={() => ui.toggleLayer(layer)}>
           <svg class="sample" viewBox="0 0 36 12" aria-hidden="true">
@@ -322,7 +311,10 @@
           {label}
         </button>
       {/each}
-      {#if recovering}<button class="legend-chip" onclick={() => showLayers = false}>Done</button>{/if}
+      {#if recovering}<button class="legend-chip" onclick={() => showLayers = false}>Done</button>
+      {:else}<button class="legend-chip" onclick={() => (layersOpen = false)}>Hide layers</button>{/if}
+    {:else}
+      <button class="legend-chip" onclick={() => (layersOpen = true)}>Layers…</button>
     {/if}
     <span class="spacer"></span>
     {#if !recovering || showLayers}
@@ -352,9 +344,6 @@
 {#if preflight}<FlightChecklist initial={preflight} onclose={() => (preflight = null)} />{/if}
 
 <style>
-.run-choice { display:flex; align-items:center; justify-content:flex-end; gap:8px; padding:8px 12px; border-bottom:1px solid var(--line); }
-.run-choice > span { margin-right:auto; font-size:var(--t-sm); }
-.run-choice button { min-height:44px; }
 .recovery-toggle { min-height:44px; }
 .panel-head.compact { display:grid; grid-template-columns:auto minmax(0,1fr); gap:5px 14px; min-height:66px; padding:9px 12px; }
 .crumb { grid-column:1 / -1; min-width:0; }
@@ -373,4 +362,11 @@
 .recovery-key { display:flex; align-items:center; gap:8px; font-size:var(--t-sm); color:var(--ink-3); }
 .recovery-key i { width:22px; height:3px; background:var(--hold); }
 .finished-key i { background:var(--ink-3); opacity:.45; }
+.run-float { position:absolute; left:14px; top:14px; display:flex; flex-wrap:wrap; gap:8px; align-items:center; max-width:calc(100% - 28px); }
+.run-float .seg { background:var(--panel); }
+.step-chip { display:inline-flex; align-items:center; gap:8px; min-height:44px; padding:0 14px; border:1px solid var(--line); border-radius:12px; background:var(--panel); font-size:var(--t-sm); font-weight:600; color:var(--ink); }
+.step-chip::before { content:''; width:8px; height:8px; border-radius:50%; background:var(--warn); }
+.step-chip.ok::before { background:var(--move); }
+.zoom-percent { display:inline-flex; align-items:center; padding:0 8px; font-size:var(--t-sm); color:var(--ink-3); font-variant-numeric:tabular-nums; }
+.values-toggle { flex:none; min-height:44px; min-width:44px; padding:0 10px; border:0; background:transparent; color:var(--accent); font:inherit; font-size:var(--t-sm); cursor:pointer; }
 </style>

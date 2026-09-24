@@ -38,13 +38,6 @@
   const homed = $derived(fresh && doc.machine.session.homed && feedback?.referenced.every(Boolean));
   const headHomed = $derived(fresh && feedback?.head.referenced);
   const sourceLabel = $derived(doc.mode === 'fiber' ? 'Fiber' : doc.mode === 'co2' ? 'CO₂' : 'Not selected');
-  /** The one thing to do next before cutting, in the order it is done; null when ready. */
-  const nextStep = $derived(doc.machine.connection.state !== 'connected' ? 'Next: connect'
-    : !fresh ? 'Waiting for the machine'
-    : !homed ? 'Next: home XY'
-    : headEnabled && !headHomed ? 'Next: home Z'
-    : headEnabled && !doc.calibration.current ? (doc.calibration.quality ? 'Next: calibrate Z (material changed)' : 'Next: calibrate Z')
-    : null);
 
   const work = $derived.by(() => {
     if (!feedback) return null;
@@ -131,9 +124,6 @@
 
 <aside class="panel side run-side">
  <div class="run-side-scroll">
-  <div class="setup-state" role="status" aria-label="Machine setup">
-    <span class="chip" class:ok={!nextStep}>{nextStep ?? `Ready · ${sourceLabel}`}</span>
-  </div>
   {#if machine.program?.state === 'held' && doc.recovery?.pause_position}
     <div class="pause-position" role="status">
       <strong>Paused at X {distance(doc.recovery.pause_position[0])} · Y {distance(doc.recovery.pause_position[1])} {unitLabel('mm')}</strong>
@@ -249,10 +239,6 @@
 
 <style>
   .run-side { padding:12px; }
-  .setup-state { display:flex; flex-wrap:wrap; gap:6px; }
-  .setup-state .chip { display:inline-flex; align-items:center; gap:6px; padding:4px 10px 4px 8px; border:1px solid var(--line); border-radius:999px; font-size:var(--t-sm); font-weight:600; color:var(--ink-2); }
-  .setup-state .chip::before { content:''; width:8px; height:8px; border-radius:50%; background:var(--warn); }
-  .setup-state .chip.ok::before { background:var(--move); }
   .pause-position { display:flex; flex-direction:column; gap:5px; padding:10px; border:1px solid var(--hold); border-radius:9px; font-size:var(--t-sm); }
   .pause-position span { color:var(--ink-3); line-height:1.4; }
   .run-side-scroll { flex:1; min-height:0; overflow-y:auto; display:flex; flex-direction:column; gap:8px; padding-right:2px; }
