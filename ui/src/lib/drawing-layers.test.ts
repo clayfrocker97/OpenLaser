@@ -15,9 +15,12 @@ describe('layers', () => {
     const layers = [layer('0'), layer('Red', [255, 0, 0]), layer('Etch'), layer('White', [255, 255, 255]), layer('Blue', [0, 0, 255])];
     expect(layerColor(layers, '0')).toBeNull();
     expect(layerColor(layers, 'Red')).toBe('#ff0000');
-    expect(layerColor(layers, 'Etch')).toBe('#f28c28');
+    expect(layerColor(layers, 'Etch')).toBe('#3b82f6');
     expect(layerColor(layers, 'White')).toBeNull();
     expect(layerColor(layers, 'Blue')).toBe('#0000ff');
+    // Another order keeps every colour.
+    const turned = [...layers].reverse();
+    expect(layers.map((l) => layerColor(turned, l.name))).toEqual(layers.map((l) => layerColor(layers, l.name)));
   });
 
   it('sees a layer through its own machining, keeping the jobs picked places', () => {

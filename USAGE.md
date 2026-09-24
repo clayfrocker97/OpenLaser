@@ -249,30 +249,36 @@ with nesting.
 
 ## Layers
 
-Layers work as in LightBurn's Cuts / Layers list. Open **Layers** in the
-drawing bar, or tap the Layers card in Setup's side panel.
+Layers work as in LightBurn: one list, a palette to move shapes, and a
+sheet per layer.
 
-- **Order.** Layers run top to bottom; drag a layer's grip to move it. Until
-  you do, layers of smaller shapes run first, so a layer of holes runs
-  before the outlines around them.
-- **Colour.** A layer takes its colour from the DXF (layer or entity colour)
-  or the SVG (stroke colour); shapes of another colour than their layer's
-  come in as a layer of their own, such as `0 Red`. Tap the swatch to change
-  it. **Show** hides a layer on screen only.
-- **Output.** Off leaves the layer uncut. With more than one layer to output,
-  each needs a recipe before the job compiles: **Job recipe** or any recipe
-  for the same laser.
-- **Cut or Mark.** Cut goes through the sheet: those shapes make the parts
-  and their holes. Mark traces the surface: a mark is never a part or a hole,
-  and it has no leads, kerf, joints or cooling unless it has machining of
-  its own. Use Mark with an engraving recipe for bend lines or countersinks.
-- **Machining per layer.** Leads, microjoints, cooling, kerf and start can be
-  set for one layer: choose the layer under **Applies to** in the tool's
-  panel. Places picked on the drawing stay the job's.
+- **The list.** A drawing of more than one layer lists them under the
+  material in Setup's side panel, each with its colour, Cut or Mark, recipe
+  and an Output switch. Drag a layer's grip to move it; layers run top to
+  bottom. Until you do, layers of smaller shapes run first, so a layer of
+  holes runs before the outlines around them.
 - **Moving shapes.** Tap a part to select it; tap one of its shapes again to
   take that shape alone, such as the hole inside a countersink. **Layer** in
-  the drawing bar moves the selection to a layer or a new one. Rename a layer
-  by tapping its name.
+  the drawing bar moves the selection to a layer, or to a new one, whose
+  settings open next.
+- **A layer's settings.** Tap a layer in the list:
+  - **Colour and name.** A layer takes its colour from the DXF (layer or
+    entity colour) or the SVG (stroke colour); shapes of another colour than
+    their layer's come in as a layer of their own, such as `0 Red`. Tap the
+    swatch to change it and the name to rename it. The eye hides the layer
+    on screen only.
+  - **Output.** Off leaves the layer uncut. With more than one layer to
+    output, each needs a recipe before the job compiles: **Job material** or
+    any recipe for the same laser.
+  - **Mode.** Cut goes through the sheet: those shapes make the parts and
+    their holes. Mark traces the surface: a mark is never a part or a hole,
+    and it has no leads, kerf, joints or cooling unless it has machining of
+    its own. Use Mark with an engraving recipe for bend lines or
+    countersinks.
+  - **Machining.** Edit opens the machining tools for this layer. Leads,
+    microjoints, cooling, kerf and start can be a layer's own; **Applies
+    to** in each tool's panel switches layer. Places picked on the drawing
+    stay the job's.
 
 Layers are saved with the job.
 

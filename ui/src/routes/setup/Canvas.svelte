@@ -207,10 +207,6 @@
     fit: { label: 'Fit', title: 'Frame the parts', when: 'idle', icon: 'ic-fit', disabled: () => false, run: () => fit() },
     'zoom-in': { label: 'Zoom in', when: 'idle', icon: 'ic-plus', disabled: () => false, run: () => view.zoom(1.25) },
     'zoom-out': { label: 'Zoom out', when: 'idle', icon: 'ic-minus', disabled: () => false, run: () => view.zoom(0.8) },
-    layers: {
-      label: 'Layers', when: 'idle', icon: 'ic-layers', on: () => ui.setupPanel === 'layers',
-      disabled: () => !layers.length, run: () => { ui.setupPanel = ui.setupPanel === 'layers' ? null : 'layers'; },
-    },
     layer: {
       label: 'Layer', title: 'Move the selection to a layer', when: 'selected', icon: 'ic-layers',
       disabled: () => selectionLocked, run: () => { assigning = shape !== null ? [shape] : contoursOf(selected); },

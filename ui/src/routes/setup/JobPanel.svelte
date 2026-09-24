@@ -2,7 +2,7 @@
   import { plain } from '../../lib/plain';
   import { displayNumber, quantity, unitLabel } from '../../lib/units.svelte';
   import MaterialSheet from './MaterialSheet.svelte';
-  import LayerRecipeChooser from './LayerRecipeChooser.svelte';
+  import { Reorder } from '../../lib/reorder.svelte';
   import MaterialSummary from '../../components/MaterialSummary.svelte';
   import PreflightEditor from '../../components/PreflightEditor.svelte';
   import { pictureOf } from '../../lib/materials';
@@ -49,12 +49,32 @@
   const layersAsking = $derived(draft.layers.filter((l) => l.output).length > 1);
   const layersMissing = $derived(layersAsking && draft.layers.some((l) => l.output && !l.chosen));
   function layerHow(layer: DraftLayer): string {
-    if (!layer.output) return 'Off';
-    if (!layer.chosen) return layersAsking ? 'Choose a recipe' : 'Job recipe';
-    return `${layer.mode === 'mark' ? 'Mark · ' : ''}${layer.recipe ? recipeLabel(layer.recipe) : 'Job recipe'}`;
+    const mode = layer.mode === 'mark' ? 'Mark' : 'Cut';
+    if (!layer.output) return `${mode} · Off`;
+    if (!layer.chosen && layersAsking) return `${mode} · Choose a recipe`;
+    return `${mode} · ${layer.recipe ? recipeLabel(layer.recipe) : 'Job material'}`;
   }
 
-  let choosing = $state<DraftLayer | null>(null);
+  // Dragging reorders a local list; the order is sent once, on release.
+  let layerOrder = $state<string[]>([]);
+  let grabbing = false;
+  $effect(() => { layerOrder = draft.layers.map((l) => l.name); });
+  const rows = new Reorder({
+    attribute: 'layer-row',
+    order: () => layerOrder,
+    save: (next) => { layerOrder = next; },
+    editing: () => grabbing,
+    horizontal: () => false,
+  });
+  function grab(e: PointerEvent): void { grabbing = true; rows.down(e); }
+  function release(): void {
+    if (!grabbing) return;
+    grabbing = false;
+    rows.up();
+    const next = $state.snapshot(layerOrder);
+    if (next.join('\n') !== draft.layers.map((l) => l.name).join('\n')) run(() => api.changeLayers({ kind: 'order', layers: next }));
+  }
+  const shownLayers = $derived(layerOrder.map((name) => draft.layers.find((l) => l.name === name)).filter((l): l is DraftLayer => !!l));
   let sheet = $state(false);
   let checklist = $state(false);
 
@@ -116,7 +136,7 @@
   {/if}
 </div>
 
-<div class="card2 compact">
+<div class="card2 compact" class:needs={layersMissing}>
   <button class="mat-row" onclick={() => (sheet = true)}>
     {#if recipe}
       {@const art = pictureOf(recipe.name, recipe.photo)}
@@ -132,22 +152,31 @@
     <span class="link">Change</span>
   </button>
   {#if recipe}<MaterialSummary source={recipe} variant="compact" />{/if}
-</div>
-
-<div class="card2 layers-card" class:needs={layersMissing}>
-  <div class="card2-head"><h3>Layers</h3><button class="btn btn-ghost" onclick={() => (ui.setupPanel = 'layers')}>Edit</button></div>
-  <div class="layer-lines">
-    {#each draft.layers.slice(0, 4) as layer (layer.name)}
-      {@const needs = layersAsking && layer.output && !layer.chosen}
-      <button class="layer-line" class:off={!layer.output} class:needs onclick={() => (choosing = layer)}>
-        <span class="layer-swatch" class:mark={layer.mode === 'mark'} style:--layer={layerColor(draft.layers, layer.name) ?? 'var(--cut)'}></span>
-        <span class="layer-name">{layer.name}</span>
-        <span class="layer-how">{needs ? 'Choose…' : layerHow(layer)}</span>
-        <i class="ic ic-chev-right"></i>
-      </button>
-    {/each}
-  </div>
-  {#if draft.layers.length > 4}<button class="btn btn-ghost block" onclick={() => (ui.setupPanel = 'layers')}>{draft.layers.length - 4} more layers</button>{/if}
+  {#if draft.layers.length > 1}
+    <div class="layers-head">
+      <h3>Layers</h3>
+      <small class:warn-text={layersMissing}>{layersMissing ? 'Choose a recipe or turn off each' : 'Run top to bottom'}</small>
+    </div>
+    <div class="layer-lines" role="list">
+      {#each shownLayers as layer (layer.name)}
+        {@const needs = layersAsking && layer.output && !layer.chosen}
+        <!-- The row holds the pointer while its grip drags it, so it hears the move and release. -->
+        <div class="layer-line" data-layer-row={layer.name} class:off={!layer.output} class:needs class:placeholder={rows.dragging === layer.name}
+          onpointermove={rows.move} onpointerup={release} onpointercancel={release} role="listitem">
+          <button class="grip" aria-label="Drag {layer.name} up or down" onpointerdown={grab}><i class="ic ic-grip"></i></button>
+          <button class="layer-open" onclick={() => (ui.layerSheet = layer.name)}>
+            <span class="layer-swatch" class:mark={layer.mode === 'mark'} style:--layer={layerColor(draft.layers, layer.name) ?? 'var(--cut)'}></span>
+            <span class="layer-text">
+              <span class="layer-name">{layer.name}</span>
+              <small class="layer-how">{layerHow(layer)}</small>
+            </span>
+          </button>
+          <button class="switch small" class:on={layer.output} aria-label="Output {layer.name}"
+            onclick={() => run(() => api.changeLayers({ kind: 'output', layer: layer.name, on: !layer.output }))}></button>
+        </div>
+      {/each}
+    </div>
+  {/if}
 </div>
 
 {#if draft.calibration}<p class="correction-status">Correction off</p>{:else if draft.correction}<p class="correction-status">Matrix correction</p>{/if}
@@ -180,7 +209,6 @@
   <button class="btn btn-primary xl block" onclick={() => review(false)} disabled={!doc.readiness.compile.ok} title={doc.readiness.compile.reason ?? ''}>Go to Run →</button>
 </div>
 
-{#if choosing}<LayerRecipeChooser layer={choosing} onclose={() => (choosing = null)} />{/if}
 {#if sheet}<MaterialSheet onclose={() => (sheet = false)} />{/if}
 {#if adding}<AddParts onclose={() => (adding = false)} />{/if}
 {#if texting}<CreateText onclose={() => (texting = false)} />{/if}
@@ -212,18 +240,20 @@
   .info-row strong { font-size:var(--t-base); }
   .info-row small { font-size:var(--t-sm); color:var(--ink-3); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .info-row .btn { min-height:44px; }
-  .layers-card { padding:10px 12px; gap:8px; }
-  .layers-card.needs { border-color:var(--warn); }
+  .compact.needs { border-color:var(--warn); }
+  .layers-head { display:flex; align-items:baseline; justify-content:space-between; gap:10px; padding-top:8px; border-top:1px solid var(--line); }
+  .layers-head small { color:var(--ink-3); }
   .layer-lines { display:grid; gap:6px; }
-  .layer-line {
-    width:100%; min-height:44px; display:flex; align-items:center; gap:10px; padding:0 8px 0 12px; min-width:0;
-    border:1px solid var(--line); border-radius:10px; background:var(--panel-2); color:var(--ink); font:inherit; text-align:left; cursor:pointer;
-  }
-  .layer-line.off { opacity:.55; }
+  .layer-line { display:flex; align-items:center; gap:4px; min-width:0; padding-right:8px; border:1px solid var(--line); border-radius:10px; background:var(--panel-2); }
+  .layer-line.placeholder { opacity:.3; }
   .layer-line.needs { border-color:var(--warn); }
   .layer-line.needs .layer-how { color:var(--warn); font-weight:600; }
-  .layer-swatch { flex:none; width:16px; height:16px; border-radius:4px; background:var(--layer); }
+  .layer-line.off .layer-name, .layer-line.off .layer-swatch { opacity:.5; }
+  .grip { flex:none; width:40px; height:48px; display:grid; place-items:center; border:0; background:transparent; color:var(--ink-3); cursor:grab; touch-action:none; }
+  .layer-open { flex:1; min-width:0; min-height:48px; display:flex; align-items:center; gap:10px; padding:0; border:0; background:transparent; color:var(--ink); font:inherit; text-align:left; cursor:pointer; }
+  .layer-swatch { flex:none; width:18px; height:18px; border-radius:5px; background:var(--layer); }
   .layer-swatch.mark { background:transparent; border:2px dashed var(--layer); }
-  .layer-name { font-weight:600; font-size:var(--t-base); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .layer-how { margin-left:auto; flex:none; max-width:55%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--ink-3); font-size:var(--t-sm); }
+  .layer-text { display:grid; gap:1px; min-width:0; }
+  .layer-name { font-weight:600; font-size:var(--t-base); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .layer-how { color:var(--ink-3); font-size:var(--t-sm); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 </style>

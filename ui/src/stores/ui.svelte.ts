@@ -35,7 +35,7 @@ export interface Picking {
 }
 
 /** The drawing bar's default order: view tools, then editing tools, then history. */
-const DRAW_BAR = ['fit', 'zoom-in', 'zoom-out', 'layers', 'snap', 'grid', 'layer', 'mirror-x', 'mirror-y', 'turn', 'scale', 'center', 'reset', 'group', 'ungroup', 'copy', 'paste', 'delete', 'deselect', 'undo', 'redo'];
+const DRAW_BAR = ['fit', 'zoom-in', 'zoom-out', 'snap', 'grid', 'layer', 'mirror-x', 'mirror-y', 'turn', 'scale', 'center', 'reset', 'group', 'ungroup', 'copy', 'paste', 'delete', 'deselect', 'undo', 'redo'];
 
 /** A saved order keeps only known tools and gains tools added since it was saved. */
 function withAll(order: string[], all: string[]): string[] {
@@ -84,9 +84,11 @@ class Ui {
    *  the library is not picking. */
   partPicks = $state<string[] | null>(null);
   selectedRecipe = $state<string | null>(null);
-  setupPanel = $state<FeatureId | 'copy' | 'clipboard' | 'nest' | 'layers' | null>(null);
+  setupPanel = $state<FeatureId | 'copy' | 'clipboard' | 'nest' | null>(null);
   /** The layer the machining panels edit; none edits the job's own. */
   machiningLayer = $state<string | null>(null);
+  /** The layer whose settings sheet is open. */
+  layerSheet = $state<string | null>(null);
   nestPreview = $state<Preview | null>(null);
   nestStock = $state<{ outline: number[][]; cutouts: number[][][] } | null>(null);
   /** Where a running nesting search has the parts, for the canvas. */

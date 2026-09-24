@@ -72,7 +72,12 @@ Local review candidate built on 2026-09-24. Not published.
 - The machining bar and the drawing bar are one component, arranged with
   Order the same way; machining tools have icons.
 - Setup's side panel fits without scrolling: a one-row material with its
-  values, a Layers card, and gas and laser folded to one line.
+  values, then the layers under it, and gas and laser folded to one line.
+- One place for layers: the list under the material drags to reorder and
+  switches output; tapping a layer opens its sheet (colour, name, show,
+  Cut or Mark, recipe, machining). **Layer** in the drawing bar only moves
+  shapes, and a new layer opens its sheet. Layer colours follow their names,
+  so reordering keeps them.
 
 ### Materials and recipes
 

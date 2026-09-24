@@ -4,9 +4,9 @@
   import Modal from '../components/Modal.svelte';
   import JobPanel from './setup/JobPanel.svelte';
   import FeaturePanel from './setup/FeaturePanel.svelte';
+  import LayerSheet from './setup/LayerSheet.svelte';
   import CopyPanel from './setup/CopyPanel.svelte';
   import ClipboardPanel from './setup/ClipboardPanel.svelte';
-  import LayersPanel from './setup/LayersPanel.svelte';
   import NestPanel from './setup/NestPanel.svelte';
   import CreateText from '../components/CreateText.svelte';
   import { featureEdits } from '../stores/feature-edits';
@@ -93,8 +93,6 @@
       {clipboard} bind:settings={pasteSettings} {pasting}
       disabled={draft.error === 'preparing geometry' || !pasteable(clipboard, draft) || !!ui.picking || ui.nestShown || ui.nestPicking}
       onpaste={() => { void canvas?.paste(pasteSettings.count); }} />
-  {:else if ui.setupPanel === 'layers'}
-    <LayersPanel />
   {:else if ui.setupPanel === 'nest'}
     <NestPanel {selectedContours} onselectall={() => canvas?.selectAll()} />
   {:else if ui.setupPanel}
@@ -104,6 +102,7 @@
   {/if}
 </aside>
 {#if texting}<CreateText onclose={() => (texting = false)} />{/if}
+{#if ui.layerSheet && draft}{#key ui.layerSheet}<LayerSheet name={ui.layerSheet} onclose={() => (ui.layerSheet = null)} />{/key}{/if}
 
 
 {#if menu}

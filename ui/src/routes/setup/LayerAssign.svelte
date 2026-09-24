@@ -1,5 +1,6 @@
 <script lang="ts">
-  // Where selected shapes go: a layer the job has, or a new one named here.
+  // Where selected shapes go, as LightBurn's palette sends them: a layer the
+  // job has, or a new one named here, whose settings open next.
   import Modal from '../../components/Modal.svelte';
   import { api } from '../../api/client';
   import { ui } from '../../stores/ui.svelte';
@@ -11,16 +12,18 @@
   let { contours, layers, onclose }: { contours: number[]; layers: DraftLayer[]; onclose: () => void } = $props();
   let busy = $state(false);
 
-  async function assign(layer: string): Promise<void> {
+  /** A new layer opens its settings next. */
+  async function assign(layer: string, fresh = false): Promise<void> {
     busy = true;
     try {
       await api.changeLayers({ kind: 'assign', contours, layer });
       ui.say(`${plural(contours.length, 'shape')} on ${layer} · Undo moves them back`);
       onclose();
+      if (fresh) ui.layerSheet = layer;
     } catch (error) { ui.say(explain(error), true); } finally { busy = false; }
   }
   function create(): void {
-    osk.text('New layer name', '', (name) => { if (name.trim()) void assign(name.trim()); });
+    osk.text('New layer name', '', (name) => { if (name.trim()) void assign(name.trim(), !layers.some((l) => l.name === name.trim())); });
   }
 </script>
 

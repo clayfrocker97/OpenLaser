@@ -3,8 +3,8 @@
 // layer table, so editing it is a features edit like any other.
 import type { DraftLayer, Features, Layer, Machining } from '../api';
 
-/** Colours for layers the file leaves uncoloured, after the first, which
- *  draws in the screen's cut colour; distinct on light and dark. */
+/** Colours for layers the file leaves uncoloured, by name after the first,
+ *  which draws in the screen's cut colour; distinct on light and dark. */
 export const PALETTE = ['#f28c28', '#3b82f6', '#d946ef', '#eab308', '#06b6d4', '#ef4444', '#8b5cf6', '#84cc16', '#ec4899', '#14b8a6'];
 
 const hex = ([r, g, b]: [number, number, number]) => `#${[r, g, b].map((c) => c.toString(16).padStart(2, '0')).join('')}`;
@@ -13,16 +13,16 @@ const hex = ([r, g, b]: [number, number, number]) => `#${[r, g, b].map((c) => c.
  *  White and black from a file read as the screen's own ink, which a light
  *  or dark screen would otherwise lose. */
 export function layerColor(layers: readonly DraftLayer[], name: string): string | null {
-  const at = layers.findIndex((l) => l.name === name);
-  const layer = layers[at];
+  const layer = layers.find((l) => l.name === name);
   if (!layer) return null;
   if (layer.color) {
     const grey = Math.max(...layer.color) - Math.min(...layer.color) < 24;
     const level = Math.max(...layer.color);
     return grey && (level > 230 || level < 40) ? null : hex(layer.color);
   }
-  const uncoloured = layers.slice(0, at).filter((l) => !l.color).length;
-  return uncoloured === 0 ? null : PALETTE[(uncoloured - 1) % PALETTE.length]!;
+  // By name, so reordering or colouring the others leaves this one's colour.
+  const at = layers.map((l) => l.name).sort((a, b) => a.localeCompare(b)).indexOf(name);
+  return at === 0 ? null : PALETTE[(at - 1) % PALETTE.length]!;
 }
 
 /** The machining features a layer can have its own of. */
