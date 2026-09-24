@@ -283,7 +283,10 @@
   .pick { display: flex; flex-direction: column; align-items: stretch; text-align: left; gap: 2px; flex: 1 1 220px; font-size: var(--t-sm); color: var(--ink-3); }
   .pick select { min-height: var(--touch); padding: 0 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel-2); font: 600 var(--t-base) var(--font); color: var(--ink); }
   .new { margin-left: .4em; color: var(--accent-2); font-weight: 700; }
-  .value { display: flex; flex-direction: column; justify-content: center; align-items: flex-start; min-height: var(--touch); min-width: 110px; padding: 4px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel-2); cursor: pointer; text-align: left; }
+  .value {
+    display: flex; flex-direction: column; justify-content: center; align-items: flex-start; min-height: var(--touch); min-width: 110px;
+    padding: 4px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel-2); cursor: pointer; text-align: left;
+  }
   .value span { font-size: var(--t-sm); color: var(--ink-3); }
   .value b { font-size: var(--t-base); font-variant-numeric: tabular-nums; }
   .seg button { min-height: 44px; }

@@ -33,7 +33,9 @@
     <div class="copy-row"><span>Number of copies</span><button class="num" aria-label="Number of copies" onclick={copies}>{settings.count}</button></div>
     <div class="copy-row"><span>Gap between copies</span><button class="num" aria-label="Gap between copies" onclick={gap}>{displayNumber(settings.gap, 'mm')} <small>{unitLabel('mm')}</small></button></div>
     <p class="direction-label" id="paste-direction">Paste direction</p>
-    <div class="directions" role="group" aria-labelledby="paste-direction">{#each directions as direction}<button class="choice" aria-pressed={settings.direction === direction.value} onclick={() => (settings.direction = direction.value)}>{direction.label}</button>{/each}</div>
+    <div class="directions" role="group" aria-labelledby="paste-direction">{#each directions as direction}<button
+      class="choice" aria-pressed={settings.direction === direction.value} onclick={() => (settings.direction = direction.value)}
+    >{direction.label}</button>{/each}</div>
   </fieldset>
   <button class="btn btn-primary lg block paste" disabled={disabled || pasting} onclick={onpaste}>{pasting ? 'Pasting…' : `Paste ${plural(settings.count, 'copy', 'copies')}`}</button>
   <p class="muted copy-note">Each paste continues from the last copy. Undo removes the whole batch.</p>

@@ -21,11 +21,19 @@
 <div class="stack">
   {#if same.length}<div class="divider same">Same recipe · {recipeLabel(draft.recipe)}</div>{/if}
   {#each same as j}
-    <div class="mat-row same" role="button" tabindex="0" onclick={() => copy(j.id, j.name)} onkeydown={(e) => { if (e.key === 'Enter') copy(j.id, j.name); }}><div class="swatch" style="background:var(--panel-2)"></div><div class="minw0"><div class="name"><span class="txt">{j.name}</span></div><div class="meta">{recipeLabel(j.recipe)} · {j.features_on.join(', ') || 'nothing on'}</div></div><span class="chev"><i class="ic ic-chev-right"></i></span></div>
+    <div class="mat-row same"
+      role="button" tabindex="0" onclick={() => copy(j.id, j.name)} onkeydown={(e) => { if (e.key === 'Enter') copy(j.id, j.name); }}
+    ><div class="swatch" style="background:var(--panel-2)"></div><div class="minw0"><div class="name"><span class="txt">{j.name}</span></div><div
+      class="meta">{recipeLabel(j.recipe)} · {j.features_on.join(', ') || 'nothing on'}</div></div><span
+      class="chev"><i class="ic ic-chev-right"></i></span></div>
   {/each}
   {#if others.length}<div class="divider">Other recipes</div>{/if}
   {#each others as j}
-    <div class="mat-row" role="button" tabindex="0" onclick={() => copy(j.id, j.name)} onkeydown={(e) => { if (e.key === 'Enter') copy(j.id, j.name); }}><div class="swatch" style="background:var(--panel-2)"></div><div class="minw0"><div class="name"><span class="txt">{j.name}</span></div><div class="meta">{recipeLabel(j.recipe)} · {j.features_on.join(', ') || 'nothing on'}</div></div><span class="chev"><i class="ic ic-chev-right"></i></span></div>
+    <div class="mat-row"
+      role="button" tabindex="0" onclick={() => copy(j.id, j.name)} onkeydown={(e) => { if (e.key === 'Enter') copy(j.id, j.name); }}
+    ><div class="swatch" style="background:var(--panel-2)"></div><div class="minw0"><div class="name"><span class="txt">{j.name}</span></div><div
+      class="meta">{recipeLabel(j.recipe)} · {j.features_on.join(', ') || 'nothing on'}</div></div><span
+      class="chev"><i class="ic ic-chev-right"></i></span></div>
   {/each}
   {#if !jobs.length}<p class="muted">No saved jobs yet.</p>{/if}
 </div>

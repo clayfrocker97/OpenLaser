@@ -71,6 +71,10 @@
     const confirmed = await ui.confirm({ title: 'Discard these recipe edits?', body: `${count} edited ${count === 1 ? 'value is' : 'values are'} thrown away; ${recipe.name} keeps its saved values.`, confirm: 'Discard edits', danger: true });
     if (confirmed) recipeEdits.discard(recipe.id);
   }
+  function add(): void {
+    if (pending) ui.say('Save or discard the changes first.', true);
+    else { adding = true; editing = true; }
+  }
   /** Another thickness of the recipe: a copy of its values. */
   function copy(): void {
     if (!recipe) return;
@@ -89,7 +93,7 @@
   }
 </script>
 
-{#if !compact || !editing}<Library {recipes} selected={compact ? null : recipe} selectOnExpand={!compact} onselect={select} onadd={() => { if (pending) ui.say('Save or discard the changes first.', true); else { adding = true; editing = true; } }} />{/if}
+{#if !compact || !editing}<Library {recipes} selected={compact ? null : recipe} selectOnExpand={!compact} onselect={select} onadd={add} />{/if}
 {#if compact && editing}<button class="btn btn-ghost" onclick={() => { editing = false; adding = false; }}>‹ Materials</button>{/if}
 {#if !compact || editing}
 {#if adding}

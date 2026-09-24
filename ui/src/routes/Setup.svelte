@@ -129,7 +129,10 @@
   {:else if ui.setupPanel === 'copy'}
     <CopyPanel />
   {:else if ui.setupPanel === 'clipboard'}
-    <ClipboardPanel {clipboard} bind:settings={pasteSettings} {pasting} disabled={draft.error === 'preparing geometry' || !pasteable(clipboard, draft) || !!ui.picking || ui.nestShown || ui.nestPicking} onpaste={() => { void canvas?.paste(pasteSettings.count); }} />
+    <ClipboardPanel
+      {clipboard} bind:settings={pasteSettings} {pasting}
+      disabled={draft.error === 'preparing geometry' || !pasteable(clipboard, draft) || !!ui.picking || ui.nestShown || ui.nestPicking}
+      onpaste={() => { void canvas?.paste(pasteSettings.count); }} />
   {:else if ui.setupPanel === 'nest'}
     <NestPanel {selectedContours} onselectall={() => canvas?.selectAll()} />
   {:else if ui.setupPanel}
@@ -148,7 +151,10 @@
       {#each [...TOOLS.map(t => ({ id: t.id, name: t.name, meta: draft ? stateOf(draft.features, t.id) : '' })), ...EXTRA.map(t => ({ id: t.id, name: t.name, meta: '' }))] as t}
         {@const starred = ui.favTools.includes(t.id)}
         <div class="tool-choice">
-          <button class="tool-star" class:on={starred} aria-label="{starred ? 'Unstar' : 'Star'} {t.name}" aria-pressed={starred} onclick={() => ui.setBar(starred ? ui.favTools.filter(x => x !== t.id) : [...ui.favTools, t.id])}><i class="ic {starred ? 'ic-star-fill' : 'ic-star'}"></i></button>
+          <button
+            class="tool-star" class:on={starred} aria-label="{starred ? 'Unstar' : 'Star'} {t.name}" aria-pressed={starred}
+            onclick={() => ui.setBar(starred ? ui.favTools.filter(x => x !== t.id) : [...ui.favTools, t.id])}
+          ><i class="ic {starred ? 'ic-star-fill' : 'ic-star'}"></i></button>
           <button class="tool-open" onclick={() => { menu = false; runTool(t.id); }}><span>{t.name}</span><small>{t.meta}</small></button>
         </div>
       {/each}
@@ -162,7 +168,11 @@
   .tool-choice { display: grid; grid-template-columns: 44px 1fr; min-width: 0; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); }
   .tool-star { width: 44px; min-height: 58px; border: 0; border-radius: 10px 0 0 10px; background: transparent; color: var(--ink-3); font-size: var(--t-lg); cursor: pointer; }
   .tool-star.on { color: var(--warn); }
-  .tool-open { display: flex; flex-direction: column; justify-content: center; align-items: start; gap: 4px; min-width: 0; min-height: 58px; padding: 8px 10px 8px 0; border: 0; border-radius: 0 10px 10px 0; background: transparent; color: var(--ink); font: inherit; font-size: var(--t-sm); font-weight: 600; text-align: left; cursor: pointer; }
+  .tool-open {
+    display: flex; flex-direction: column; justify-content: center; align-items: start; gap: 4px; min-width: 0; min-height: 58px;
+    padding: 8px 10px 8px 0; border: 0; border-radius: 0 10px 10px 0; background: transparent; color: var(--ink); font: inherit;
+    font-size: var(--t-sm); font-weight: 600; text-align: left; cursor: pointer;
+  }
   .tool-open small { color: var(--ink-3); font-size: var(--t-sm); font-weight: 400; }
   .tool-star:active, .tool-open:active { background: var(--accent-soft); }
   @media (max-width: 520px) { .tool-choices { grid-template-columns: 1fr; } }

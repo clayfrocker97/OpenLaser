@@ -83,7 +83,8 @@
     <p class="muted">Choose a library part, or import a DXF or SVG drawing with the import buttons at the top of Parts. Add text on Setup.</p>
   {:else}
     <div class="side-scroll">
-    <div class="side-preview"><svg viewBox={thumb} role="img" aria-label="Drawing of {item.name}">{#each outline as line}<path d={pathOf(line)} fill="none" stroke="var(--ink)" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>{/each}</svg></div>
+    <div class="side-preview"><svg viewBox={thumb} role="img" aria-label="Drawing of {item.name}">{#each outline as line}<path
+      d={pathOf(line)} fill="none" stroke="var(--ink)" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>{/each}</svg></div>
     <div class="side-title">
       <div><h2>{item.name}</h2><div class="muted">{job ? 'Saved job' : 'Part'}{#if job} · {laserLabel(job.recipe.laser)}{/if} · updated {ago(item.updated)}</div></div>
     </div>
@@ -130,7 +131,10 @@
   .item-actions .btn { min-width: 0; padding: 0 6px; }
   .side-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 12px; }
   .item-meta { display: grid; gap: 10px; border-top: 1px solid var(--line); padding-top: 16px; }
-  .meta-notes { appearance: none; display: grid; gap: 8px; width: 100%; text-align: left; padding: 14px 16px; font-size: var(--t-sm); border: 1px solid var(--line); border-radius: 12px; background: var(--panel-2); color: var(--ink); cursor: pointer; }
+  .meta-notes {
+    appearance: none; display: grid; gap: 8px; width: 100%; text-align: left; padding: 14px 16px; font-size: var(--t-sm);
+    border: 1px solid var(--line); border-radius: 12px; background: var(--panel-2); color: var(--ink); cursor: pointer;
+  }
   .meta-notes:hover { border-color: var(--accent); }
   .meta-notes:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .meta-label { display: flex; justify-content: space-between; align-items: center; color: var(--ink-2); font-weight: 600; }

@@ -74,7 +74,11 @@
 
   // The rare actions: the material's name and star cover every recipe of it.
   const art = $derived(pictureOf(recipe.name, recipe.photo));
-  const noteLine = $derived(recipe.note.split(/\s*\n+\s*/).filter(line => line && !(values['OpenLaserNozzleDiameter'] && line.startsWith('NOZZLE:')) && !(values['OpenLaserManualFocus'] !== undefined && line.startsWith('FOCUS (SOURCE NOTE/FILENAME):'))).map((line) => line.replace(/\s+/g, ' ')).join(' · '));
+  const noteLine = $derived(recipe.note.split(/\s*\n+\s*/)
+    .filter(line => line
+      && !(values['OpenLaserNozzleDiameter'] && line.startsWith('NOZZLE:'))
+      && !(values['OpenLaserManualFocus'] !== undefined && line.startsWith('FOCUS (SOURCE NOTE/FILENAME):')))
+    .map((line) => line.replace(/\s+/g, ' ')).join(' · '));
   const members = () => doc.library.recipes.filter((r) => materialKey(r) === materialKey(recipe));
   async function run(action: () => Promise<unknown>, then?: () => void): Promise<void> {
     try { await action(); then?.(); } catch (error) { ui.say(explain(error), true); }
@@ -108,7 +112,10 @@
       </div>
     </div>
     <div class="recipe-use">
-      <button class="btn btn-ghost icon-only star" class:on={recipe.favourite} onclick={star} aria-label={recipe.favourite ? 'Unstar material' : 'Star material'} aria-pressed={recipe.favourite}><i class="ic {recipe.favourite ? 'ic-star-fill' : 'ic-star'}"></i></button>
+      <button
+        class="btn btn-ghost icon-only star" class:on={recipe.favourite} onclick={star}
+        aria-label={recipe.favourite ? 'Unstar material' : 'Star material'} aria-pressed={recipe.favourite}
+      ><i class="ic {recipe.favourite ? 'ic-star-fill' : 'ic-star'}"></i></button>
       <button class="btn btn-primary" onclick={use} disabled={!doc.draft}>{doc.draft ? 'Use in current job' : 'Open a part to use it'}</button>
     </div>
     <div class="recipe-actions" role="group" aria-label="Recipe actions">

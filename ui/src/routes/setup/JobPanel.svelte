@@ -173,7 +173,10 @@
   .stack { flex-shrink:0; }
   .correction-status { padding:10px 12px; font-size:var(--t-sm); color:var(--ink-3); border-left:2px solid var(--accent); }
   .job-parts { list-style:none; margin:0; padding:0; display:grid; gap:6px; max-height:220px; overflow-y:auto; }
-  .job-part { width:100%; min-height:48px; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:8px 12px; border:1px solid var(--line); border-radius:10px; background:var(--panel-2); color:var(--ink); text-align:left; cursor:pointer; }
+  .job-part {
+    width:100%; min-height:48px; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:8px 12px;
+    border:1px solid var(--line); border-radius:10px; background:var(--panel-2); color:var(--ink); text-align:left; cursor:pointer;
+  }
   .job-part span { font-weight:600; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .job-part small { flex:none; color:var(--ink-3); font-size:var(--t-sm); }
 </style>
