@@ -1095,7 +1095,15 @@ pub async fn run_reviewed(
     confirmation: Option<&PreflightConfirmation>,
 ) -> Result<()> {
     // Placement capture would re-pin the held job's origin: refuse first.
-    shared.lock().await.not_held()?;
+    // A run also waits for Z to be calibrated for this material and table.
+    {
+        let coordinator = shared.lock().await;
+        coordinator.not_held()?;
+        let calibration = coordinator.calibration_gate(&coordinator.machine.state());
+        if !calibration.ok {
+            return Err(Error::Refused(calibration.reason.unwrap_or_default()));
+        }
+    }
     crate::placement::prepare(shared).await?;
     let epoch = shared.ensure_running()?;
     let requested = Instant::now();

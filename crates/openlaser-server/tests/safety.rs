@@ -57,6 +57,7 @@ async fn ready(shared: &Shared) {
     connect::connect(shared).await.unwrap();
     machine::home(shared).await.unwrap();
     until(shared, 10, |d| d.machine.session.homed && d.machine.operation.is_none()).await;
+    common::calibrate(shared).await;
     machine::compile(shared, false).await.unwrap();
 }
 

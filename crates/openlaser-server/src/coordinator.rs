@@ -513,8 +513,9 @@ impl Coordinator {
             self.motion_gate(machine, referenced, blocked.as_deref())
         };
         let compile = self.compile_gate();
-        let run = self.run_gate(motion(true, &machine.blocked), &compile);
-        let frame = run.clone();
+        let frame = self.run_gate(motion(true, &machine.blocked), &compile);
+        // Framing is laser off above the sheet; cutting also needs Z calibrated.
+        let run = if frame.ok { self.calibration_gate(machine) } else { frame.clone() };
         Readiness {
             connect: self.connect_gate(connected),
             home: base(&machine.motion_blocked),

@@ -10,6 +10,12 @@ export type CalibrationView = {
  */
 quality: Quality | null,
 /**
- * That calibration still applies to the current material and bindings.
+ * That calibration still applies to the current material, W table
+ * position and bindings.
  */
-current: boolean, };
+current: boolean,
+/**
+ * Why a completed calibration no longer applies, in plain words, such
+ * as "material changed" or "W table moved".
+ */
+stale: string | null, };

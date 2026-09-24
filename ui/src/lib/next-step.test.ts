@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Document } from '../api';
 import { nextStep } from './next-step';
 
-type State = { program?: string; recovery?: string; resumable?: boolean; connected?: boolean; age?: number; homed?: boolean; head?: boolean; headHomed?: boolean; calibrated?: boolean; quality?: string | null; draft?: boolean; captured?: boolean; mode?: 'head' | 'fixed' };
+type State = { program?: string; recovery?: string; resumable?: boolean; connected?: boolean; age?: number; homed?: boolean; head?: boolean; headHomed?: boolean; calibrated?: boolean; quality?: string | null; stale?: string | null; draft?: boolean; captured?: boolean; mode?: 'head' | 'fixed' };
 
 // Only the fields nextStep reads; the rest of the document is irrelevant here.
 function doc(s: State = {}): Document {
@@ -17,7 +17,7 @@ function doc(s: State = {}): Document {
     bindings: { head_enabled: s.head ?? true },
     can_resume: s.resumable ?? false,
     recovery: s.recovery ? { state: s.recovery } : null,
-    calibration: { current: s.calibrated ?? true, quality: s.quality ?? null },
+    calibration: { current: s.calibrated ?? true, quality: s.quality ?? null, stale: s.stale ?? null },
     draft: s.draft === false ? null : { placement: { mode: s.mode ?? 'head', captured: s.captured ?? true, correction_pending: false, saved: false } },
   } as unknown as Document;
 }
@@ -29,7 +29,8 @@ describe('nextStep', () => {
     expect(nextStep(doc({ homed: false, headHomed: false, calibrated: false, captured: false }))).toBe('Next: home XY');
     expect(nextStep(doc({ headHomed: false, calibrated: false, captured: false }))).toBe('Next: home Z');
     expect(nextStep(doc({ calibrated: false, captured: false }))).toBe('Next: calibrate Z');
-    expect(nextStep(doc({ calibrated: false, quality: 'material changed' }))).toBe('Next: calibrate Z (material changed)');
+    expect(nextStep(doc({ calibrated: false, quality: 'good', stale: 'material changed' }))).toBe('Next: calibrate Z (material changed)');
+    expect(nextStep(doc({ calibrated: false, quality: 'good', stale: 'W table moved' }))).toBe('Next: calibrate Z (W table moved)');
     expect(nextStep(doc({ captured: false }))).toBe('Next: set origin');
     expect(nextStep(doc())).toBeNull();
   });

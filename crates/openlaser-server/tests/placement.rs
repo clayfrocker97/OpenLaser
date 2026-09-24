@@ -172,6 +172,7 @@ async fn set_origin_pins_this_run_jogs_and_resume_keep_it_and_new_runs_recapture
     setup(&shared).await;
     home(&shared).await;
     move_to(&shared, [150., 120.]).await;
+    common::calibrate(&shared).await;
     machine::compile(&shared, false).await.unwrap();
     assert!(shared.lock().await.document().readiness.run.ok);
     let control = simulator.control();

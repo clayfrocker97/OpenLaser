@@ -258,6 +258,7 @@ async fn a_job_runs_to_completion() {
     assert_eq!(compiled.pierces.len(), compiled.plan.len());
     machine::home(&shared).await.unwrap();
     until(&shared, 10, |d| d.machine.session.homed).await;
+    common::calibrate(&shared).await;
     // The frame walks the part's bounds with the laser off and comes back.
     let before = control.view().position_mm;
     machine::frame(&shared).await.unwrap();
@@ -428,6 +429,7 @@ async fn interrupted_framing_preserves_the_compiled_job() {
         connect::connect(&shared).await.unwrap();
         machine::home(&shared).await.unwrap();
         until(&shared, 10, |d| d.machine.session.homed).await;
+        common::calibrate(&shared).await;
         machine::compile(&shared, false).await.unwrap();
         let compiled = shared.lock().await.document().draft.unwrap().compiled.clone().unwrap();
         control.time_scale(1.);
@@ -490,6 +492,7 @@ async fn an_outward_lead_is_refused_before_run_dry_run_or_frame_writes() {
         c.set_anchor(openlaser_library::Anchor::BackRight).unwrap();
         c.set_origin([extent[0][1] - 0.1, extent[1][1] - 0.1]).unwrap();
     }
+    common::calibrate(&shared).await;
     for dry in [false, true] {
         machine::compile(&shared, dry).await.unwrap();
         control.clear_writes();

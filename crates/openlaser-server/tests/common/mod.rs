@@ -93,7 +93,23 @@ pub async fn confirmation(
     }
 }
 
+/// Calibrates Z for the current material when Start would ask for it, as an
+/// operator does before cutting.
+pub async fn calibrate(shared: &Shared) {
+    let needed = {
+        let c = shared.lock().await;
+        let doc = c.document();
+        doc.bindings.as_ref().is_some_and(|b| b.head_enabled) && !doc.calibration.current
+    };
+    if !needed {
+        return;
+    }
+    openlaser_server::machine::calibrate(shared).await.unwrap();
+    until(shared, 20, |d| d.calibration.current && d.machine.operation.is_none()).await;
+}
+
 pub async fn run(shared: &Shared) -> openlaser_server::Result<()> {
+    calibrate(shared).await;
     openlaser_server::placement::prepare(shared).await?;
     let confirmation =
         confirmation(shared, openlaser_server::preflight::PreflightIntent::Run).await;
