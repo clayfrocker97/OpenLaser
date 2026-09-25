@@ -6,6 +6,7 @@
 
 import type { HeadSetup, LaserMode, RecipeImport, RecipePreview, RecipeView } from '../api';
 import { cardFor, materialsOf } from './materials';
+import { macMetadata } from './files';
 
 /** What happens to one file when the reviewed import runs. */
 export type Choice = 'replace' | 'keep' | 'skip';
@@ -48,9 +49,9 @@ export const picked = (files: Iterable<File>): Picked[] => [...files].map((file)
  * in the same folder, sorted by path. */
 export function recipeFiles(files: readonly Picked[]): Array<{ file: File; path: string; photo: File | null }> {
   const key = (p: Picked) => `${folderOf(p.path)}/${stem(p.file.name)}`;
-  const photos = new Map(files.filter((p) => /\.(png|jpe?g)$/i.test(p.file.name)).map((p) => [key(p), p.file]));
+  const photos = new Map(files.filter((p) => /\.(png|jpe?g)$/i.test(p.file.name) && !macMetadata(p.path)).map((p) => [key(p), p.file]));
   return files
-    .filter((p) => /\.xml$/i.test(p.file.name))
+    .filter((p) => /\.xml$/i.test(p.file.name) && !macMetadata(p.path))
     .map((p) => ({ file: p.file, path: p.path, photo: photos.get(key(p)) ?? null }))
     .sort((a, b) => a.path.localeCompare(b.path, undefined, { numeric: true }));
 }

@@ -154,6 +154,9 @@ const MM_PER_INCH: f64 = 25.4;
 /// by mistake.
 const HUGE_MM: f64 = 5_000.;
 
+/// How the `._` files a Mac writes beside each file and into zips begin.
+const APPLE_DOUBLE: &[u8] = &[0, 5, 22, 7];
+
 /// A parsed drawing and what the review needs.
 #[derive(Clone, Debug, Default)]
 pub(crate) struct Import {
@@ -187,6 +190,11 @@ pub(crate) fn part(
     fonts: &openlaser_svg::Fonts,
     options: &ImportOptions,
 ) -> Result<Import> {
+    if bytes.starts_with(APPLE_DOUBLE) {
+        return Err(Error::Request(format!(
+            "{name} is a Mac's Finder information about a file, not a drawing: import the file without \"._\" in its name."
+        )));
+    }
     if std::path::Path::new(name).extension().is_some_and(|ext| ext.eq_ignore_ascii_case("svg")) {
         svg(bytes, fonts, options)
     } else {
@@ -417,6 +425,14 @@ mod tests {
         let declared =
             part("plate.dxf", declared.as_bytes(), &fonts, &defaults).map_err(|e| e.to_string());
         assert_eq!(declared.map(|i| i.warnings), Ok(Vec::new()));
+    }
+
+    #[test]
+    fn a_macs_finder_file_is_named_not_parsed() {
+        let fonts = openlaser_svg::Fonts::default();
+        let finder = [&[0u8, 5, 22, 7, 0, 2, 0, 0][..], b"Mac OS X        "].concat();
+        let error = part("._Bin.dxf", &finder, &fonts, &ImportOptions::default()).unwrap_err();
+        assert!(error.to_string().contains("Finder"), "{error}");
     }
 
     /// A one-millimetre line is flagged as probably tiny and open; a drawing

@@ -7,6 +7,7 @@
   import { ui } from '../stores/ui.svelte';
   import { explain } from '../lib/format';
   import { needsReview } from '../lib/import-review';
+  import { macMetadata } from '../lib/files';
 
   type Choice = 'import' | 'skip' | 'stop';
   interface Reviewing { file: File; bytes: ArrayBuffer; review: Review; options: ImportOptions; busy: boolean; error: string; resolve: (choice: Choice) => void }
@@ -45,7 +46,7 @@
 
   async function importFiles(event: Event): Promise<void> {
     const input = event.currentTarget as HTMLInputElement;
-    const files = [...(input.files ?? [])].filter((f) => /\.(dxf|svg)$/i.test(f.name));
+    const files = [...(input.files ?? [])].filter((f) => /\.(dxf|svg)$/i.test(f.name) && !macMetadata(f.webkitRelativePath || f.name));
     input.value = '';
     if (!files.length) { ui.say('Choose DXF or SVG files.', true); return; }
     importing = { done: 0, total: files.length };
