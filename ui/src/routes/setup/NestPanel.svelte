@@ -4,9 +4,8 @@
   import StockChooser from '../../components/StockChooser.svelte';
   import { api } from '../../api/client';
   import type { NestLive, NestSettings, NestView, NestSheetPreview, StockSource } from '../../api';
-  import { frameOf } from '../../lib/frame';
   import { sheetLabel } from '../../lib/sheet-sizes';
-  import { current, needed, remnantMaterial, suggestStock, suits } from '../../lib/stock-plan';
+  import { current, oneMore } from '../../lib/stock-plan';
   import { server } from '../../stores/server.svelte';
   import { ui } from '../../stores/ui.svelte';
   import { osk } from '../../lib/osk.svelte';
@@ -30,28 +29,26 @@
   const ready = $derived(!!result?.preview && !result.running && !stale);
   const stock = $derived(draft.nesting?.stock);
   const library = $derived(server.doc!.library);
-  const bed = frameOf(server.doc!).bed;
-  /** New sheets default to the draft's sheet size, else the bed. */
-  const fallback = $derived<[number, number]>(stock?.kind === 'rectangle'
-    ? [stock.bounds.max.x - stock.bounds.min.x, stock.bounds.max.y - stock.bounds.min.y]
-    : bed ? [bed.maxX - bed.minX, bed.maxY - bed.minY] : [1500, 1000]);
-  const suggested = $derived(stock?.kind === 'outline' ? [] : suggestStock({
-    need: needed(draft, selected === 1 ? quantity : 1),
-    remnants: library.remnants.filter((r) => suits(remnantMaterial(r), draft.recipe)),
-    rack: library.stock.filter((i) => suits(i, draft.recipe)),
-    fallback,
-    chosen: stock?.kind === 'remnant' ? stock.reference : undefined,
-  }));
-  /** The operator's own list once they change the suggestion. */
+  /** The sheet chosen for the drawing starts the list, once; nothing else
+   *  is added unasked. A drawing outline is sent as no list at all. */
+  const own = $derived<StockSource[]>(stock?.kind === 'rectangle'
+    ? [{ kind: 'sheet', width: stock.bounds.max.x - stock.bounds.min.x, height: stock.bounds.max.y - stock.bounds.min.y, count: 1 }]
+    : stock?.kind === 'remnant' ? [{ kind: 'remnant', id: stock.reference }] : []);
+  /** The operator's own list once they change it. */
   let chosen = $state<StockSource[] | null>(null);
-  const plan = $derived(current(chosen ?? suggested, library.stock, library.remnants));
+  const plan = $derived(current(chosen ?? own, library.stock, library.remnants));
+  /** The chosen sheets filled up: the operator picks the next. */
+  const full = $derived(!!result && !result.running && result.needs_sheets && !stale);
+  const more = $derived(oneMore(plan.at(-1), library.stock));
+  /** Nesting starts again once the next sheet is chosen. */
+  let resume = false;
   /** The plan a shown result was searched with, for its sheet labels. */
   let searched = $state<StockSource[]>([]);
   /** What a source is, in words: a title and a line under it. */
   function describe(source: StockSource | undefined): { title: string; detail: string } {
     if (!source) return stock?.kind === 'outline'
-      ? { title: 'Drawing outline', detail: 'Not cut' }
-      : { title: 'Current sheet', detail: '' };
+      ? { title: 'Drawing outline', detail: 'One sheet · not cut' }
+      : { title: 'No sheets yet', detail: 'Add the sheets to nest on' };
     if (source.kind === 'remnant') {
       const sheet = library.remnants.find((r) => r.id === source.id);
       return { title: sheet?.name ?? 'Remnant', detail: sheet
@@ -64,7 +61,8 @@
         ? { title: sheetLabel(item.width_mm, item.height_mm), detail: `Rack · ${source.count} of ${item.quantity}` }
         : { title: 'Rack sheets', detail: 'No longer on the rack' };
     }
-    return { title: sheetLabel(source.width, source.height), detail: 'New · as needed' };
+    return { title: sheetLabel(source.width, source.height),
+      detail: source.count === null ? 'New · as needed' : `New · ${plural(source.count, 'sheet')}` };
   }
   /** Sheets added to the list; they replace a drawing outline, which Undo brings back. */
   async function add(source: StockSource): Promise<void> {
@@ -75,6 +73,17 @@
       } catch (e) { error = explain(e); return; }
     }
     edit([...plan, source]);
+    if (resume) { resume = false; void start(); }
+  }
+  /** One more of the last sheet, then nest again. */
+  function addOne(): void {
+    if (!more) return;
+    edit([...plan.slice(0, -1), more]);
+    void start();
+  }
+  function chooseNext(): void {
+    resume = true;
+    stockOpen = true;
   }
   const origin = (source: StockSource | undefined) =>
     source?.kind === 'stock' ? ' · rack' : source?.kind === 'sheet' ? ' · new' : '';
@@ -84,6 +93,10 @@
   }
   function setCount(index: number, count: number): void {
     const source = plan[index];
+    if (source?.kind === 'sheet') {
+      edit(plan.map((s, i) => i === index ? { ...source, count: Math.min(99, Math.max(1, Math.round(count))) } : s));
+      return;
+    }
     if (source?.kind !== 'stock') return;
     const onHand = library.stock.find((i) => i.id === source.id)?.quantity ?? 0;
     edit(plan.map((s, i) => i === index ? { ...source, count: Math.min(onHand, Math.max(1, Math.round(count))) } : s));
@@ -143,13 +156,13 @@
       result = next;
       if (next.live) live = next.live;
       if (next.running) timer = setTimeout(() => { void poll(id); }, 250);
-      else { live = null; cancelling = false; error = next.error ?? ''; }
+      else { live = null; cancelling = false; error = next.needs_sheets ? '' : next.error ?? ''; }
     }
     catch (e) { error = explain(e); cancelling = false; }
   }
   async function start(): Promise<void> {
     if (busy || result?.running) return;
-    if (!draft.nesting && !plan.length) { stockOpen = true; return; }
+    if (!plan.length && stock?.kind !== 'outline') { chooseNext(); return; }
     if (!Number.isInteger(quantity) || quantity < 1 || quantity > 500) {
       error = 'Enter a whole quantity from 1 to 500.';
       return;
@@ -238,7 +251,6 @@
     <div class="stock-plan">
       <div class="plan-head">
         <h3>Sheets, filled in order</h3>
-        {#if chosen}<button class="btn btn-ghost" onclick={() => edit(suggested)}>Suggest</button>{/if}
       </div>
       {#each plan.length ? plan : [undefined] as source, i}
         {@const said = describe(source)}
@@ -247,13 +259,27 @@
           {#if source?.kind === 'stock'}
             <button class="plan-count" aria-label="Sheets to use"
               onclick={() => osk.number('Rack sheets to use', source.count, 'sheets', (v) => setCount(i, v))}>{source.count}</button>
+          {:else if source?.kind === 'sheet' && source.count !== null}
+            <button class="plan-count" aria-label="New sheets to use"
+              onclick={() => osk.number('New sheets to use', source.count ?? 1, 'sheets', (v) => setCount(i, v))}>{source.count}</button>
           {/if}
-          {#if source && plan.length > 1}
+          {#if source}
             <button class="plan-remove" aria-label="Leave out" onclick={() => edit(plan.filter((_, j) => j !== i))}><i class="ic ic-x"></i></button>
           {/if}
         </div>
       {/each}
       <button class="btn btn-ghost add-sheets" onclick={() => stockOpen = true}><i class="ic ic-plus"></i>Add sheets</button>
+      {#if full && result}
+        <div class="full" role="alert">
+          <strong>{result.placed} of {result.total} parts fit</strong>
+          <span>The sheets are full. Choose the next sheet for the rest.</span>
+          {#if more}
+            {@const said = describe(plan.at(-1))}
+            <button class="btn btn-primary lg block" onclick={addOne}>Add one more {said.title}</button>
+          {/if}
+          <button class="btn btn-ghost lg block" onclick={chooseNext}>Choose another sheet</button>
+        </div>
+      {/if}
     </div>
     {#if ui.nestPicking}
       <p class="pick-hint">Tap the closed sheet outline on the drawing.<button
@@ -328,7 +354,7 @@
 {/if}
 </div>
 {#if stockOpen}
-  <StockChooser onclose={() => stockOpen = false} onselected={() => { chosen = null; invalidate(); }}
+  <StockChooser onclose={() => { stockOpen = false; resume = false; }} onselected={() => { chosen = null; invalidate(); }}
     taken={plan.flatMap((s) => s.kind === 'stock' ? [s.id] : [])} onadd={add} />
 {/if}
 
@@ -342,7 +368,6 @@
   fieldset { border:0; padding:0; margin:0; min-width:0; }
   .stock-plan h3 { margin:0; }
   .plan-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px; min-height:44px; }
-  .plan-head .btn { min-height:44px; }
   .plan-row { display:flex; align-items:center; gap:8px; padding:8px 0; border-top:1px solid var(--line); }
   .plan-name { flex:1; min-width:0; display:grid; gap:4px; }
   .plan-name strong { font-size:var(--t-base); overflow-wrap:anywhere; }
@@ -350,6 +375,9 @@
   .plan-count { min-width:52px; min-height:44px; border:1px solid var(--line); border-radius:9px; background:var(--panel-2); color:var(--ink); font-size:var(--t-lg); cursor:pointer; }
   .plan-remove { min-width:44px; min-height:44px; border:0; background:transparent; color:var(--ink-3); cursor:pointer; }
   .add-sheets { min-height:48px; margin-top:6px; }
+  .full { display:grid; gap:10px; margin-top:18px; padding:14px; border:1px solid var(--warn); border-radius:12px; background:var(--warn-soft); }
+  .full strong { font-size:var(--t-lg); }
+  .full span { font-size:var(--t-sm); color:var(--ink-2); line-height:1.5; }
   .quantity { display:flex; align-items:center; justify-content:space-between; gap:16px; margin:24px 0; font-size:var(--t-sm); } .quantity small { display:block; font-size:var(--t-sm); color:var(--ink-3); margin-top:7px; line-height:1.6; }
   .number { min-width:76px; min-height:58px; border:1px solid var(--line); background:var(--panel-2); color:var(--ink); font-size:var(--t-xl); border-radius:10px; cursor:pointer; }
   .distances, .rotations { display:grid; grid-template-columns:1fr 1fr; gap:10px; }

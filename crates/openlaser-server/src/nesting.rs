@@ -55,8 +55,8 @@ pub struct NestRequest {
     pub settings: NestSettings,
     /// Bounded search duration, between one and thirty seconds.
     pub seconds: u32,
-    /// The sheets to fill, in order; empty uses the draft's stock, then
-    /// full sheets of its size when it is a remnant.
+    /// The sheets to fill, in order; empty uses the draft's own sheet,
+    /// once. More sheets are never opened unasked.
     #[serde(default)]
     pub stock: Vec<StockSource>,
 }
@@ -132,6 +132,9 @@ pub struct NestView {
     pub live: Option<Arc<NestLive>>,
     /// Error or unsuccessful-search explanation.
     pub error: Option<String>,
+    /// The chosen sheets filled up with parts still to place: `placed` of
+    /// `total` fit, and the operator chooses the next sheet.
+    pub needs_sheets: bool,
 }
 
 /// Where a running search has the draft's groups on the sheet it is filling
@@ -351,16 +354,7 @@ impl Coordinator {
                 .nesting
                 .as_ref()
                 .ok_or_else(|| Error::Request("choose the sheets to nest on first".into()))?;
-            let mut sources = vec![Source {
-                stock: nesting.stock.clone(),
-                count: matches!(nesting.stock, NestStock::Remnant { .. }).then_some(1),
-            }];
-            if let NestStock::Remnant { outline, .. } = &nesting.stock {
-                let bounds =
-                    outline.bounds().ok_or_else(|| Error::Request("empty sheet".into()))?;
-                sources.push(Source { stock: NestStock::Rectangle { bounds }, count: None });
-            }
-            return Ok(sources);
+            return Ok(vec![Source { stock: nesting.stock.clone(), count: Some(1) }]);
         }
         if request.stock.len() > MAX_SOURCES {
             return Err(Error::Request(format!("choose at most {MAX_SOURCES} kinds of sheet")));
@@ -450,10 +444,12 @@ pub async fn start(shared: &Shared, revision: u64, request: NestRequest) -> Resu
         live_serial: 0,
         live: None,
         error: None,
+        needs_sheets: false,
     };
     let work =
         Arc::new(Mutex::new(Work { previews: Vec::new(), view: view.clone(), candidate: None }));
     let cancel = Arc::new(AtomicBool::new(false));
+    let full = Arc::new(AtomicBool::new(false));
     c.nesting_task = Some(Task { id, revision, cancel: cancel.clone(), work: work.clone() });
     drop(c);
     tokio::task::spawn_blocking(move || {
@@ -468,7 +464,7 @@ pub async fn start(shared: &Shared, revision: u64, request: NestRequest) -> Resu
                 work.view.live_serial += 1;
                 work.view.live = Some(Arc::new(live));
             };
-            search_sheets(&draft, &input, &sheets, &sources, &cancel, progress, live)
+            search_sheets(&draft, &input, &sheets, &sources, &cancel, &full, progress, live)
         }))
         .unwrap_or_else(|_| {
             Err(Error::Refused(
@@ -491,7 +487,10 @@ pub async fn start(shared: &Shared, revision: u64, request: NestRequest) -> Resu
                 w.candidate = Some(draft);
             }
             Ok(_) => w.view.error = Some("nesting cancelled".into()),
-            Err(e) => w.view.error = Some(e.to_string()),
+            Err(e) => {
+                w.view.error = Some(e.to_string());
+                w.view.needs_sheets = full.load(Ordering::Relaxed);
+            }
         }
     });
     Ok(view)
@@ -504,6 +503,7 @@ fn search_sheets(
     sheets: &[openlaser_nest::Sheet],
     sources: &[Source],
     cancel: &AtomicBool,
+    full: &AtomicBool,
     progress: impl Fn(usize, usize) + Sync,
     live: impl Fn(NestLive) + Sync,
 ) -> Result<(Draft, Vec<NestSheetSummary>, Vec<NestSheetPreview>)> {
@@ -529,8 +529,11 @@ fn search_sheets(
                 .collect(),
         });
     };
-    let solutions = openlaser_nest::nest_sheets(input, sheets, cancel, progress, show)
-        .map_err(|e| Error::Refused(e.to_string()))?;
+    let solutions =
+        openlaser_nest::nest_sheets(input, sheets, cancel, progress, show).map_err(|e| {
+            full.store(e.wants_sheets(), Ordering::Relaxed);
+            Error::Refused(e.to_string())
+        })?;
     let mut drafts = Vec::new();
     let mut summaries = Vec::new();
     let mut previews = Vec::new();

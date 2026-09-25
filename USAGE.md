@@ -295,20 +295,23 @@ Open **Nest parts** from Setup. **Sheets, filled in order** lists what the nest
 may use; preview the sheets, then apply the result. Choosing sheets by itself
 does not rearrange parts.
 
-The list starts with a suggestion: the smallest matching remnant that holds the
-whole job (or, failing that, the largest one that takes a fair share of it),
-then matching sheets on the rack, then new sheets of the current size for
-whatever is left. Only sheets of the recipe's laser, material and thickness are
-offered. **Add sheets** adds rack sheets, a remnant, new sheets of a size, or a
-closed drawing outline; the x leaves a kind out and **Suggest** restores the
-suggestion. A kind of sheet is opened only when parts go on it, so unused
-sheets stay on the rack.
+You choose every sheet: nothing is suggested or added for you. The list starts
+with the sheet chosen for the drawing, if any, once. **Add sheets** adds a
+rack sheet, a remnant, a new sheet of a size, or a closed drawing outline, one
+at a time; the number beside a sheet takes more of it, and the x leaves it out.
+Sheets fill in the order listed. Only sheets of the recipe's laser, material
+and thickness are offered.
+
+When the parts do not all fit, the preview stops and says how many did:
+**Add one more** takes another of the last sheet and nests again, or **Choose
+another sheet** picks the next one. A sheet is opened only when parts go on it,
+so unused sheets stay on the rack.
 
 | Option | Effect |
 | --- | --- |
 | Rack sheets | Up to the chosen number of sheets on hand, of that size |
 | Remnant | A saved remnant, used once, avoiding recorded cut areas |
-| New sheets | As many sheets of the entered size as the parts need |
+| New sheets | Up to the chosen number of sheets of the entered size |
 | Drawing outline | Use a closed drawing contour as the sheet boundary; it is excluded from cutting |
 | Selected part quantity | Total copies, including the original; select one part/group to edit it (1–500) |
 | Part spacing | Gap between newly nested parts |

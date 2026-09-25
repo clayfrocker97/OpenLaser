@@ -59,4 +59,9 @@ live: NestLive | null,
 /**
  * Error or unsuccessful-search explanation.
  */
-error: string | null, };
+error: string | null,
+/**
+ * The chosen sheets filled up with parts still to place: `placed` of
+ * `total` fit, and the operator chooses the next sheet.
+ */
+needs_sheets: boolean, };

@@ -23,7 +23,7 @@ settings: NestSettings,
  */
 seconds: number,
 /**
- * The sheets to fill, in order; empty uses the draft's stock, then
- * full sheets of its size when it is a remnant.
+ * The sheets to fill, in order; empty uses the draft's own sheet,
+ * once. More sheets are never opened unasked.
  */
 stock: Array<StockSource>, };

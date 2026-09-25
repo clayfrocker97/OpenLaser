@@ -11,7 +11,7 @@ use openlaser_core::geometry::{Bounds, Contour, Curve, Drawing, Placed, Point, T
 use openlaser_core::nesting::{NestRotation, NestSettings};
 use openlaser_library::Id;
 use openlaser_server::coordinator::{NewRecipe, Shared, Values};
-use openlaser_server::nesting::{self, NestRequest, StockChoice};
+use openlaser_server::nesting::{self, NestRequest, StockChoice, StockSource};
 use openlaser_server::workspace::{flush, key};
 use openlaser_server::{Coordinator, machine};
 use std::collections::BTreeMap;
@@ -280,7 +280,12 @@ async fn deleting_a_part_closes_the_unsaved_job_that_cuts_it() {
     assert!(c.draft.is_none());
 }
 
-async fn nest(shared: &Shared, contours: Vec<usize>, quantity: u32) -> nesting::NestView {
+async fn nest(
+    shared: &Shared,
+    contours: Vec<usize>,
+    quantity: u32,
+    stock: Vec<StockSource>,
+) -> nesting::NestView {
     let revision = shared.lock().await.document().draft_revision;
     let request = NestRequest {
         contours,
@@ -292,7 +297,7 @@ async fn nest(shared: &Shared, contours: Vec<usize>, quantity: u32) -> nesting::
             rotation: NestRotation::Fixed,
         },
         seconds: 1,
-        stock: vec![],
+        stock,
     };
     let task = nesting::start(shared, revision, request).await.unwrap();
     let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(15);
@@ -324,7 +329,9 @@ async fn nested_sheets_save_as_jobs_of_their_own_parts() {
     // The plate fills one 120 × 80 sheet; the tab and the disc need another.
     shared.lock().await.set_stock(StockChoice::Rectangle { width: 120., height: 80. }).unwrap();
     machine::prepare(&shared).await.unwrap();
-    let view = nest(&shared, vec![0], 1).await;
+    // Two sheets of that size, chosen: none opens unasked.
+    let two = vec![StockSource::Sheet { width: 120., height: 80., count: Some(2) }];
+    let view = nest(&shared, vec![0], 1, two).await;
     assert_eq!(view.sheets.len(), 2);
     assert_eq!(view.sheets.iter().map(|s| s.parts).collect::<Vec<_>>(), [1, 2]);
     nesting::apply(&shared, view.id).await.unwrap();

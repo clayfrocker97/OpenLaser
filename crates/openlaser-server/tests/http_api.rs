@@ -552,7 +552,7 @@ async fn several_parts_nest_on_a_remnant_and_overflow_onto_a_fresh_sheet() {
     use openlaser_core::nesting::{NestRotation, NestSettings, NestStock};
     use openlaser_server::coordinator::{NewRecipe, Values};
     use openlaser_server::machine;
-    use openlaser_server::nesting::{self, NestRequest, StockChoice};
+    use openlaser_server::nesting::{self, NestRequest, StockChoice, StockSource};
     let rect = |x: f64, y: f64, w: f64, h: f64| {
         let p = [[x, y], [x + w, y], [x + w, y + h], [x, y + h]];
         Contour {
@@ -636,8 +636,12 @@ async fn several_parts_nest_on_a_remnant_and_overflow_onto_a_fresh_sheet() {
         remnant_clearance: 5.,
         rotation: NestRotation::Fixed,
     };
-    let request =
-        NestRequest { contours: vec![], quantity: 1, settings, seconds: 2, stock: vec![] };
+    // The remnant first, then one fresh sheet of its size, as the operator
+    // lists them.
+    let fresh =
+        StockSource::Sheet { width: remnant.width(), height: remnant.height(), count: Some(1) };
+    let stock = vec![StockSource::Remnant { id: sheet.clone() }, fresh];
+    let request = NestRequest { contours: vec![], quantity: 1, settings, seconds: 2, stock };
     let work = nesting::start(&server.shared, revision, request).await.unwrap();
     let result = loop {
         let view = nesting::status(&server.shared, work.id).await.unwrap();

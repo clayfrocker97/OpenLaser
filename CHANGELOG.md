@@ -50,8 +50,9 @@ Local review candidate built on 2026-09-24. Not published.
 - Sheets on hand: full sheets per material, thickness and laser with counts,
   kept in library folders beside their jobs, with remnants alongside. A
   completed cut takes one off.
-- A nest fills several kinds of sheet in order: a suggested remnant, then
-  sheets on hand, then new sheets, each within its count. The progress bar
+- A nest fills the sheets you choose, in your order: nothing is suggested or
+  added unasked. When the parts do not all fit, it says how many did and asks
+  for the next sheet (one more of the last, or another). The progress bar
   keeps moving while the search packs.
 - The sheet chooser rotates a sheet, offers common sheet sizes laid along the
   bed and keeps saved sizes on the machine for every screen. Add text moved from the parts library to Setup

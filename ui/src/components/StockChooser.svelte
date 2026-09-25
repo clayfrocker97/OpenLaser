@@ -1,6 +1,7 @@
 <script lang="ts">
-  // Adds a kind of sheet to the ones a nest fills: new sheets of a size,
-  // sheets on the rack, a remnant, or an outline on the drawing.
+  // Adds a sheet to the ones a nest fills: a new sheet of a size, a sheet
+  // from the rack, a remnant, or an outline on the drawing. One at a time;
+  // the list's count takes more.
   import { sheetLabel } from '../lib/sheet-sizes';
   import { untrack } from 'svelte';
   import Modal from './Modal.svelte';
@@ -55,18 +56,18 @@
         </div>
       </div>
       <div class="sheet-form">
-        <h3>New sheets</h3>
+        <h3>New sheet</h3>
         <SheetSizePicker bind:width bind:height />
         <button
           class="btn btn-primary lg block"
           disabled={width <= 0 || height <= 0}
-          onclick={() => add({ kind: 'sheet', width, height, count: null })}>Add these sheets</button>
+          onclick={() => add({ kind: 'sheet', width, height, count: 1 })}>Add this sheet</button>
       </div>
     </div>
   {:else if page === 'rack'}
     <div class="rack">
       {#each rack as item (item.id)}
-        <button class="rack-choice" onclick={() => add({ kind: 'stock', id: item.id, count: item.quantity })}>
+        <button class="rack-choice" onclick={() => add({ kind: 'stock', id: item.id, count: 1 })}>
           <strong>{sheetLabel(item.width_mm, item.height_mm)}</strong>
           <span>{plural(item.quantity, 'sheet')} on hand</span>
         </button>

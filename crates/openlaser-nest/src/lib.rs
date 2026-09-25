@@ -79,6 +79,23 @@ pub struct Solution {
 #[error("{0}")]
 pub struct Error(pub String);
 
+/// How the message ends when every chosen sheet is full.
+const SHEETS_FULL: &str = "fit on the chosen sheets; add sheets";
+
+impl Error {
+    /// Every chosen sheet is full: `placed` of `total` parts fit.
+    pub(crate) fn sheets_full(placed: usize, total: usize) -> Self {
+        Self(format!("{placed} of {total} parts {SHEETS_FULL}"))
+    }
+
+    /// The chosen sheets filled up with parts still to place, so another
+    /// sheet would take the rest.
+    #[must_use]
+    pub fn wants_sheets(&self) -> bool {
+        self.0.ends_with(SHEETS_FULL)
+    }
+}
+
 /// Worker threads for one nesting search. Two keep the controller link and
 /// the HTTP server responsive on small shop computers while a search runs;
 /// a choice, not a measured optimum.

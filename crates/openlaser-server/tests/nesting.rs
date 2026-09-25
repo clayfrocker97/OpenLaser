@@ -10,7 +10,7 @@ use openlaser_core::geometry::{Contour, Curve, Drawing, Point, Transform};
 use openlaser_core::nesting::{NestRotation, NestSettings};
 use openlaser_server::coordinator::{NewRecipe, Shared, Values};
 use openlaser_server::layers::LayerChange;
-use openlaser_server::nesting::{self, NestRequest, NestView, StockChoice};
+use openlaser_server::nesting::{self, NestRequest, NestView, StockChoice, StockSource};
 use openlaser_server::{Coordinator, machine};
 
 fn rect(x: f64, y: f64, width: f64, height: f64) -> Contour {
@@ -87,9 +87,17 @@ async fn numbered_sheets_switch_persist_and_save_as_one_history_edit() {
     let mut request = request();
     request.quantity = 65;
     request.seconds = 5;
+    // The drawing's outline is one sheet; no more open unasked.
+    let task = nesting::start(&shared, revision, request.clone()).await.unwrap();
+    let full = finished(&shared, task.id).await;
+    assert!(full.needs_sheets, "{:?}", full.error);
+    assert!(full.placed < 66 && full.error.as_deref().is_some_and(|e| e.contains("add sheets")));
+    // The operator chooses the next sheets.
+    request.stock = vec![StockSource::Sheet { width: 240., height: 160., count: Some(3) }];
     let task = nesting::start(&shared, revision, request).await.unwrap();
     let result = finished(&shared, task.id).await;
     assert!(result.error.is_none(), "{:?}", result.error);
+    assert!(!result.needs_sheets);
     assert!(result.sheets.len() > 1);
     assert_eq!(result.sheets.iter().map(|p| p.parts).sum::<usize>(), 66);
     let other = nesting::sheet_preview(&shared, task.id, 1).await.unwrap();

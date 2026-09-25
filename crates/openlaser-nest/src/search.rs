@@ -212,9 +212,7 @@ pub(crate) fn run_sheets(
                         "part {} fits on none of the sheets left with this spacing and rotation; add a larger sheet",
                         id + 1
                     )),
-                    Unplaced::OutOfSheets => Error(format!(
-                        "{placed} of {total} parts fit on the chosen sheets; add sheets"
-                    )),
+                    Unplaced::OutOfSheets => Error::sheets_full(placed, total),
                 },
             )?;
         progress(placed + 1, total);
