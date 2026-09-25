@@ -99,6 +99,12 @@ impl<T: Micrometres> Micrometres for [T] {
     }
 }
 
+impl<T: Micrometres + ?Sized> Micrometres for &T {
+    fn rounded<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        (**self).rounded(serializer)
+    }
+}
+
 impl<T: Micrometres> Micrometres for Vec<T> {
     fn rounded<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         self.as_slice().rounded(serializer)

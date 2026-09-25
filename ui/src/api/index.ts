@@ -20,6 +20,7 @@ export type { Checkpoint } from './bindings/Checkpoint';
 export type { CheckpointView } from './bindings/CheckpointView';
 export type { CommonEdges } from './bindings/CommonEdges';
 export type { Compiled } from './bindings/Compiled';
+export type { CompiledSummary } from './bindings/CompiledSummary';
 export type { Connection } from './bindings/Connection';
 export type { Consumption } from './bindings/Consumption';
 export type { Contour } from './bindings/Contour';

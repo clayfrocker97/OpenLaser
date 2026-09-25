@@ -112,6 +112,7 @@ pub fn router(shared: Shared, ui_dir: std::path::PathBuf) -> Router {
         .route("/api/draft/redo", post(redo))
         .route("/api/recovery", post(recovery_change))
         .route("/api/recovery/program", get(recovery_program))
+        .route("/api/draft/moves", get(draft_moves))
         .route("/api/recovery/prepare", post(recovery_prepare))
         .route("/api/recovery/move", post(recovery_move))
         .route("/api/draft/pick", post(pick))
@@ -1221,6 +1222,20 @@ async fn recovery_change(
     shared.lock().await.change_recovery(v.revision, change)?;
     Ok(Json(json!({ "ok": true })))
 }
+/// The compiled draft's moves, which the pushed draft leaves out.
+async fn draft_moves(State(shared): State<Shared>, Query(v): Query<Revision>) -> Reply {
+    let compiled = {
+        let c = shared.lock().await;
+        c.check_draft(v.revision)?;
+        c.draft
+            .as_ref()
+            .and_then(|draft| draft.compiled.as_ref())
+            .map(|compiled| compiled.view.clone())
+            .ok_or_else(|| Error::Refused("the draft is not compiled".into()))?
+    };
+    Ok(Json(json!({ "moves": compiled.moves })))
+}
+
 async fn recovery_program(State(shared): State<Shared>) -> Reply {
     let c = shared.lock().await;
     let recovery = c.recovery.as_ref().ok_or_else(|| Error::Refused("no retained job".into()))?;

@@ -867,7 +867,11 @@ pub struct DraftView {
     pub future: usize,
     /// The prepared toolpath, for the canvas.
     pub preview: Option<Arc<Preview>>,
-    /// The compiled program, once compiled.
+    /// The compiled program, once compiled. Sent without its moves, which
+    /// are megabytes on a large job and change with every edit: the run
+    /// page fetches them for the revision it shows.
+    #[serde(serialize_with = "summary")]
+    #[cfg_attr(feature = "typescript", ts(as = "Option<CompiledSummary<'_>>"))]
     pub compiled: Option<Arc<Compiled>>,
     /// Why preparation or compilation failed.
     pub error: Option<String>,
@@ -1005,6 +1009,46 @@ pub struct Compiled {
     #[serde(skip)]
     #[cfg_attr(feature = "typescript", ts(skip))]
     pub pass_usage: Arc<crate::gas::JobUsage>,
+}
+
+/// The compiled program without its moves, as the draft sends it.
+#[cfg_attr(feature = "typescript", derive(ts_rs::TS), ts(export))]
+#[derive(Serialize)]
+pub struct CompiledSummary<'a> {
+    /// Whether it is a dry run.
+    pub dry_run: bool,
+    /// The predictable duration in seconds.
+    pub seconds: f64,
+    /// Every pass, including its original identity after a continuation.
+    pub plan: &'a [PassView],
+    /// Where each pass pierces or starts, in drawing coordinates.
+    #[serde(serialize_with = "crate::display_path::micrometres")]
+    pub pierces: &'a [[f64; 2]],
+    /// How many upload blocks.
+    pub blocks: usize,
+    /// Laser time, gas time, pierces and cut length of one run.
+    pub usage: &'a crate::gas::Usage,
+}
+
+impl<'a> From<&'a Compiled> for CompiledSummary<'a> {
+    fn from(compiled: &'a Compiled) -> Self {
+        Self {
+            dry_run: compiled.dry_run,
+            seconds: compiled.seconds,
+            plan: &compiled.plan,
+            pierces: &compiled.pierces,
+            blocks: compiled.blocks,
+            usage: &compiled.usage,
+        }
+    }
+}
+
+#[allow(clippy::ref_option, reason = "serde's serialize_with takes the field by reference")]
+fn summary<S: serde::Serializer>(
+    compiled: &Option<Arc<Compiled>>,
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    compiled.as_deref().map(CompiledSummary::from).serialize(serializer)
 }
 
 /// A physical contour instance before feature preparation.
@@ -1173,7 +1217,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn an_unchanged_motion_artifact_is_not_serialized_into_a_patch() {
+    fn the_draft_leaves_its_moves_out_and_a_patch_leaves_unchanged_sections_out() {
         let empty = openlaser_core::geometry::Drawing { contours: Vec::new() };
         let mut draft = crate::draft::Draft::of(empty).view();
         draft.compiled = Some(Arc::new(Compiled {
@@ -1192,7 +1236,11 @@ mod tests {
         }));
         let document = Document { draft: Some(Arc::new(draft)), ..Document::default() };
         let full = serde_json::to_vec(&Patch { document: &document, previous: None }).unwrap();
-        assert!(full.len() > 1_000_000);
+        // The draft carries the program's summary; its moves are fetched.
+        assert!(full.len() < 100_000, "{}", full.len());
+        let full: serde_json::Value = serde_json::from_slice(&full).unwrap();
+        assert_eq!(full["draft"]["compiled"]["blocks"], 1);
+        assert!(full["draft"]["compiled"].get("moves").is_none());
         let patch =
             serde_json::to_vec(&Patch { document: &document, previous: Some(document.revisions) })
                 .unwrap();

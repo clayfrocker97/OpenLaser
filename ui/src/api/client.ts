@@ -9,7 +9,7 @@ import type {
 import { server } from '../stores/server.svelte';
 import type { SheetPage, SheetView, SaveRemnant, NestSheetPreview, CorrectionView, CorrectionChange, NestRequest, NestView, StockChoice } from './index';
 import type { LayerChange, NewStock, SheetSize, StockChange } from './index';
-import type { PlacementChange, SimplifyView, ImportOptions, ImportReview } from './index';
+import type { PlacementChange, SimplifyView, ImportOptions, ImportReview, Move } from './index';
 import type { Calibration, FlowEstimate, GasCosts, GasKind, Nozzle, RunRecord } from './index';
 
 /** A flow test: gas, gauge pressure, nozzle and seconds open. */
@@ -140,6 +140,8 @@ export const api = {
     server.applyDraft(reply.draft, reply.draft_revision);
     return reply;
   },
+  /** The compiled draft's moves, which the pushed draft leaves out. */
+  draftMoves: (revision: number) => request<{ moves: Move[] }>('GET', `/api/draft/moves?revision=${revision}`),
   recoveryProgram: () => request<{ execution: ExecutionView }>('GET', '/api/recovery/program'),
   recoveryChange: (change: RecoveryChange, revision: number) => post(`/api/recovery?revision=${revision}`, change),
   prepareRecovery: (revision: number, clearance: boolean) => post(`/api/recovery/prepare?revision=${revision}`, { clearance }),

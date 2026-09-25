@@ -13,10 +13,10 @@
   import { access } from '../lib/access.svelte';
   import MaterialSummary from '../components/MaterialSummary.svelte';
   import FlightChecklist from '../components/FlightChecklist.svelte';
-  import type { ExecutionView, PreflightReview } from '../api';
+  import type { ExecutionView, Move, PreflightReview } from '../api';
   import Stage from '../components/Stage.svelte';
   import { runView } from '../lib/run-views.svelte';
-  import { api } from '../api/client';
+  import { api, ApiError } from '../api/client';
   import { server } from '../stores/server.svelte';
   import { ui } from '../stores/ui.svelte';
   import { frameOf } from '../lib/frame';
@@ -52,6 +52,18 @@
   const retained = $derived(execution && !execution.frame && original?.id === doc.recovery?.id ? original : null);
   const displayed = $derived(retained ?? execution);
   const compiled = $derived(displayed?.compiled ?? (recovering ? null : draft?.compiled) ?? null);
+  // The pushed draft leaves its moves out: they are fetched once for the
+  // revision shown. A run's own program carries them.
+  let fetched = $state.raw<{ revision: number; moves: Move[] } | null>(null);
+  $effect(() => {
+    const revision = !displayed && !recovering && draft?.compiled ? draft.revision : null;
+    if (revision === null || fetched?.revision === revision) return;
+    api.draftMoves(revision)
+      .then(reply => { if (server.doc?.draft?.revision === revision) fetched = { revision, moves: reply.moves }; })
+      // A newer draft has arrived and fetches its own.
+      .catch(error => { if (!(error instanceof ApiError && error.status === 409)) ui.say(explain(error), true); });
+  });
+  const moves = $derived(displayed?.compiled.moves ?? (compiled && fetched && fetched.revision === draft?.revision ? fetched.moves : []));
   const history = $derived(retained && doc.recovery ? cutHistory(retained.compiled.moves, doc.recovery.steps) : []);
   const resumed = $derived(!!retained && !!execution && retained.id !== execution.id && !recovering);
   const material = $derived(displayed ? displayed.material : draft?.recipe);
@@ -69,7 +81,7 @@
   const camera = $derived(runView(`${draft?.job ?? draft?.key ?? 'empty'}/${draft?.sheets?.active ?? 0}`));
   const view = $derived(camera.view);
   const box = $derived(
-    compiled ? boxOf(compiled.moves.filter(m => m.kind !== 'travel').map((m) => m.points))
+    moves.length ? boxOf(moves.filter(m => m.kind !== 'travel').map((m) => m.points))
     : preview?.bounds ? boxOfBounds(preview.bounds)
     : null,
   );
@@ -111,7 +123,7 @@
     return compiled ? seconds(compiled.seconds) : '—';
   });
   /** The next travel move, when only that one is shown. */
-  const nextTravel = $derived(compiled?.moves.findIndex((m) => m.kind === 'travel' && (m.pass ?? 0) >= done) ?? -1);
+  const nextTravel = $derived(moves.findIndex((m) => m.kind === 'travel' && (m.pass ?? 0) >= done));
   const resumeTravels = $derived(
     resumed
       ? execution!.compiled.moves.filter(move => move.kind === 'travel' && (move.pass ?? 0) >= (doc.progress?.completed ?? 0))
@@ -182,7 +194,7 @@
   let pickingRestart = false;
   async function pickRestart(point: [number, number]): Promise<void> {
     if (!recovering || !compiled || !doc.recovery || machine.operation || pickingRestart) return;
-    const choice = restartAt(compiled, doc.recovery.steps, [point[0] - frame.zero[0], point[1] - frame.zero[1]], 24 * view.mmPerPixel);
+    const choice = restartAt({ moves }, doc.recovery.steps, [point[0] - frame.zero[0], point[1] - frame.zero[1]], 24 * view.mmPerPixel);
     if (!choice) return;
     pickingRestart = true;
     try { await api.recoveryChange({ kind: 'select', ...choice }, doc.recovery.revision); }
@@ -220,7 +232,7 @@
     {/if}
     <g transform="translate({frame.zero[0]} {frame.zero[1]})">
     {#if compiled}
-      {#each compiled.moves as move, i}
+      {#each moves as move, i}
         {@const finished = move.pass !== null && (retained ? doc.recovery?.steps[move.pass]?.status === 'completed' : move.pass < done)}
         {#if ui.layerShown(finished ? 'done' : move.kind) && (move.kind !== 'travel' || !resumed && (ui.travelMode === 'all' || i === nextTravel))}
           <path

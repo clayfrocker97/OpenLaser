@@ -45,7 +45,7 @@
   const done = $derived(retained ? doc.recovery?.steps.filter(step => step.status === 'completed').length ?? 0
     : execution ? doc.progress?.completed ?? 0 : 0);
   const percent = $derived(total ? Math.min(100,Math.round(done / total * 100)) : 0);
-  const outline = $derived(execution ? compiled!.moves.filter(m => m.kind === 'cut').map(m => m.points)
+  const outline = $derived(execution ? (retained ?? execution).compiled.moves.filter(m => m.kind === 'cut').map(m => m.points)
     : draft?.preview?.contours.flatMap(c => c.paths.filter(p => p.kind === 'cut').map(p => p.points)) ?? part?.outline ?? []);
   /** The badge beside the title: what the loaded program is doing or will do. */
   const modeLabel = $derived.by(() => {

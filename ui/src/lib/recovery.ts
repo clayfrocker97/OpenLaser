@@ -1,7 +1,7 @@
 import type { Checkpoint, Compiled, RecoveryStep } from '../api';
 
 /** Project a touch onto an original cutting path, in drawing coordinates. */
-export function restartAt(compiled: Compiled, steps: readonly RecoveryStep[], point: readonly [number, number], radius: number): Checkpoint | null {
+export function restartAt(compiled: Pick<Compiled, 'moves'>, steps: readonly RecoveryStep[], point: readonly [number, number], radius: number): Checkpoint | null {
   const paths = new Map<number, Array<Array<[number, number]>>>();
   for (const move of compiled.moves) {
     if (move.pass === null || move.kind === 'travel' || move.kind === 'cleaning' || steps[move.pass]?.status === 'skipped') continue;
