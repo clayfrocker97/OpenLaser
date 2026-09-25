@@ -3,8 +3,8 @@
   import { access } from '../lib/access.svelte';
   import { server } from '../stores/server.svelte';
   import { ui, type FeatureId } from '../stores/ui.svelte';
-  import { osk } from '../lib/osk.svelte';
-  import { plural, recipeLabel, size } from '../lib/format';
+  import { preflightLabel, saveJob, saveLabel } from '../lib/save-job';
+  import { laserLabel, recipeLabel, size } from '../lib/format';
   import { plain } from '../lib/plain';
   import { TOOLS, isOn, stateOf } from '../lib/features';
   import Preview from './Preview.svelte';
@@ -42,15 +42,6 @@
   const partsHint = $derived(
     draft?.parts.length === 1 ? '1 part · Add more to cut them together' : `${draft?.parts.length} parts side by side · Add more`,
   );
-  const preflightHint = $derived(
-    draft?.preflight.kind === 'inherit' ? 'Mode defaults'
-    : draft?.preflight.kind === 'off' ? 'Checklist off'
-    : plural(draft?.preflight.steps.length ?? 0, 'check'),
-  );
-  const saveLabel = $derived(
-    draft?.sheets?.pages.some(p => !p.job) ? `Save ${plural(draft.sheets.pages.length, 'sheet')}` : 'Save job',
-  );
-
   async function perform(action: () => Promise<unknown>): Promise<void> {
     if (blocked) return;
     await withBusy((b) => (busy = b), action);
@@ -61,28 +52,7 @@
       ui.tab = 'run';
     });
   }
-  function save(): void {
-    if (!draft) return;
-    const title = draft.sheets?.pages.some(p => !p.job) ? 'Folder for numbered sheets' : 'Job name';
-    osk.text(title,job?.name ?? (draft.name || 'job'),name => {
-      if (!name.trim()) return;
-      void perform(async () => {
-        if (draft.sheets?.pages.some(p => !p.job)) {
-          await api.saveJob(name.trim());
-          ui.say('Saved numbered sheets.');
-          return;
-        }
-        const review = await api.mergeReview(name.trim());
-        if (review.conflicts.length) {
-          ui.pendingJobName = name.trim();
-          ui.modal = 'pending';
-          return;
-        }
-        await api.saveJob(review.name);
-        ui.say(`Saved job ${review.name}.`);
-      });
-    });
-  }
+  const save = () => { if (draft) saveJob(draft, job, (action) => void perform(action)); };
   function pickRecipe(id: string): void {
     void perform(async () => {
       await api.setRecipe(id);
@@ -125,7 +95,7 @@
           <span>Machining<small>{active ? `${active} tools on` : 'Default settings'}</small></span><i class="ic ic-arrow-right"></i>
         </button>
         <button disabled={blocked} onclick={() => preflight = true}>
-          <span>Preflight<small>{preflightHint}</small></span><i class="ic ic-arrow-right"></i>
+          <span>Preflight<small>{draft ? preflightLabel(draft) : ''}</small></span><i class="ic ic-arrow-right"></i>
         </button>
       </div>
     {:else}
@@ -140,7 +110,7 @@
   </div>
   {#if draft}<div class="phone-run-footer">
     <div class="phone-secondary-actions">
-      <button class="btn btn-ghost" disabled={blocked || !draft.recipe} onclick={save}>{saveLabel}</button>
+      <button class="btn btn-ghost" disabled={blocked || !draft.recipe} onclick={save}>{saveLabel(draft)}</button>
       <button class="btn btn-ghost" disabled={blocked || !doc.readiness.compile.ok} onclick={() => review(true)}>Dry run</button>
     </div>
     <button class="phone-primary" disabled={blocked || !doc.readiness.compile.ok} onclick={() => review(false)}>
@@ -156,7 +126,7 @@
     {#each recipes as recipe}
       <button disabled={busy} onclick={() => pickRecipe(recipe.id)}>
         <strong>{recipeLabel(recipe)}</strong>
-        <small>{recipe.laser === 'co2' ? 'CO₂' : 'Fiber'}</small>
+        <small>{laserLabel(recipe.laser)}</small>
         <MaterialSummary source={recipe} variant="line" />
       </button>
     {:else}

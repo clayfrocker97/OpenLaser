@@ -6,7 +6,7 @@
   import { ui } from '../../stores/ui.svelte';
   import { osk } from '../../lib/osk.svelte';
   import { explain, plural } from '../../lib/format';
-  import { layerColor } from '../../lib/drawing-layers';
+  import { swatchColor } from '../../lib/drawing-layers';
   import type { DraftLayer } from '../../api';
 
   let { contours, layers, onclose }: { contours: number[]; layers: DraftLayer[]; onclose: () => void } = $props();
@@ -31,7 +31,7 @@
   <div class="targets">
     {#each layers as layer (layer.name)}
       <button class="chip" disabled={busy} onclick={() => assign(layer.name)}>
-        <span class="swatch" style:--layer={layerColor(layers, layer.name) ?? 'var(--cut)'}></span>{layer.name}
+        <span class="swatch" style:--layer={swatchColor(layers, layer.name)}></span>{layer.name}
       </button>
     {/each}
     <button class="chip new" disabled={busy} onclick={create}><i class="ic ic-plus"></i>New layer…</button>

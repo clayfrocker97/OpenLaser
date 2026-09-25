@@ -12,7 +12,7 @@
   import { explain, plural, recipeLabel } from '../../lib/format';
   import { quantity } from '../../lib/units.svelte';
   import { materialsOf } from '../../lib/materials';
-  import { PALETTE, hasOwn, layerColor } from '../../lib/drawing-layers';
+  import { hasOwn, PALETTE, swatchColor } from '../../lib/drawing-layers';
   import { featureEdits } from '../../stores/feature-edits';
   import type { LayerChange, LayerMode } from '../../api';
 
@@ -62,17 +62,14 @@
     edits.push({ kind: 'recipe', layer: name, recipe });
     void change(...edits);
   }
-  const hidden = $derived(ui.hiddenDrawingLayers.includes(name));
-  function toggleHidden(): void {
-    ui.hiddenDrawingLayers = hidden ? ui.hiddenDrawingLayers.filter((l) => l !== name) : [...ui.hiddenDrawingLayers, name];
-  }
+  const hidden = $derived(ui.drawingLayerHidden(name));
   function machining(): void {
     ui.machiningLayer = name;
     ui.setupPanel = 'leads';
     onclose();
   }
   const usesJob = $derived(!!layer && layer.output && layer.chosen && !layer.recipe);
-  const swatch = $derived(layerColor(draft.layers, name) ?? 'var(--cut)');
+  const swatch = $derived(swatchColor(draft.layers, name));
 </script>
 
 {#if layer}
@@ -85,7 +82,7 @@
       <button class="name" disabled={busy} onclick={rename}>
         <strong>{layer.name}</strong><small>{plural(layer.contours, 'shape')} · Rename</small>
       </button>
-      <button class="icon-btn" class:off={hidden} aria-label={hidden ? 'Show on the drawing' : 'Hide on the drawing'} onclick={toggleHidden}>
+      <button class="icon-btn" class:off={hidden} aria-label={hidden ? 'Show on the drawing' : 'Hide on the drawing'} onclick={() => ui.toggleDrawingLayer(name)}>
         <i class="ic {hidden ? 'ic-eye-off' : 'ic-eye'}"></i>
       </button>
     </div>

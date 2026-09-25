@@ -1,12 +1,12 @@
 <script lang="ts">
   // One rack entry or remnant: how many are on hand, which folder keeps it,
   // and removing it.
+  import SheetCount from './SheetCount.svelte';
   import { quantity } from '../lib/units.svelte';
   import Modal from './Modal.svelte';
   import RemnantInspector from './RemnantInspector.svelte';
   import { api } from '../api/client';
   import { server } from '../stores/server.svelte';
-  import { osk } from '../lib/osk.svelte';
   import { explain, laserLabel, plural } from '../lib/format';
   import { folderPath } from '../lib/folders';
   import { sheetLabel } from '../lib/sheet-sizes';
@@ -24,7 +24,7 @@
     busy = true; error = '';
     try { await action(); } catch (e) { error = explain(e); } finally { busy = false; }
   }
-  const setCount = (n: number) => act(() => api.changeStock(id, { quantity: Math.max(0, Math.round(n)) }));
+  const setCount = (quantity: number) => act(() => api.changeStock(id, { quantity }));
   const move = (folder: string) => act(() => item
     ? api.changeStock(id, { folder: folder || null })
     : api.remnantFolder(id, folder || null));
@@ -44,12 +44,7 @@
         remnant, {plural(remnant.cutouts.length, 'cut area')}{/if}
     </p>
     {#if item}
-      <div class="count">
-        <span>On hand</span>
-        <button aria-label="One fewer" disabled={busy || item.quantity <= 0} onclick={() => setCount(item.quantity - 1)}><i class="ic ic-minus"></i></button>
-        <button class="number" disabled={busy} onclick={() => osk.number('Sheets on hand', item.quantity, 'sheets', setCount)}>{item.quantity}</button>
-        <button aria-label="One more" disabled={busy} onclick={() => setCount(item.quantity + 1)}><i class="ic ic-plus"></i></button>
-      </div>
+      <SheetCount label="On hand" prompt="Sheets on hand" value={item.quantity} disabled={busy} onchange={setCount} />
     {/if}
     {#if folders.length}
       <h4>Kept in</h4>
@@ -73,10 +68,6 @@
 <style>
   .stock-editor { display:grid; gap:18px; min-width:min(420px, 100%); }
   .muted { color:var(--ink-3); font-size:var(--t-sm); line-height:1.6; margin:0; }
-  .count { display:flex; align-items:center; gap:8px; }
-  .count span { flex:1; font-size:var(--t-base); }
-  .count button { min-width:52px; min-height:52px; border:1px solid var(--line); border-radius:10px; background:var(--panel-2); color:var(--ink); cursor:pointer; }
-  .count .number { min-width:76px; font-size:var(--t-xl); }
   h4 { margin:0 0 -8px; font-size:var(--t-sm); color:var(--ink-3); font-weight:600; }
   .chips { display:flex; flex-wrap:wrap; gap:8px; }
   .chip { min-height:48px; }

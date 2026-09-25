@@ -9,6 +9,7 @@
   import { Hold } from '../lib/hold';
   import { access } from '../lib/access.svelte';
   import { api } from '../api/client';
+  import { GAS } from '../lib/recipe';
   import { server } from '../stores/server.svelte';
   import { ui } from '../stores/ui.svelte';
   import { osk } from '../lib/osk.svelte';
@@ -37,7 +38,6 @@
   function hold(event: PointerEvent, output: OutputRequest): void {
     held.press(event, (lease) => api.machine('outputs', { output, lease }));
   }
-  const GAS = ['Low air', 'Low O₂', 'Low N₂', 'High air', 'High O₂', 'High N₂'];
   const MODES = ['fiber', 'co2'] as const;
   function close(): void {
     held.cancel();

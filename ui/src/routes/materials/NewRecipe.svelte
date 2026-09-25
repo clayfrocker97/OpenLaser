@@ -10,7 +10,7 @@
   import { ui } from '../../stores/ui.svelte';
   import { osk } from '../../lib/osk.svelte';
   import { explain, plural } from '../../lib/format';
-  import { GAS } from '../../lib/recipe';
+  import { gasName } from '../../lib/recipe';
   import { summaryLine } from '../../lib/summary';
   import { CARDS, cardUrl, type MaterialCard } from '../../lib/materials';
   import type { LaserMode, Values } from '../../api';
@@ -77,7 +77,7 @@
       list.push({
         values: { bank: b.bank },
         label: `Machine bank ${b.bank}${b.name ? ` · ${b.name}` : ''}${b.disabled ? ' · disabled' : ''}`,
-        meta: summaryLine({ laser: b.laser, gas: b.summary.gas === null ? '' : GAS[Number(b.summary.gas)] ?? '', summary: b.summary }),
+        meta: summaryLine({ laser: b.laser, gas: b.summary.gas === null ? '' : gasName(b.summary.gas), summary: b.summary }),
         gas: b.summary.gas ?? null,
       });
     }
@@ -184,7 +184,7 @@
         <div class="chips">
           {#each gases as selector (selector)}
             <button class="chip" class:on={draft.gas === selector} onclick={() => (draft.gas = selector)}>
-              {GAS[selector] ?? `Selection ${selector}`}
+              {gasName(selector)}
             </button>
           {/each}
         </div>

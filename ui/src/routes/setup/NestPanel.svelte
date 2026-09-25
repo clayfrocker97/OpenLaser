@@ -4,7 +4,7 @@
   import StockChooser from '../../components/StockChooser.svelte';
   import { api } from '../../api/client';
   import type { NestLive, NestSettings, NestView, NestSheetPreview, StockSource } from '../../api';
-  import { sheetLabel } from '../../lib/sheet-sizes';
+  import { sheetLabel, boundsLabel } from '../../lib/sheet-sizes';
   import { current, oneMore } from '../../lib/stock-plan';
   import { server } from '../../stores/server.svelte';
   import { ui } from '../../stores/ui.svelte';
@@ -52,7 +52,7 @@
     if (source.kind === 'remnant') {
       const sheet = library.remnants.find((r) => r.id === source.id);
       return { title: sheet?.name ?? 'Remnant', detail: sheet
-        ? `Remnant · ${sheetLabel(sheet.bounds.max.x - sheet.bounds.min.x, sheet.bounds.max.y - sheet.bounds.min.y)}`
+        ? `Remnant · ${boundsLabel(sheet.bounds)}`
         : 'No longer available' };
     }
     if (source.kind === 'stock') {
@@ -248,9 +248,7 @@
 {:else}
   <fieldset disabled={busy}>
     <div class="stock-plan">
-      <div class="plan-head">
-        <h3>Sheets, filled in order</h3>
-      </div>
+      <h3>Sheets, filled in order</h3>
       {#each plan.length ? plan : [undefined] as source, i}
         {@const said = describe(source)}
         <div class="plan-row">
@@ -365,8 +363,7 @@
   .nest-scroll { flex:1; min-height:0; overflow-y:auto; padding-right:3px; }
   .nest-actions { flex-shrink:0; display:grid; gap:10px; padding-top:14px; border-top:1px solid var(--line); }
   fieldset { border:0; padding:0; margin:0; min-width:0; }
-  .stock-plan h3 { margin:0; }
-  .plan-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px; min-height:44px; }
+  .stock-plan h3 { margin:0 0 8px; }
   .plan-row { display:flex; align-items:center; gap:8px; padding:8px 0; border-top:1px solid var(--line); }
   .plan-name { flex:1; min-width:0; display:grid; gap:4px; }
   .plan-name strong { font-size:var(--t-base); overflow-wrap:anywhere; }

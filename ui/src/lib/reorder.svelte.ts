@@ -1,7 +1,7 @@
-// Drag to reorder the tiles of a customisable toolbar. A fixed ghost follows
-// the pointer while the real tile stays as a placeholder; the order changes
-// only when the pointer crosses into another tile, with a pause so the slide
-// animation finishes. Shared by Setup's machining bar and the drawing bar.
+// Drag to reorder tiles: a copy follows the pointer while the real tile
+// stays as a placeholder; the order changes only when the pointer crosses
+// into another tile, with a pause so the slide animation finishes. Shared
+// by Setup's toolbars (ToolBar) and the layer list (JobPanel).
 
 const EASE = 'cubic-bezier(.2,0,0,1)';
 /** Travel before a press becomes a drag, so a tap still reaches the tile. */
@@ -10,7 +10,7 @@ const START_PX = 6;
 const SETTLE_MS = 200;
 
 interface Options {
-  /** The data attribute naming a tile, such as `feature` for `data-feature`. */
+  /** The data attribute naming a tile, such as `bar-tool` for `data-bar-tool`. */
   attribute: string;
   /** The current order. */
   order: () => string[];
@@ -34,14 +34,12 @@ export class Reorder {
   private get selector(): string { return `[data-${this.options.attribute}]`; }
 
   down = (e: PointerEvent): void => {
-    if (!this.options.editing() || (e.target as HTMLElement).closest('[data-remove]')) return;
+    if (!this.options.editing()) return;
     const el = (e.target as HTMLElement).closest<HTMLElement>(this.selector);
     if (!el) return;
     const r = el.getBoundingClientRect();
     const ghost = el.cloneNode(true) as HTMLElement;
-    ghost.classList.add('ghost');
-    ghost.classList.remove('editing', 'open', 'placeholder');
-    ghost.querySelector('[data-remove]')?.remove();
+    ghost.classList.remove('editing', 'placeholder');
     Object.assign(ghost.style, { position: 'fixed', left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${r.height}px`, margin: '0', transform: 'none', pointerEvents: 'none', zIndex: '50' });
     document.body.appendChild(ghost);
     const id = el.dataset[this.datasetKey]!;
@@ -79,7 +77,7 @@ export class Reorder {
     ghost.animate([{ transform: ghost.style.transform }, { transform: `translate(${r.left - parseFloat(ghost.style.left)}px, ${r.top - parseFloat(ghost.style.top)}px)` }], { duration: 180, easing: EASE }).onfinish = finish;
   };
 
-  /** `data-draw-tool` is read back as `dataset.drawTool`. */
+  /** `data-bar-tool` is read back as `dataset.barTool`. */
   private get datasetKey(): string {
     return this.options.attribute.replace(/-([a-z])/g, (_, letter: string) => letter.toUpperCase());
   }

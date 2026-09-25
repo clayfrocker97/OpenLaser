@@ -1,14 +1,15 @@
 <script lang="ts">
   import { quantity } from '../../lib/units.svelte';
   // The part on the bed, shape by shape: an outline with what it encloses
-  // is one shape. A tap selects a shape, a shift-tap adds one, a marquee
-  // takes every group it touches, and a tap on nothing clears. A drag moves the
-  // selection and the handle turns it; the change is drawn locally and
-  // posted once, on release, so the drawing follows the finger and the
-  // toolpath catches up. Copies are pasted beside what was copied, a gap
+  // is one shape. A tap selects the part whose line is nearest, a second tap
+  // takes one of its shapes, a shift-tap adds a part, a marquee takes every
+  // group it touches, and a tap on nothing clears. A drag moves the
+  // selection; turning and sizing go through the tools. The change is drawn
+  // locally and posted once, on release, so the drawing follows the finger
+  // and the toolpath catches up. Copies are pasted beside what was copied, a gap
   // apart and further each time; undo and redo are the server's. While a panel asks for places, a tap
   // snaps to a contour and the feature takes the spot.
-  import { untrack, type Snippet } from 'svelte';
+  import { untrack } from 'svelte';
   import Stage from '../../components/Stage.svelte';
   import ToolBar, { type Tool } from './ToolBar.svelte';
   import LayerAssign from './LayerAssign.svelte';
@@ -28,7 +29,7 @@
   import { frameOf } from '../../lib/frame';
   import { explain, plural } from '../../lib/format';
   import { withBusy } from '../../lib/busy';
-  import { about, apply, centre, mirror, mirrorVertical, rotation, scaling, svgMatrix, translate, type Point } from '../../lib/transform';
+  import { apply, centre, mirror, mirrorVertical, rotation, scaling, svgMatrix, translate, type Point } from '../../lib/transform';
   import { pathOf, type Box } from '../../lib/svg';
   import { layerColor } from '../../lib/drawing-layers';
   import {
@@ -436,7 +437,7 @@
     if (done) commit(done.groups, done.m, revision);
   }
 
-  function ontap(where: Point, target: Element, additive: boolean): void {
+  function ontap(where: Point, _target: Element, additive: boolean): void {
     if (updating) return;
     const at = toDrawing(where);
     if (ui.nestPicking && draft) {
@@ -593,10 +594,9 @@
   const orderPaths = $derived(orderSegments(preview));
   const playback = $derived(ui.setupPanel === 'order' ? orderPosition(orderPaths, orderProgress) : null);
 
-  // The drawing's layers: shown or hidden here, cut or skipped in the job.
   /** Shapes on their way to a layer, while their layer is chosen. */
   let assigning = $state<number[] | null>(null);
-  const hidden = (layer: string) => ui.hiddenDrawingLayers.includes(layer);
+  const hidden = (layer: string) => ui.drawingLayerHidden(layer);
 
   /** A mark size in millimetres that keeps its screen size. */
   const mark = $derived(Math.min(view.w, view.h) / 120);

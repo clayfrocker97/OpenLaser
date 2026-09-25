@@ -7,6 +7,7 @@
   import { server } from '../stores/server.svelte';
   import { ui } from '../stores/ui.svelte';
   import { osk } from '../lib/osk.svelte';
+  import { numberAtLeast } from '../lib/prompt';
   import { GASES, GAS_COLORS, GAS_NAMES, calibrationStatus, money, pricePerM3 } from '../lib/gas';
   import GasCalibration from './GasCalibration.svelte';
   import { withBusy } from '../lib/busy';
@@ -25,12 +26,6 @@
     apply(next);
     if (JSON.stringify(next) === JSON.stringify(base)) return;
     await withBusy((b) => (busy = b), () => api.saveGasCosts(next, base));
-  }
-  function number(label: string, value: number, unit: string, commit: (v: number) => void, min = 0): void {
-    osk.number(label, value, unit, v => {
-      if (Number.isFinite(v) && v >= min) commit(v);
-      else ui.say(`Enter ${min} or more.`, true);
-    });
   }
   function setSource(gas: GasKind, kind: Source['kind']): void {
     change(c => {
@@ -60,19 +55,19 @@
     });
   }
   function editRefillPrice(gas: GasKind, source: Refill): void {
-    number(`${GAS_NAMES[gas]} price per refill`, source.price, costs.currency,
+    numberAtLeast(`${GAS_NAMES[gas]} price per refill`, source.price, costs.currency,
       v => change(c => { c[gas].source = { ...source, price: v }; }));
   }
   function editVolume(gas: GasKind, source: Refill): void {
-    number(`${GAS_NAMES[gas]} cylinder volume`, source.volume, 'm³',
+    numberAtLeast(`${GAS_NAMES[gas]} cylinder volume`, source.volume, 'm³',
       v => { if (v > 0) change(c => { c[gas].source = { ...source, volume: v }; }); });
   }
   function editBulkPrice(gas: GasKind, source: Bulk): void {
-    number(`${GAS_NAMES[gas]} price per ${unitLabel('m³')}`, source.price_per_m3, '/m³',
+    numberAtLeast(`${GAS_NAMES[gas]} price per ${unitLabel('m³')}`, source.price_per_m3, '/m³',
       v => change(c => { c[gas].source = { ...source, price_per_m3: v }; }));
   }
   function editRunningCost(gas: GasKind, source: Compressor): void {
-    number('Compressor running cost per hour', source.cost_per_hour, `${costs.currency}/h`,
+    numberAtLeast('Compressor running cost per hour', source.cost_per_hour, `${costs.currency}/h`,
       v => change(c => { c[gas].source = { ...source, cost_per_hour: v }; }));
   }
   function estimateFlow(gas: GasKind): void {
@@ -82,7 +77,7 @@
     change(c => { if (c[gas].flow.kind !== 'manual') c[gas].flow = { kind: 'manual', rate: 100 }; });
   }
   function editFlowRate(gas: GasKind, rate: number): void {
-    number(`${GAS_NAMES[gas]} flow`, rate, 'L/min',
+    numberAtLeast(`${GAS_NAMES[gas]} flow`, rate, 'L/min',
       v => { if (v > 0) change(c => { c[gas].flow = { kind: 'manual', rate: v }; }); });
   }
 </script>

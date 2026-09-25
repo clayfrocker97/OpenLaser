@@ -2,7 +2,7 @@
   import SkippedFiles from '../components/SkippedFiles.svelte';
   import SheetLibrary from '../components/SheetLibrary.svelte';
   import StockEditor from '../components/StockEditor.svelte';
-  import { sheetLabel } from '../lib/sheet-sizes';
+  import { sheetLabel, boundsLabel } from '../lib/sheet-sizes';
   import ImportParts from '../components/ImportParts.svelte';
   import EditHistory from '../components/EditHistory.svelte';
   import PartsSide from './PartsSide.svelte';
@@ -76,7 +76,7 @@
     const remnants = library.remnants.filter((r) => r.folder).map((r): Card => ({
       id: r.id, kind: 'remnant', name: r.name, search: r.material, folder: r.folder, laser: r.mode,
       material: `${r.material} · ${quantityOf(r.thickness_mm, 'mm')}`,
-      size: sheetLabel(r.bounds.max.x - r.bounds.min.x, r.bounds.max.y - r.bounds.min.y), contours: 0, favourite: false,
+      size: boundsLabel(r.bounds), contours: 0, favourite: false,
       updated: r.at, outline: [r.outline, ...r.cutouts], parts: 0,
     }));
     return [...parts, ...jobs, ...stock, ...remnants];

@@ -8,7 +8,7 @@
 // duty (`CutPower` on fiber, `CutDuty` on CO₂).
 
 import type { LaserMode, RecipeSummary } from '../api';
-import { GAS, isOn, stageCount, shown, type Values } from './recipe';
+import { gasName, isOn, stageCount, shown, type Values } from './recipe';
 import { plural } from './format';
 
 /** What a summary is made from: a recipe, a machine bank, a running program's material or an import preview. */
@@ -94,7 +94,7 @@ export function summaryOf(values: Values, laser: LaserMode): SummarySource {
   const kind = get('OpenLaserNozzleType');
   return {
     laser,
-    gas: gas === null ? '' : GAS[Number(gas)] ?? `Selection ${gas}`,
+    gas: gas === null ? '' : gasName(gas),
     summary: {
       speed: get('CutSpeed'),
       peak: get('CutPeakCurrent'),

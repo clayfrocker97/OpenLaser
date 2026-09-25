@@ -1,5 +1,6 @@
 // Common sheet sizes, and fitting a size to the bed.
 import { toDisplay, unitLabel, units } from './units.svelte';
+import type { Bounds } from '../api';
 
 /** A sheet size in millimetres, long side first as sold. */
 export interface SheetSize { label: string; long: number; short: number }
@@ -33,3 +34,5 @@ export const side = (mm: number): string =>
 
 /** A sheet's width by height, with the unit. */
 export const sheetLabel = (width: number, height: number): string => `${side(width)} × ${side(height)} ${unitLabel('mm')}`;
+/** A sheet's size from its bounds, such as a remnant's. */
+export const boundsLabel = (b: Bounds): string => sheetLabel(b.max.x - b.min.x, b.max.y - b.min.y);

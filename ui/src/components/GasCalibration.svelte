@@ -7,7 +7,7 @@
   import type { GasKind, NozzleType } from '../api';
   import { server } from '../stores/server.svelte';
   import { ui } from '../stores/ui.svelte';
-  import { osk } from '../lib/osk.svelte';
+  import { numberAtLeast } from '../lib/prompt';
   import { explain } from '../lib/format';
   import { quantity } from '../lib/units.svelte';
   import { GAS_COLORS, GAS_NAMES, METHODS, measuredLitres, routesFor, volume, type Method } from '../lib/gas';
@@ -88,8 +88,6 @@
       step = 'saved';
     });
   }
-  const num = (label: string, value: number, unit: string, set: (v: number) => void, min = 0) =>
-    osk.number(label, value, unit, v => { if (Number.isFinite(v) && v >= min) set(v); });
   const beforeLabel = $derived(method === 'pressure' ? 'Cylinder pressure before' : method === 'weight' ? 'Cylinder weight before' : method === 'meter' ? 'Flow meter reading' : 'Volume used');
   const unit = $derived(method === 'pressure' ? 'bar' : method === 'weight' ? 'kg' : method === 'meter' ? 'L/min' : 'L');
 </script>
@@ -110,8 +108,8 @@
             onclick={() => (selector = r.selector)}>{r.name}</button>{/each}</div>
       {/if}
       <div class="fields">
-        <button class="field" onclick={() => num('Test pressure', pressure, 'bar', v => { if (v > 0 && v <= 100) pressure = v; })}><span>{route?.pressure ? 'Pressure' : 'Regulator pressure'}</span><strong>{quantity(pressure, 'bar')}</strong></button>
-        <button class="field" onclick={() => num('Nozzle diameter', diameter, 'mm', v => { if (v > 0 && v <= 20) diameter = v; })}><span>Nozzle</span><strong>{quantity(diameter, 'mm', 1)}</strong></button>
+        <button class="field" onclick={() => numberAtLeast('Test pressure', pressure, 'bar', v => { if (v > 0 && v <= 100) pressure = v; })}><span>{route?.pressure ? 'Pressure' : 'Regulator pressure'}</span><strong>{quantity(pressure, 'bar')}</strong></button>
+        <button class="field" onclick={() => numberAtLeast('Nozzle diameter', diameter, 'mm', v => { if (v > 0 && v <= 20) diameter = v; })}><span>Nozzle</span><strong>{quantity(diameter, 'mm', 1)}</strong></button>
         <div class="field seg-field"><span>Nozzle type</span><div class="seg"><button
               class:on={nozzleType === 'single'} onclick={() => (nozzleType = 'single')}>Single</button><button
               class:on={nozzleType === 'double'} onclick={() => (nozzleType = 'double')}>Double</button></div></div>
@@ -120,8 +118,8 @@
       <p class="muted">{METHODS.find(m => m.id === method)?.hint}{method === 'pressure' ? '. Let the gauge settle for a few minutes after the test.' : '.'}</p>
       {#if method === 'pressure' || method === 'weight'}
         <div class="fields">
-          <button class="field" onclick={() => num(beforeLabel, before, unit, v => (before = v))}><span>{beforeLabel}</span><strong>{quantity(before, unit, 1)}</strong></button>
-          {#if method === 'pressure'}<button class="field" onclick={() => num('Cylinder water capacity', capacity, 'L', v => { if (v > 0) capacity = v; })}><span>Water capacity</span><strong>{quantity(capacity, 'L', 0)}</strong></button>{/if}
+          <button class="field" onclick={() => numberAtLeast(beforeLabel, before, unit, v => (before = v))}><span>{beforeLabel}</span><strong>{quantity(before, unit, 1)}</strong></button>
+          {#if method === 'pressure'}<button class="field" onclick={() => numberAtLeast('Cylinder water capacity', capacity, 'L', v => { if (v > 0) capacity = v; })}><span>Water capacity</span><strong>{quantity(capacity, 'L', 0)}</strong></button>{/if}
         </div>
       {/if}
       <p class="expect">The estimate for 60 s is <b>{expected === null ? '—' : volume(expected)}</b>.</p>
@@ -141,9 +139,9 @@
       <div class="fields">
         {#if method === 'pressure' || method === 'weight'}
           <div class="field static"><span>{beforeLabel}</span><strong>{quantity(before, unit, 1)}</strong></div>
-          <button class="field" onclick={() => num(method === 'pressure' ? 'Cylinder pressure after' : 'Cylinder weight after', after, unit, v => (after = v))}><span>After</span><strong>{quantity(after, unit, 1)}</strong></button>
+          <button class="field" onclick={() => numberAtLeast(method === 'pressure' ? 'Cylinder pressure after' : 'Cylinder weight after', after, unit, v => (after = v))}><span>After</span><strong>{quantity(after, unit, 1)}</strong></button>
         {:else}
-          <button class="field" onclick={() => num(beforeLabel, before, unit, v => (before = v))}><span>{beforeLabel}</span><strong>{quantity(before, unit, 1)}</strong></button>
+          <button class="field" onclick={() => numberAtLeast(beforeLabel, before, unit, v => (before = v))}><span>{beforeLabel}</span><strong>{quantity(before, unit, 1)}</strong></button>
         {/if}
       </div>
       <div class="stats">

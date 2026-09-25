@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { about, after, apply, centre, mirror, mirrorVertical, rotation, scaling, svgMatrix, tenth, translate, type Point } from './transform';
+import { about, after, apply, centre, mirror, mirrorVertical, rotation, scaling, svgMatrix, translate, type Point } from './transform';
 import type { Transform } from '../api';
 
 const close = (p: Point, q: Point) => { expect(p[0]).toBeCloseTo(q[0], 9); expect(p[1]).toBeCloseTo(q[1], 9); };
@@ -44,7 +44,6 @@ describe('similarity transforms', () => {
 
   it('writes an SVG matrix and small helpers', () => {
     expect(svgMatrix([1, 0, 0, 1, 2.5, -3])).toBe('matrix(1 0 0 1 2.5 -3)');
-    expect(tenth(12.345)).toBe(12.3);
     expect(centre({ minX: 0, maxX: 10, minY: -4, maxY: 2 })).toEqual([5, -1]);
   });
 });

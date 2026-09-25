@@ -407,7 +407,7 @@ fn impossible_and_cancelled_searches_return_no_partial_solution() {
     assert!(
         nest(&input, &AtomicBool::new(false), |_, _| {})
             .unwrap_err()
-            .0
+            .message
             .contains("no complete layout")
     );
     assert!(

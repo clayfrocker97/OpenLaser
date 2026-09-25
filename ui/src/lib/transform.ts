@@ -42,8 +42,6 @@ export const apply = (m: Transform, p: Point): Point => [m[0] * p[0] + m[2] * p[
 /** The SVG `transform` attribute for `m`. */
 export const svgMatrix = (m: Transform): string => `matrix(${m.join(' ')})`;
 
-/** Rounded to a tenth. */
-export const tenth = (v: number): number => Math.round(v * 10) / 10;
 
 /** The centre of a box. */
 export const centre = (b: Box): Point => [(b.minX + b.maxX) / 2, (b.minY + b.maxY) / 2];

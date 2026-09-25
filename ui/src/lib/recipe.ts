@@ -43,6 +43,8 @@ export interface Field {
 
 /** The controller's six gas selections, as the machine files number them. */
 export const GAS = ['Low Air', 'Low O₂', 'Low N₂', 'High Air', 'High O₂', 'High N₂'];
+/** A gas selector's name, or its number when the card has more. */
+export const gasName = (selector: number | string): string => GAS[Number(selector)] ?? `Selection ${selector}`;
 /** The `ManuType` for each piercing stage count under a following head. */
 export const LEVELS = [0, 2, 3, 4, 6, 7];
 /** The piercing stages each `ManuType` runs. */
@@ -162,7 +164,7 @@ export const num = (value: number): string => String(Math.round(value * 1e6) / 1
 export function bare(key: string, value: string): string {
   const f = field(key);
   if (value === '') return '—';
-  if (f.kind === 'gas') return GAS[Number(value)] ?? `Selection ${value}`;
+  if (f.kind === 'gas') return gasName(value);
   if (f.kind === 'flag') return isOn(value) ? 'On' : 'Off';
   return numeric(value) ? displayNumber(value, f.unit ?? '').replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '') : value;
 }

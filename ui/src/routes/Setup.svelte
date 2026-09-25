@@ -10,7 +10,7 @@
   import CreateText from '../components/CreateText.svelte';
   import { featureEdits } from '../stores/feature-edits';
   import { server } from '../stores/server.svelte';
-  import { ui, type FeatureId } from '../stores/ui.svelte';
+  import { ui } from '../stores/ui.svelte';
   import { explain } from '../lib/format';
   import { pasteable, type CopiedShapes, type PasteSettings } from '../lib/copy-paste';
   import { TOOLS, isOn, stateOf, toggled } from '../lib/features';
@@ -39,9 +39,7 @@
   let pasteSettings = $state<PasteSettings>({ count: 1, gap: 10, direction: 'right' });
 
   function runTool(id: string): void {
-    if (id === 'nest') { ui.setupPanel = ui.setupPanel === 'nest' ? null : 'nest'; return; }
-    if (id === 'copy') { ui.setupPanel = ui.setupPanel === 'copy' ? null : 'copy'; return; }
-    ui.setupPanel = ui.setupPanel === id ? null : (id as FeatureId);
+    ui.setupPanel = ui.setupPanel === id ? null : (id as typeof ui.setupPanel);
   }
 
   async function toggle(id: string): Promise<void> {
@@ -64,7 +62,7 @@
       on: () => ui.setupPanel === t.id, set: () => !!draft && isOn(draft.features, t.id), disabled: () => false, run: () => runTool(t.id),
     }]),
     ...EXTRA.map((t): [string, Tool] => [t.id, {
-      label: t.short, when: 'always', icon: t.id === 'nest' ? 'ic-tool-nest' : 'ic-copy', detail: () => 'tool', on: () => ui.setupPanel === t.id, disabled: () => false, run: () => runTool(t.id),
+      label: t.short, when: 'always', icon: t.id === 'nest' ? 'ic-tool-nest' : 'ic-copy', on: () => ui.setupPanel === t.id, disabled: () => false, run: () => runTool(t.id),
     }]),
   ]));
 

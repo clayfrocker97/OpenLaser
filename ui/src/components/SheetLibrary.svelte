@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { distance, quantity } from '../lib/units.svelte';
+  import { boundsLabel } from '../lib/sheet-sizes';
+  import { quantity } from '../lib/units.svelte';
   import { onMount, untrack } from 'svelte';
   import Modal from './Modal.svelte';
   import SheetShape from './SheetShape.svelte';
@@ -25,8 +26,6 @@
       && Math.abs(recipe.thickness_mm - sheet.thickness_mm) < 1e-6
       && recipe.name.toLowerCase() === sheet.material.toLowerCase());
   }
-  const sheetSize = (sheet: SheetView): string =>
-    `${distance(sheet.bounds.max.x - sheet.bounds.min.x)} × ${quantity(sheet.bounds.max.y - sheet.bounds.min.y, 'mm')}`;
   /** The line under a sheet card: why it cannot be chosen, or its state. */
   function sheetStatus(sheet: SheetView): string {
     if (onchoose && !compatible(sheet)) return 'Choose a matching material first';
@@ -96,7 +95,7 @@
         <div class="card-info">
           <strong>{sheet.name}</strong>
           <span>{sheet.material} · {quantity(sheet.thickness_mm, 'mm')} · {laserLabel(sheet.mode)}</span>
-          <small>{sheetSize(sheet)} · {plural(sheet.cutouts.length, 'cut area')}</small>
+          <small>{boundsLabel(sheet.bounds)} · {plural(sheet.cutouts.length, 'cut area')}</small>
           <em>{sheetStatus(sheet)}</em>
         </div>
       </button>

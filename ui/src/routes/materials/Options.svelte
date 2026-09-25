@@ -1,6 +1,5 @@
 <script lang="ts">
-  import { quantity } from '../../lib/units.svelte';
-  import { plural } from '../../lib/format';
+  import { plural, recipeLabel } from '../../lib/format';
   // The Process options page: the optional behaviours as cards, each with
   // its state and a line on what it does, in the vendor's order. A card
   // opens its sheet.
@@ -67,7 +66,7 @@
       {
         id: 'film', title: 'With Film', status: on('WithFilm') ? 'On' : 'Off',
         text: on('WithFilm')
-          ? (film ? `Film process: ${film.name} · ${quantity(film.thickness_mm, 'mm')} · ${film.gas}` : 'Choose a film process')
+          ? (film ? `Film process: ${recipeLabel(film)}` : 'Choose a film process')
           : 'Run a separate pass before the cut',
       },
       {

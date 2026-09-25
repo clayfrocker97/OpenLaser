@@ -7,7 +7,7 @@
   import { server } from '../../stores/server.svelte';
   import { ui, type FeatureId } from '../../stores/ui.svelte';
   import { ago, explain, recipeLabel } from '../../lib/format';
-  import { TOOLS, defaultBridges, defaultCommon, defaultCooling, defaultJoints, defaultKerf, defaultLeads, isOn } from '../../lib/features';
+  import { TOOLS, defaultBridges, defaultCommon, defaultCooling, defaultJoints, defaultKerf, defaultLeads, isOn, toggled } from '../../lib/features';
   import Tabs from '../../components/params/Tabs.svelte';
   import CutOrderPreview from './CutOrderPreview.svelte';
   import BridgesForm from './features/BridgesForm.svelte';
@@ -20,7 +20,7 @@
   import StartForm from './features/StartForm.svelte';
   import type { PickFeature, SetFeatures } from './features/form';
   import type { Features } from '../../api';
-  import { LAYER_MACHINING, hasOwn, layerColor, scoped, setOwn } from '../../lib/drawing-layers';
+  import { hasOwn, LAYER_MACHINING, scoped, setOwn, swatchColor } from '../../lib/drawing-layers';
 
   let { id, ontoggle, selectedContours, orderProgress = $bindable(0), compact = false }: {
     id: FeatureId;
@@ -57,12 +57,7 @@
   /** On or off; for a layer, its own. */
   function toggle(): void {
     if (!scope) { ontoggle(); return; }
-    set((f) => {
-      if (id === 'leads') f.leads = f.leads ? null : defaultLeads();
-      if (id === 'joints') f.joints = f.joints ? null : defaultJoints();
-      if (id === 'cooling') f.cooling = f.cooling ? null : defaultCooling();
-      if (id === 'kerf') f.kerf = f.kerf ? null : defaultKerf();
-    });
+    set((f) => { Object.assign(f, toggled(f, id)); });
   }
 
   /** Starts placing on the drawing; the canvas takes it from here. Places
@@ -100,7 +95,7 @@
     <button class="chip" class:on={!scope} onclick={() => (ui.machiningLayer = null)}>All layers</button>
     {#each draft.layers as layer (layer.name)}
       <button class="chip" class:on={scope === layer.name} onclick={() => (ui.machiningLayer = layer.name)}>
-        <span class="layer-swatch" style:--layer={layerColor(draft.layers, layer.name) ?? 'var(--cut)'}></span>{layer.name}{hasOwn(base, layer.name) ? ' ·' : ''}
+        <span class="layer-swatch" style:--layer={swatchColor(draft.layers, layer.name)}></span>{layer.name}{hasOwn(base, layer.name) ? ' ·' : ''}
       </button>
     {/each}
   </div>
@@ -119,7 +114,7 @@
   <p class="muted">{featureEdits.error} <button class="link" onclick={() => featureEdits.discard()}>Discard refused edits</button></p>
 {/if}
 {#if id === 'leads'}<Tabs names={['Entry', 'Exit']} bind:active={tab} />{/if}
-{#if id === 'leads'}<p class="muted" style="font-size:var(--t-sm)">Drag a lead to edit it. Selected copies update the matching lead.</p>{/if}
+{#if id === 'leads'}<p class="muted lead-hint">Drag a lead to edit it. Selected copies update the matching lead.</p>{/if}
 {#if id === 'joints' || id === 'start'}<Tabs names={['Basic', 'More']} bind:active={tab} />{/if}
 <div class="stack" style="opacity:{on ? 1 : 0.45}">
   {#if id === 'leads'}
@@ -153,6 +148,7 @@
 </div>
 
 <style>
+  .lead-hint { font-size:var(--t-sm); }
   .feat-title { display:flex; align-items:center; gap:10px; }
   .feat-title .ic { width:24px; height:24px; color:var(--accent-2); }
   .scope { display:flex; flex-wrap:wrap; gap:6px; margin:0 0 8px; }

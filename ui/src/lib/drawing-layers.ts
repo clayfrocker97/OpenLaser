@@ -26,6 +26,9 @@ export function layerColor(layers: readonly DraftLayer[], name: string): string 
   return at === 0 ? null : PALETTE[(at - 1) % PALETTE.length]!;
 }
 
+/** A layer's colour for a swatch: its own, else the screen's cut colour. */
+export const swatchColor = (layers: readonly DraftLayer[], name: string): string => layerColor(layers, name) ?? 'var(--cut)';
+
 /** The machining features a layer can have its own of. */
 export const LAYER_MACHINING = ['leads', 'joints', 'cooling', 'kerf', 'start'] as const;
 
@@ -51,7 +54,7 @@ export const hasOwn = (features: Features, layer: string): boolean =>
 
 /** The layer table with every layer, in `order`, so adding one entry never
  *  moves a layer ahead of the others. */
-export function table(features: Features, order: readonly string[]): Layer[] {
+function table(features: Features, order: readonly string[]): Layer[] {
   return order.map((name) => features.layers?.find((l) => l.name === name) ?? { name, mode: 'cut', color: null, machining: null });
 }
 

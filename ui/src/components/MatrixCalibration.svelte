@@ -5,7 +5,7 @@
   import { server } from '../stores/server.svelte';
   import { ui } from '../stores/ui.svelte';
   import { osk } from '../lib/osk.svelte';
-  import { explain, fmt, laserLabel } from '../lib/format';
+  import { explain, laserLabel } from '../lib/format';
 
   let mode = $state<LaserMode>(server.doc?.mode ?? 'fiber');
   let data = $state<CorrectionView | null>(null);

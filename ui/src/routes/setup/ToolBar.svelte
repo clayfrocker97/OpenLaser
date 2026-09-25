@@ -80,7 +80,7 @@
   <button class="tile" data-bar-tool={id} class:on={tool.on?.() ?? false} class:set={tool.set?.() ?? false}
     class:placeholder={bar.dragging === id} class:editing
     title={tool.title ?? tool.label} disabled={!editing && tool.disabled()} onclick={() => run(tool)}
-    onpointerdown={bar.down} onpointermove={bar.move} onpointerup={bar.up} onpointercancel={bar.up}>
+    onpointerdown={bar.down}>
     {#if variant === 'names'}
       {#if tool.icon}<i class="ic {tool.icon}"></i>{/if}
       <span class="texts"><span class="name">{tool.label}</span>{#if tool.detail}<small class="detail">{tool.detail()}</small>{/if}</span>

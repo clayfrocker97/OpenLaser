@@ -13,7 +13,7 @@
   import { server } from '../stores/server.svelte';
   import { ui } from '../stores/ui.svelte';
   import { osk } from '../lib/osk.svelte';
-  import { explain } from '../lib/format';
+  import { explain, laserLabel } from '../lib/format';
   import { access } from '../lib/access.svelte';
   import { plain } from '../lib/plain';
 
@@ -34,7 +34,7 @@
   const fresh = $derived(doc.machine.connection.state === 'connected' && !!feedback && feedback.age_ms <= 1000);
   const homed = $derived(fresh && doc.machine.session.homed && feedback?.referenced.every(Boolean));
   const headHomed = $derived(fresh && feedback?.head.referenced);
-  const sourceLabel = $derived(doc.mode === 'fiber' ? 'Fiber' : doc.mode === 'co2' ? 'CO₂' : 'Not selected');
+  const sourceLabel = $derived(doc.mode ? laserLabel(doc.mode) : 'Not selected');
 
   const work = $derived.by(() => {
     if (!feedback) return null;

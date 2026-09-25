@@ -9,9 +9,9 @@
   import { api } from '../../api/client';
   import { server } from '../../stores/server.svelte';
   import { ui } from '../../stores/ui.svelte';
-  import { osk } from '../../lib/osk.svelte';
-  import { explain, laserLabel, plural, recipeLabel, seconds, size } from '../../lib/format';
-  import { layerColor } from '../../lib/drawing-layers';
+  import { explain, laserLabel, plural, recipeLabel, seconds } from '../../lib/format';
+  import { preflightLabel, saveJob, saveLabel } from '../../lib/save-job';
+  import { swatchColor } from '../../lib/drawing-layers';
   import type { DraftLayer } from '../../api';
   import { TOOLS, isOn } from '../../lib/features';
   import AddParts from '../../components/AddParts.svelte';
@@ -31,14 +31,6 @@
   const optional = TOOLS.filter((t) => t.optional).length;
 
   const partsLabel = $derived(draft.parts.length === 1 ? nameOf(draft.parts[0]!.id) : `${draft.parts.length} parts`);
-  const preflightLabel = $derived(
-    draft.preflight.kind === 'inherit' ? 'Mode defaults'
-    : draft.preflight.kind === 'off' ? 'Checklist off'
-    : `${draft.preflight.steps.length} custom checks`,
-  );
-  const saveLabel = $derived(
-    draft.sheets?.pages.some(p => !p.job) ? `Save ${plural(draft.sheets.pages.length, 'sheet')}` : 'Save job',
-  );
   /** The note beside a part in the list: whether it is on this sheet, and how many copies or paths. */
   function partNote(here: number, copies: number, contours: number): string {
     if (!here) return 'Not on this sheet';
@@ -81,28 +73,7 @@
     try { await action(); then?.(); } catch (error) { ui.say(explain(error), true); }
   }
 
-  function save(): void {
-    const batch = draft.sheets?.pages.some(p => !p.job) ?? false;
-    const total = draft.sheets?.pages.length ?? 1;
-    osk.text(batch ? 'Folder for numbered sheets' : 'Job name', job?.name ?? (draft.name || 'job'), (name) => {
-      if (!name.trim()) return;
-      run(async () => {
-        if (batch) {
-          await api.saveJob(name.trim());
-          ui.say(`Saved ${total} numbered sheets in ${name.trim()}.`);
-          return;
-        }
-        const review = await api.mergeReview(name.trim());
-        if (review.conflicts.length) {
-          ui.pendingJobName = name.trim();
-          ui.modal = 'pending';
-          return;
-        }
-        await api.saveJob(review.name);
-        ui.say(`Saved job ${review.name}.`);
-      });
-    });
-  }
+  const save = () => saveJob(draft, job, (action) => void run(action));
 
   function review(dryRun: boolean): void {
     run(async () => { if (draft.dry_run !== dryRun) await api.compile(dryRun); }, () => { ui.tab = 'run'; });
@@ -161,10 +132,10 @@
         {@const needs = !layer.chosen}
         <!-- The row holds the pointer while its grip drags it, so it hears the move and release. -->
         <div class="layer-line" data-layer-row={layer.name} class:off={!layer.output} class:needs class:placeholder={rows.dragging === layer.name}
-          onpointermove={rows.move} onpointerup={release} onpointercancel={release} role="listitem">
+          onpointerup={release} onpointercancel={release} role="listitem">
           <button class="grip" aria-label="Drag {layer.name} up or down" onpointerdown={grab}><i class="ic ic-grip"></i></button>
           <button class="layer-open" onclick={() => (ui.layerSheet = layer.name)}>
-            <span class="layer-swatch" class:mark={layer.mode === 'mark'} style:--layer={layerColor(draft.layers, layer.name) ?? 'var(--cut)'}></span>
+            <span class="layer-swatch" class:mark={layer.mode === 'mark'} style:--layer={swatchColor(draft.layers, layer.name)}></span>
             <span class="layer-text">
               <span class="layer-name">{layer.name}</span>
               <small class="layer-how">{layerHow(layer)}</small>
@@ -183,7 +154,7 @@
 <div class="card2 compact rows">
   <div class="info-row">
     <span><strong>Machining</strong><small>{on} of {optional} on{#if draft.feature_source} · from {draft.feature_source.name}{/if}</small></span>
-    <span><strong>Preflight</strong><small>{preflightLabel}</small></span>
+    <span><strong>Preflight</strong><small>{preflightLabel(draft)}</small></span>
     <button class="btn btn-ghost" onclick={() => (checklist = true)}>Edit</button>
   </div>
 </div>
@@ -196,13 +167,13 @@
 {#if draft.compiled?.plan.some((pass) => pass.omitted_cooling > 0)}
   <p class="muted">{draft.compiled.plan.reduce((n, pass) => n + pass.omitted_cooling, 0)} cooling points skipped within {quantity(0.2, 'mm')} of endpoints.</p>
 {/if}
-{#if draft.error}<div class="warn-text" style="font-size:var(--t-sm)">{plain(draft.error).text}</div>{/if}
+{#if draft.error}<div class="warn-text draft-error">{plain(draft.error).text}</div>{/if}
 {#if draft.compiled}<GasLaserCard />{/if}
 </div>
 
 <div class="stack">
   <div class="row">
-    <button class="btn btn-ghost lg" onclick={save} disabled={!recipe}>{saveLabel}</button>
+    <button class="btn btn-ghost lg" onclick={save} disabled={!recipe}>{saveLabel(draft)}</button>
     <button class="btn btn-ghost lg" onclick={() => review(true)} disabled={!doc.readiness.compile.ok} title={doc.readiness.compile.reason ?? ''}>Dry run</button>
   </div>
   <button class="btn btn-primary xl block" onclick={() => review(false)} disabled={!doc.readiness.compile.ok} title={doc.readiness.compile.reason ?? ''}>Go to Run →</button>
@@ -232,10 +203,10 @@
   .mat-text { flex:1; min-width:0; display:grid; gap:2px; }
   .mat-text strong { font-size:var(--t-base); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .mat-text small { font-size:var(--t-sm); color:var(--ink-3); }
+  .draft-error { font-size:var(--t-sm); }
   .rows { gap:0; padding-top:4px; padding-bottom:4px; }
   .info-row { display:flex; align-items:center; justify-content:space-between; gap:10px; min-height:44px; }
-  .info-row > span { flex:1; }
-  .info-row > span { display:grid; gap:2px; min-width:0; }
+  .info-row > span { flex:1; display:grid; gap:2px; min-width:0; }
   .info-row strong { font-size:var(--t-base); }
   .info-row small { font-size:var(--t-sm); color:var(--ink-3); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .info-row .btn { min-height:44px; }

@@ -1,6 +1,7 @@
 <script lang="ts">
   // Adds full sheets to the rack: a material from the recipes, a size and
   // how many. The same material and size in the same folder adds up.
+  import SheetCount from './SheetCount.svelte';
   import { quantity } from '../lib/units.svelte';
   import { untrack } from 'svelte';
   import Modal from './Modal.svelte';
@@ -8,7 +9,6 @@
   import { api } from '../api/client';
   import { server } from '../stores/server.svelte';
   import { ui } from '../stores/ui.svelte';
-  import { osk } from '../lib/osk.svelte';
   import { explain, laserLabel, plural } from '../lib/format';
   import { frameOf } from '../lib/frame';
   import type { LaserMode } from '../api';
@@ -71,12 +71,7 @@
       {/if}
     {/if}
     <SheetSizePicker bind:width bind:height disabled={busy} />
-    <div class="count">
-      <span>Sheets</span>
-      <button aria-label="One fewer" disabled={busy || count <= 1} onclick={() => count--}><i class="ic ic-minus"></i></button>
-      <button class="number" disabled={busy} onclick={() => osk.number('Sheets to add', count, 'sheets', (v) => count = Math.max(1, Math.round(v)))}>{count}</button>
-      <button aria-label="One more" disabled={busy} onclick={() => count++}><i class="ic ic-plus"></i></button>
-    </div>
+    <div class="count"><SheetCount label="Sheets" prompt="Sheets to add" value={count} min={1} disabled={busy} onchange={(v) => (count = v)} /></div>
     {#if error}<p class="error" role="alert">{error}</p>{/if}
     <button class="btn btn-primary lg block" disabled={busy || !picked || width <= 0 || height <= 0} onclick={save}>
       Add {plural(count, 'sheet')}
@@ -90,10 +85,7 @@
   .chips { display:flex; flex-wrap:wrap; gap:8px; }
   .chip { min-height:48px; }
   .fixed { margin:0; font-size:var(--t-base); color:var(--ink-2); }
-  .count { display:flex; align-items:center; gap:8px; margin:22px 0; }
-  .count span { flex:1; font-size:var(--t-base); }
-  .count button { min-width:52px; min-height:52px; border:1px solid var(--line); border-radius:10px; background:var(--panel-2); color:var(--ink); cursor:pointer; }
-  .count .number { min-width:76px; font-size:var(--t-xl); }
+  .count { margin:22px 0; }
   .btn.lg { min-height:56px; }
   .error { color:var(--warn); font-size:var(--t-sm); }
 </style>

@@ -157,6 +157,17 @@ class Ui {
     return !this.hiddenLayers.includes(layer);
   }
 
+  /** Whether a drawing layer is hidden on the canvas; the job still cuts it. */
+  drawingLayerHidden(layer: string): boolean {
+    return this.hiddenDrawingLayers.includes(layer);
+  }
+
+  toggleDrawingLayer(layer: string): void {
+    this.hiddenDrawingLayers = this.drawingLayerHidden(layer)
+      ? this.hiddenDrawingLayers.filter((l) => l !== layer)
+      : [...this.hiddenDrawingLayers, layer];
+  }
+
   toggleLayer(layer: string): void {
     this.hiddenLayers = this.layerShown(layer) ? [...this.hiddenLayers, layer] : this.hiddenLayers.filter((l) => l !== layer);
     remember('ol-hidden-layers', this.hiddenLayers);

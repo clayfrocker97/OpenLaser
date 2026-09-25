@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { distance, quantity, unitLabel } from '../lib/units.svelte';
+  import { quantity } from '../lib/units.svelte';
   // The run page: the compiled program on the bed with its layers, the head,
   // progress from the controller's item tag, and the three controls.
   import { untrack } from 'svelte';

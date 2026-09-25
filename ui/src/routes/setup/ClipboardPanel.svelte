@@ -1,7 +1,7 @@
 <script lang="ts">
   import { displayNumber, quantity, unitLabel } from '../../lib/units.svelte';
   import { osk } from '../../lib/osk.svelte';
-  import { fmt, plural } from '../../lib/format';
+  import { plural } from '../../lib/format';
   import type { CopiedShapes, PasteDirection, PasteSettings } from '../../lib/copy-paste';
   import { ui } from '../../stores/ui.svelte';
 

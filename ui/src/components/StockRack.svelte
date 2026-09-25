@@ -9,7 +9,7 @@
   import { ui } from '../stores/ui.svelte';
   import { explain, laserLabel, plural } from '../lib/format';
   import { folderPath } from '../lib/folders';
-  import { sheetLabel } from '../lib/sheet-sizes';
+  import { sheetLabel, boundsLabel } from '../lib/sheet-sizes';
   import { remnantMaterial } from '../lib/stock-plan';
   import type { LaserMode, SheetView, StockItem } from '../api';
   const library = $derived(server.doc!.library);
@@ -29,7 +29,7 @@
     return [...map.values()].sort((a, b) => a.material.localeCompare(b.material) || a.thickness - b.thickness);
   });
   const folderName = (id: string | null) => folderPath(library.folders, id).map((f) => f.name).join(' / ');
-  const size = (sheet: SheetView) => sheetLabel(sheet.bounds.max.x - sheet.bounds.min.x, sheet.bounds.max.y - sheet.bounds.min.y);
+  const size = (sheet: SheetView) => boundsLabel(sheet.bounds);
   let adding = $state(false), editing = $state<string | null>(null), busy = $state(false);
   async function step(item: StockItem, by: number): Promise<void> {
     busy = true;
