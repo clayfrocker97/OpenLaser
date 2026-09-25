@@ -96,7 +96,11 @@ export function diagnosticText(text: string): string {
 
 /** Editable values keep more precision than compact labels. */
 export function inputValue(value: number, source: string, system = units.system): string {
-  return String(Number(toDisplay(value, source, system).toPrecision(12)));
+  // Four decimals, as the keypad shows them; an unchanged entry still keeps
+  // every original digit (sourceInput). Values too small for that keep
+  // their first figures.
+  const shown = toDisplay(value, source, system);
+  return String(shown === 0 || Math.abs(shown) >= 1e-3 ? Number(shown.toFixed(4)) : Number(shown.toPrecision(3)));
 }
 
 /** Tapping Done on the displayed value preserves every original metric digit. */

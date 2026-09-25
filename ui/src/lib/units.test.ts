@@ -29,6 +29,11 @@ describe('imperial presentation with metric storage', () => {
       expect(sourceInput(inputValue(value, 'mm'), value, 'mm')).toBe(value);
     }
     expect(sourceInput('1', 3, 'mm')).toBeCloseTo(25.4, 12);
+    units.set('metric');
+    expect(inputValue(17000 / 60, 'mm')).toBe('283.3333');
+    expect(inputValue(12_345_678, 'mm')).toBe('12345678');
+    expect(sourceInput('283.3333', 17000 / 60, 'mm')).toBe(17000 / 60);
+    units.set('imperial');
     expect(sourceInput('', 3, 'mm')).toBeNaN();
     expect(Number(displayNumber(0.001, 'mm'))).toBeGreaterThan(0);
   });

@@ -67,7 +67,10 @@
     const observer = new MutationObserver(records => { for (const record of records) for (const node of record.addedNodes) if (node instanceof HTMLElement) { if (editable(node)) node.inputMode = 'none'; configure(node); } });
     observer.observe(document.body, { childList: true, subtree: true });
     const focus = (e: FocusEvent) => { const t = e.target; if (editable(t)) osk.show({ kind: t.type === 'number' ? 'num' : 'text', target: t, value: t.value, label: t.placeholder || t.getAttribute('aria-label') || 'Type' }); };
-    const tap = (e: PointerEvent) => { const t = e.target as HTMLElement; if (!t.closest('#osk') && !t.closest('input, textarea') && !t.closest('[data-numpad]') && osk.open && osk.kind === 'text') osk.close(); };
+    // A tap anywhere else puts either keyboard away, unsaved, so a numpad
+    // opened for one value is not left over the jog buttons. A tap on
+    // another value opens the keyboard again for that one.
+    const tap = (e: PointerEvent) => { const t = e.target as HTMLElement; if (osk.open && !t.closest('#osk') && !t.closest('input, textarea') && !t.closest('[data-numpad]')) osk.close(); };
     const input = (e: Event) => { if (e.target === osk.target && osk.target) osk.value = osk.target.value; };
     const keydown = (e: KeyboardEvent) => {
       if (!osk.open || e.ctrlKey || e.metaKey || e.altKey || e.isComposing) return;
