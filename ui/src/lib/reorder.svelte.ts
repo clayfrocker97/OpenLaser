@@ -47,6 +47,12 @@ export class Reorder {
     const id = el.dataset[this.datasetKey]!;
     this.drag = { id, ghost, ox: e.clientX - r.left, oy: e.clientY - r.top, sx: e.clientX, sy: e.clientY, x: e.clientX, y: e.clientY, raf: 0, moved: false, cool: 0 };
     el.setPointerCapture(e.pointerId);
+    // A tile that moves between the row and the column is a new element,
+    // and the old one takes its pointer capture with it; the window still
+    // hears the move and the release, so the ghost always goes.
+    addEventListener('pointermove', this.move);
+    addEventListener('pointerup', this.up);
+    addEventListener('pointercancel', this.up);
     e.preventDefault();
   };
 
@@ -63,6 +69,10 @@ export class Reorder {
     if (!drag) return;
     const { id, ghost } = drag;
     this.drag = null;
+    removeEventListener('pointermove', this.move);
+    removeEventListener('pointerup', this.up);
+    removeEventListener('pointercancel', this.up);
+    if (drag.raf) cancelAnimationFrame(drag.raf);
     const r = document.querySelector<HTMLElement>(`[data-${this.options.attribute}="${id}"]`)?.getBoundingClientRect();
     const finish = () => { ghost.remove(); this.dragging = null; };
     if (!r) { finish(); return; }
