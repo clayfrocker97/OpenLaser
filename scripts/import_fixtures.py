@@ -25,8 +25,7 @@ def num(value):
     """A number the way CAD programs write it: shortest round trip."""
     if isinstance(value, int):
         return str(value)
-    text = repr(float(value))
-    return text[:-2] + ".0" if text.endswith(".0") else text
+    return repr(float(value))
 
 
 class Dxf:

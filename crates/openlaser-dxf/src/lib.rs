@@ -77,7 +77,7 @@ pub enum Error {
         /// What is wrong.
         reason: String,
     },
-    /// An entity type whose geometry this beta cannot cut.
+    /// An entity type with no cuttable outline, such as a 3D mesh.
     #[error("line {line}: {entity} entities are not supported; explode or redraw them")]
     Unsupported {
         /// The line the entity starts on.
@@ -91,8 +91,9 @@ pub enum Error {
     /// Nothing to cut.
     #[error("the drawing has no lines, arcs, circles, polylines, curves or text outlines")]
     Empty,
-    /// A block reference names a block the file does not define, or blocks
-    /// refer to themselves.
+    /// A block reference names a block the file does not define, blocks
+    /// refer to themselves, or the placed blocks exceed the entity, nesting
+    /// or curve limits.
     #[error("line {line}: {reason}")]
     Block {
         /// The line of the reference.

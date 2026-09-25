@@ -7,8 +7,11 @@
 //! kerf compensation moves each closed contour into its waste, the start
 //! point and direction are set, micro-joints and cooling stops split the
 //! contour into tagged segments, the seam is treated, leads are attached,
-//! and the contours are ordered. The output is a toolpath in
-//! [`openlaser_core`] types with a process tag on every segment.
+//! and the contours are ordered: layer by layer in [`layer_order`], then
+//! by the cutting order within each. A layer may have machining of its
+//! own, and marked layers stay out of the outline and hole topology. The
+//! output is a toolpath in [`openlaser_core`] types with a process tag on
+//! every segment.
 //!
 //! This side of the design is ours: it owes nothing to the vendor software
 //! and is free to be simpler than it.
@@ -363,7 +366,7 @@ fn prepared_depths(
 pub fn layer_order(drawing: &Drawing, features: &Features) -> Vec<String> {
     let mut found: Vec<(String, f64)> = Vec::new();
     for contour in &drawing.contours {
-        let area = contour.bounds().map_or(0., |b| (b.max.x - b.min.x) * (b.max.y - b.min.y));
+        let area = contour.bounds().map_or(0., |b| b.width() * b.height());
         match found.iter_mut().find(|(name, _)| *name == contour.layer) {
             Some((_, largest)) => *largest = largest.max(area),
             None => found.push((contour.layer.clone(), area)),

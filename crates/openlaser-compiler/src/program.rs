@@ -336,7 +336,9 @@ impl Job {
     /// Plans prepared geometry whose contours each run under their own
     /// recipe, as drawing layers choose them; `processes` holds one per
     /// contour. The job's own recipe opens and closes the program, and only
-    /// its contours carry film and preliminary piercing.
+    /// its contours carry film and preliminary piercing: those whose entry
+    /// is `settings` itself, by reference, so pass the same reference for
+    /// them rather than an equal copy.
     pub fn schedule_layered(
         settings: &Settings,
         contours: &[cut::Contour],

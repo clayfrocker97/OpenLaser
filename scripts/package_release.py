@@ -19,7 +19,7 @@ import tomllib
 import zipfile
 from pathlib import Path
 
-from build_release import forbidden
+from build_release import check
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -113,10 +113,8 @@ def main() -> None:
     if not (ROOT / "ui/dist/index.html").is_file():
         parser.error("build the UI first")
 
-    for name, binary in binaries.items():
-        if leaks := forbidden(binary.read_bytes()):
-            raise RuntimeError(f"{name} contains home-folder paths ({', '.join(leaks)}); "
-                               "build it with scripts/build_release.py")
+    for binary in binaries.values():
+        check(binary)
 
     pe = binaries["windows-x86_64"].read_bytes()
     offset = struct.unpack_from("<I", pe, 0x3C)[0]

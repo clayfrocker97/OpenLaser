@@ -98,21 +98,6 @@ pub struct Machining {
     pub seam: Seam,
 }
 
-impl Machining {
-    /// The job's own machining, as a layer starts from it.
-    #[must_use]
-    pub fn of(features: &Features) -> Self {
-        Self {
-            leads: features.leads.clone(),
-            joints: features.joints.clone(),
-            cooling: features.cooling.clone(),
-            kerf: features.kerf,
-            start: features.start.clone(),
-            seam: features.seam,
-        }
-    }
-}
-
 /// One shape on a layer of the operator's choosing. The shape is a contour
 /// of the job's drawing, so every copy of it follows.
 #[cfg_attr(feature = "typescript", derive(ts_rs::TS), ts(export))]
@@ -606,7 +591,6 @@ mod tests {
         assert!(slots.kerf.is_none() && slots.seam == Seam::Overcut(Millimeters(1.)));
         assert_eq!(job.mode("Mark"), LayerMode::Mark);
         assert_eq!(job.mode("0"), LayerMode::Cut);
-        assert_eq!(Machining::of(&job).kerf, Some(kerf));
     }
 
     #[test]
