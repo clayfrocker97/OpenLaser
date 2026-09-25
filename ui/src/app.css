@@ -337,13 +337,11 @@ h1 { font-size: var(--t-xl); margin-right: 6px; }
 /* The line under a mouse; a touch screen has no hover to show. */
 @media (hover: hover) { .shape .contour:hover .path { stroke-width: 3.5; } }
 .marquee { fill: rgba(228,123,32,.08); stroke: var(--accent); stroke-width: 1; stroke-dasharray: 4 3; }
-.handle .hit { fill: transparent; }
-.handle text { fill: var(--accent); font: 700 var(--t-base) var(--font); pointer-events: none; }
-.handle { cursor: pointer; }
-.stalk { stroke: var(--accent); stroke-width: 1.5; }
 .dim .tap-dim { cursor: pointer; }
 .guide line { stroke: #d6409f; stroke-width: 1.5; stroke-dasharray: 6 4; }
 .hint { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); padding: 6px 12px; border-radius: 8px; background: rgba(28,33,27,.75); color: #fff; font-size: var(--t-sm); pointer-events: none; }
+/* Over the drawing's top edge, clear of the selection's values at the bottom. */
+.hint.top { top: 14px; bottom: auto; }
 .hud-btn { border: 0; background: var(--accent-soft); color: var(--accent-2); font: 600 var(--t-sm) var(--font); padding: 6px 10px; border-radius: 6px; cursor: pointer; min-height: 44px; }
 .canvas-hud { position: absolute; left: 14px; bottom: 14px; display: flex; gap: 14px; align-items: center; padding: 6px 10px; border-radius: 10px; background: rgba(251,252,249,.9); border: 1px solid var(--line); font: 600 var(--t-sm) var(--font); color: var(--ink-2); }
 .toast { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); padding: 10px 16px; border-radius: 10px; background: rgba(28,33,27,.88); color: #fff; font-size: var(--t-sm); font-weight: 600; z-index: 60; pointer-events: none; }
@@ -421,8 +419,6 @@ html:not([data-layout="mobile"]) .toast.error { top: 80px; bottom: auto; }
 .tab-num { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--line); color: var(--ink-2); font-size: var(--t-base); font-weight: 700; transition: background .2s, color .2s; }
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 12px; cursor: pointer; display: flex; flex-direction: column; gap: 10px; position: relative; height: var(--card-h); transition: box-shadow .15s, border-color .15s; }
 .bar .fill { height: 100%; background: var(--accent); border-radius: 6px; transition: width .25s ease-out; }
-.handle circle:not(.hit) { fill: #fff; stroke: var(--accent); stroke-width: 2.5; transition: r .12s, stroke-width .12s; }
-.handle:active circle:not(.hit) { r: 13; stroke-width: 3.5; }
 .lead, .mj { transition: opacity .2s; }
 .pill { font-size: var(--t-sm); font-weight: 600; padding: 4px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent-2); white-space: nowrap; }
 .minw0 { min-width: 0; }
@@ -437,7 +433,6 @@ html:not([data-layout="mobile"]) .toast.error { top: 80px; bottom: auto; }
 .divider.same::after { background: var(--accent); }
 .bottom-bar .ic { width: 22px; height: 22px; opacity: .85; }
 .lockbox .ic { width: 22px; height: 22px; color: var(--accent-2); opacity: 1; }
-.handle .rot-glyph { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
 
 /* ---------- Icon system: 24px grid, 2px stroke, round caps ---------- */
 .ic { width: 20px; height: 20px; display: inline-block; flex: none; background: currentColor; opacity: .85; -webkit-mask: var(--m) center / contain no-repeat; mask: var(--m) center / contain no-repeat; }

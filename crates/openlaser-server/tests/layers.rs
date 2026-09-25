@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-//! Layers with their own recipes: the choice a drawing of several layers
-//! asks for, shapes moved and layers renamed, a marked layer prepared bare
-//! under its own recipe, the order dragged, and all of it saved.
+//! Layers with their own recipes: cuts on the job's material, the recipe a
+//! mark among other layers asks for, shapes moved and layers renamed, a
+//! marked layer prepared bare under its own recipe, the order dragged, and
+//! all of it saved.
 #![allow(clippy::unwrap_used, clippy::expect_used, reason = "known offline fixtures")]
 mod common;
 
@@ -27,7 +28,7 @@ fn rect(layer: &str, corner: [f64; 2], size: [f64; 2]) -> Contour {
 }
 
 #[tokio::test]
-async fn each_layer_is_chosen_and_a_marked_one_runs_bare_under_its_own_recipe_in_order() {
+async fn cuts_run_on_the_material_and_a_mark_runs_bare_under_its_own_recipe_in_order() {
     let (_sim, shared) = start("layers").await;
     let bend = Contour {
         layer: "Bend".into(),
@@ -64,9 +65,18 @@ async fn each_layer_is_chosen_and_a_marked_one_runs_bare_under_its_own_recipe_in
         c.set_features(Features { kerf: Some(kerf), ..Features::default() }).unwrap();
         (etch.id, steel)
     };
+    // Two cuts run on the job's material without asking.
+    machine::prepare(&shared).await.unwrap();
+    machine::compile(&shared, false).await.unwrap();
+    // A mark would be cut through on the material's recipe, so it asks.
+    shared
+        .lock()
+        .await
+        .change_layers(LayerChange::Mode { layer: "Bend".into(), mode: LayerMode::Mark })
+        .unwrap();
     machine::prepare(&shared).await.unwrap();
     let refused = machine::compile(&shared, false).await.unwrap_err().to_string();
-    assert!(refused.contains("Bend") && refused.contains("Cut"), "{refused}");
+    assert!(refused.contains("Bend") && !refused.contains("Cut"), "{refused}");
 
     {
         let mut c = shared.lock().await;
@@ -75,11 +85,10 @@ async fn each_layer_is_chosen_and_a_marked_one_runs_bare_under_its_own_recipe_in
         c.change_layers(LayerChange::Rename { from: "Holes".into(), to: "Slots".into() }).unwrap();
         let names: Vec<_> =
             c.document().draft.unwrap().layers.iter().map(|l| l.name.clone()).collect();
-        assert_eq!(names, ["Bend", "Slots", "Cut"], "smaller shapes first");
+        assert_eq!(names, ["Bend", "Cut", "Slots"], "a new layer after those already listed");
         c.change_layers(LayerChange::Output { layer: "Slots".into(), on: false }).unwrap();
         c.change_layers(LayerChange::Recipe { layer: "Cut".into(), recipe: None }).unwrap();
         c.change_layers(LayerChange::Recipe { layer: "Bend".into(), recipe: Some(etch) }).unwrap();
-        c.change_layers(LayerChange::Mode { layer: "Bend".into(), mode: LayerMode::Mark }).unwrap();
         let layers = c.document().draft.unwrap().layers.clone();
         assert!(layers.iter().all(|l| l.chosen));
         let bend = layers.iter().find(|l| l.name == "Bend").unwrap();

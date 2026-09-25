@@ -20,11 +20,13 @@ contours: number,
  */
 output: boolean,
 /**
- * The operator chose how it runs: a recipe, or output off.
+ * It has what it runs under: output off, a recipe chosen, or a cut
+ * through the job's material. A mark among other layers needs its own
+ * recipe, since the material's would cut it through.
  */
 chosen: boolean,
 /**
- * Its own recipe; a chosen layer without one uses the job's.
+ * Its own recipe; a layer without one uses the job's material.
  */
 recipe: RecipeView | null,
 /**

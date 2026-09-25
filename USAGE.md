@@ -272,9 +272,11 @@ sheet per layer.
     their layer's come in as a layer of their own, such as `0 Red`. Tap the
     swatch to change it and the name to rename it. The eye hides the layer
     on screen only.
-  - **Output.** Off leaves the layer uncut. With more than one layer to
-    output, each needs a recipe before the job compiles: **Job material** or
-    any recipe for the same laser.
+  - **Output.** Off leaves the layer uncut.
+  - **Recipe.** Cuts run on the job's material, so a Cut layer needs
+    nothing more; choose another recipe only to cut it differently. A Mark
+    layer among other layers needs a recipe of its own, such as an
+    engraving one, since the material's would cut it through.
   - **Mode.** Cut goes through the sheet: those shapes make the parts and
     their holes. Mark traces the surface: a mark is never a part or a hole,
     and it has no leads, kerf, joints or cooling unless it has machining of

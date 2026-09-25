@@ -28,7 +28,7 @@
   import { frameOf } from '../../lib/frame';
   import { explain, plural } from '../../lib/format';
   import { withBusy } from '../../lib/busy';
-  import { about, apply, centre, mirror, mirrorVertical, rotation, scaling, svgMatrix, tenth, translate, type Point } from '../../lib/transform';
+  import { about, apply, centre, mirror, mirrorVertical, rotation, scaling, svgMatrix, translate, type Point } from '../../lib/transform';
   import { pathOf, type Box } from '../../lib/svg';
   import { layerColor } from '../../lib/drawing-layers';
   import {
@@ -159,6 +159,8 @@
   const selectionLocked = $derived(canvasBusy || !selection);
   /** The selection box and its HUD are drawn. */
   const selectionShown = $derived(!!selection && !canvasTaken);
+  /** One part of several shapes is selected whole, so a tap can take one of them. */
+  const wholePart = $derived(shape === null && selected.length === 1 && (groups[selected[0]!]?.length ?? 0) > 1);
   /** Moving, turning and sizing take whole parts, not one shape of a part. */
   const transformLocked = $derived(selectionLocked || shape !== null);
 
@@ -348,19 +350,18 @@
     osk.number('Rotate by', 0, '°', (v) => { if (v) commit(chosen, rotation(v, at), revision); });
   }
 
-  // Gestures: a shape moves, the handle turns the selection about its
-  // centre; sizes change only through typed values, never by a drag. While picking, the shapes stay put and taps go to the feature.
+  // Gestures: a shape moves; turns and sizes change only through the tools
+  // and typed values, never by a drag. While picking, the shapes stay put and taps go to the feature.
   const grab = (target: Element): string | null => {
     if (canvasBusy) return null;
     const lead = target.closest<SVGGElement>('[data-lead]')?.dataset['lead'];
     if (lead !== undefined) return `lead:${lead}`;
-    if (target.closest('.handle')) return 'rotate';
     // Anywhere inside the selection's box moves it.
     if (target.closest('[data-selection]') && selected.length) return `move:${selected[0]}`;
     const g = target.closest<SVGGElement>('[data-group]')?.dataset['group'];
     return g === undefined ? null : `move:${g}`;
   };
-  let anchor: { revision: number; groups: number[]; center: Point; angle: number; box: Box } | null = null;
+  let anchor: { revision: number; groups: number[]; box: Box } | null = null;
   let guides = $state<Array<[number, number, number, number]>>([]);
   let dragging = $state(false);
 
@@ -384,17 +385,9 @@
       if (kind.startsWith('move:')) { const g = Number(kind.slice(5)); if (!selected.includes(g)) selected = [g]; }
       const box = boxOfGroups(selected, null);
       if (!box) return;
-      const center = centre(box);
       if (!draft) return;
-      anchor = { revision: draft.revision, groups: [...selected], center, angle: Math.atan2(from[1] - center[1], from[0] - center[0]), box };
+      anchor = { revision: draft.revision, groups: [...selected], box };
       dragging = true;
-    }
-    if (kind === 'rotate') {
-      let delta = ((Math.atan2(to[1] - anchor.center[1], to[0] - anchor.center[0]) - anchor.angle) * 180) / Math.PI;
-      const snapped = Math.round(delta / 15) * 15;
-      if (ui.snap && Math.abs(delta - snapped) < 4) delta = snapped;
-      local = { groups: anchor.groups, m: rotation(tenth(delta), anchor.center) };
-      return;
     }
     let dx = to[0] - from[0];
     let dy = to[1] - from[1];
@@ -694,10 +687,6 @@
             width={selection.maxX - selection.minX + 4 * mark} height={selection.maxY - selection.minY + 4 * mark}/>
           <rect class="sel-box" x={selection.minX - 2 * mark} y={selection.minY - 2 * mark}
             width={selection.maxX - selection.minX + 4 * mark} height={selection.maxY - selection.minY + 4 * mark} vector-effect="non-scaling-stroke"/>
-          <path class="stalk" d="M{centre(selection)[0]} {selection.maxY + 2 * mark}V{selection.maxY + 8 * mark}" vector-effect="non-scaling-stroke"/>
-          <g class="handle" transform="translate({centre(selection)[0]} {selection.maxY + 8 * mark})">
-            <circle r={3 * mark} class="hit"/><circle r={1.4 * mark} vector-effect="non-scaling-stroke"/>
-          </g>
         </g>
       {/if}
     {/if}
@@ -707,8 +696,9 @@
       {#if ui.picking}
         <PickBar picking={ui.picking} picked={pickedCount} total={candidates.length} busy={updating || pickBusy} onfinish={finishPicks} />
       {/if}
-      {#if shape !== null && selectionShown}<div class="hint">One shape · tap it again for the whole part</div>
-      {:else if preview?.warnings.length}<div class="hint">{preview.warnings[0]}</div>{/if}
+      {#if shape !== null && selectionShown}<div class="hint top">One shape · tap it again for the whole part</div>
+      {:else if wholePart && selectionShown}<div class="hint top">Whole part · tap a shape again to take it alone</div>{/if}
+      {#if preview?.warnings.length}<div class="hint">{preview.warnings[0]}</div>{/if}
       {#if selection && selectionShown && shape === null}
         <SelectionHud {selection} {zero} disabled={updating} onplace={typed} onturn={turnBy} onresize={resize} />
       {/if}

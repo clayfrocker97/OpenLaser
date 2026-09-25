@@ -45,14 +45,13 @@
     return copies > 1 ? `${copies} copies · Select` : `${plural(contours, 'path')} · Select`;
   }
 
-  /** Several layers to output: each needs a recipe or to be off. */
-  const layersAsking = $derived(draft.layers.filter((l) => l.output).length > 1);
-  const layersMissing = $derived(layersAsking && draft.layers.some((l) => l.output && !l.chosen));
+  /** Cuts run on the material; a mark among other layers needs its own recipe. */
+  const layersMissing = $derived(draft.layers.some((l) => !l.chosen));
   function layerHow(layer: DraftLayer): string {
     const mode = layer.mode === 'mark' ? 'Mark' : 'Cut';
     if (!layer.output) return `${mode} · Off`;
-    if (!layer.chosen && layersAsking) return `${mode} · Choose a recipe`;
-    return `${mode} · ${layer.recipe ? recipeLabel(layer.recipe) : 'Job material'}`;
+    if (!layer.chosen) return `${mode} · Choose a recipe`;
+    return `${mode} · ${layer.recipe ? recipeLabel(layer.recipe) : 'Material'}`;
   }
 
   // Dragging reorders a local list; the order is sent once, on release.
@@ -155,11 +154,11 @@
   {#if draft.layers.length > 1}
     <div class="layers-head">
       <h3>Layers</h3>
-      <small class:warn-text={layersMissing}>{layersMissing ? 'Choose a recipe or turn off each' : 'Run top to bottom'}</small>
+      <small class:warn-text={layersMissing}>{layersMissing ? 'Marks need a recipe' : 'Run top to bottom'}</small>
     </div>
     <div class="layer-lines" role="list">
       {#each shownLayers as layer (layer.name)}
-        {@const needs = layersAsking && layer.output && !layer.chosen}
+        {@const needs = !layer.chosen}
         <!-- The row holds the pointer while its grip drags it, so it hears the move and release. -->
         <div class="layer-line" data-layer-row={layer.name} class:off={!layer.output} class:needs class:placeholder={rows.dragging === layer.name}
           onpointermove={rows.move} onpointerup={release} onpointercancel={release} role="listitem">

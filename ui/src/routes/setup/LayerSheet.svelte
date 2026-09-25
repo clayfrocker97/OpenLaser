@@ -23,7 +23,6 @@
   const layer = $derived(draft.layers.find((l) => l.name === name) ?? null);
   // Gone, as Undo can make it; a rename in flight has it briefly missing.
   $effect(() => { if (!layer && !busy) onclose(); });
-  const asking = $derived(draft.layers.filter((l) => l.output).length > 1);
   const own = $derived(hasOwn(featureEdits.value(draft), name));
   // The job's laser's recipes, by material; the job's material first.
   const materials = $derived.by(() => {
@@ -56,7 +55,7 @@
     void change({ kind: 'color', layer: name, color: rgb });
   }
   const setMode = (mode: LayerMode) => { if (layer && layer.mode !== mode) void change({ kind: 'mode', layer: name, mode }); };
-  /** A recipe, or the job's material when `null`; choosing one also turns the layer on. */
+  /** A recipe, or the material when `null`; choosing one also turns the layer on. */
   function use(recipe: string | null): void {
     const edits: LayerChange[] = [];
     if (!layer?.output) edits.push({ kind: 'output', layer: name, on: true });
@@ -119,10 +118,11 @@
         <button class="btn btn-ghost" onclick={machining}>Edit</button>
       </div>
 
-      <h3 class:warn-text={asking && !layer.chosen}>Recipe{asking && !layer.chosen ? ' · choose one' : ''}</h3>
+      <h3 class:warn-text={!layer.chosen}>Recipe{!layer.chosen ? ' · choose one' : ''}</h3>
+      <p class="recipe-note">{layer.mode === 'cut' ? 'Cuts run on the material unless you choose another.' : 'The material\'s recipe would cut through: choose an engraving or marking recipe.'}</p>
       <div class="recipes">
         <button class="choice" class:on={usesJob} disabled={busy} onclick={() => use(null)}>
-          <strong>Job material</strong><small>{draft.recipe ? recipeLabel(draft.recipe) : 'Not chosen yet'}</small>
+          <strong>Material</strong><small>{draft.recipe ? recipeLabel(draft.recipe) : 'Not chosen yet'}</small>
         </button>
         {#each materials as m (m.key)}
           <div class="material">
@@ -161,6 +161,7 @@
   .setting .seg button { min-height:44px; padding:0 16px; }
   .setting .btn { min-height:44px; }
   h3 { margin:6px 0 0; padding-top:12px; border-top:1px solid var(--line); }
+  .recipe-note { margin:-4px 0 0; font-size:var(--t-sm); color:var(--ink-3); }
   .recipes { display:grid; gap:10px; max-height:42vh; overflow-y:auto; overscroll-behavior:contain; }
   .choice { min-height:52px; display:grid; gap:2px; padding:8px 14px; border:1px solid var(--line); border-radius:10px; background:var(--panel-2); color:var(--ink); font:inherit; text-align:left; cursor:pointer; }
   .choice.on { border-color:var(--accent); background:var(--accent-soft); }

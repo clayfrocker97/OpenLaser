@@ -32,9 +32,11 @@ pub struct DraftLayer {
     pub contours: usize,
     /// Whether it is cut at all.
     pub output: bool,
-    /// The operator chose how it runs: a recipe, or output off.
+    /// It has what it runs under: output off, a recipe chosen, or a cut
+    /// through the job's material. A mark among other layers needs its own
+    /// recipe, since the material's would cut it through.
     pub chosen: bool,
-    /// Its own recipe; a chosen layer without one uses the job's.
+    /// Its own recipe; a layer without one uses the job's material.
     pub recipe: Option<RecipeView>,
     /// Cut through, or marked on the surface.
     pub mode: LayerMode,
@@ -124,18 +126,21 @@ pub(crate) fn view(draft: &Draft) -> Vec<DraftLayer> {
     let current = &draft.current;
     let sheet = sheet(drawing, current);
     let colors = draft.sources().map_or(&[][..], |s| s.colors());
-    openlaser_prep::layer_order(&sheet, &current.features)
+    let order = openlaser_prep::layer_order(&sheet, &current.features);
+    let outputs = order.iter().filter(|name| !current.features.skip_layers.contains(name)).count();
+    order
         .into_iter()
         .map(|name| {
             let output = !current.features.skip_layers.contains(&name);
             let choice = current.layers.iter().find(|c| c.layer == name);
             let table = current.features.layer(&name);
+            let mode = table.map_or(LayerMode::Cut, |l| l.mode);
             DraftLayer {
                 contours: sheet.contours.iter().filter(|c| c.layer == name).count(),
                 output,
-                chosen: !output || choice.is_some(),
+                chosen: !output || choice.is_some() || mode == LayerMode::Cut || outputs < 2,
                 recipe: choice.and_then(|c| c.recipe.as_ref()).map(RecipeView::new),
-                mode: table.map_or(LayerMode::Cut, |l| l.mode),
+                mode,
                 color: table
                     .and_then(|l| l.color)
                     .or_else(|| colors.iter().find(|c| c.layer == name).map(|c| c.color)),
@@ -146,23 +151,23 @@ pub(crate) fn view(draft: &Draft) -> Vec<DraftLayer> {
         .collect()
 }
 
-/// Why the job cannot compile yet: with more than one layer to output,
-/// each needs a recipe or to be switched off. Calibration coupons are
-/// OpenLaser's own drawing, one layer per coupon, all on the job's recipe.
+/// Why the job cannot compile yet: every cut runs on the job's material,
+/// but a mark among other layers needs its own recipe, or to be switched
+/// off. Calibration coupons are OpenLaser's own drawing, one layer per
+/// coupon, all on the job's recipe.
 pub(crate) fn unchosen(draft: &Draft) -> Option<String> {
     if draft.calibration {
         return None;
     }
     let layers = view(draft);
-    let cut: Vec<_> = layers.iter().filter(|l| l.output).collect();
-    if cut.len() < 2 {
-        return None;
-    }
-    let missing: Vec<&str> = cut.iter().filter(|l| !l.chosen).map(|l| l.name.as_str()).collect();
+    let missing: Vec<&str> = layers.iter().filter(|l| !l.chosen).map(|l| l.name.as_str()).collect();
     match missing.as_slice() {
         [] => None,
-        [one] => Some(format!("choose a recipe or turn off layer {one}")),
-        many => Some(format!("choose a recipe or turn off layers {}", many.join(", "))),
+        [one] => Some(format!("choose a recipe for the mark layer {one}, or turn it off")),
+        many => Some(format!(
+            "choose a recipe for the mark layers {}, or turn them off",
+            many.join(", ")
+        )),
     }
 }
 

@@ -65,8 +65,8 @@ Local review candidate built on 2026-09-24. Not published.
   (from DXF layer and entity colours and SVG strokes), Output, Show, a
   recipe, and Cut or Mark. Marks never make holes or parts and carry no
   machining unless given their own; leads, joints, cooling, kerf and start
-  can be set per layer. A drawing of several layers asks for a recipe on
-  each before it compiles.
+  can be set per layer. Cut layers run on the job's material; only a Mark
+  layer among others asks for a recipe of its own.
 - A tap selects the part whose line is nearest. Inside a shape each line's
   halo grows until it meets the next, so the middle of a hole takes the
   hole; outside every shape a halo reaches a fingertip. A second tap takes one shape of it, so inner shapes can be
