@@ -29,6 +29,14 @@ pub enum LinkError {
     /// The reply was not a frame, or did not answer the request.
     #[error("bad reply: {0}")]
     Reply(FrameError),
+    /// The controller answered with a refusal: the request was not carried out.
+    #[error("{0} of register {1:#x}: {2}")]
+    Refused(&'static str, u32, FrameError),
+}
+
+/// Bytes as hex, for the log.
+fn hex(bytes: &[u8]) -> String {
+    bytes.iter().map(|b| format!("{b:02x}")).collect::<Vec<_>>().join(" ")
 }
 
 /// The socket, the transaction counter and the receive buffer.
@@ -105,7 +113,21 @@ impl Link {
                         "reply to another request discarded"
                     );
                 }
-                Err(error) => return Err(LinkError::Reply(error)),
+                // A refusal of this request ends the exchange: the write was
+                // not carried out. One of another request is discarded.
+                Err(FrameError::Exception { transaction, .. })
+                    if transaction != request.transaction =>
+                {
+                    tracing::debug!(transaction, "refusal of another request discarded");
+                }
+                Err(error @ FrameError::Exception { .. }) => {
+                    tracing::warn!(address = request.address, %error, "the controller refused a {kind}");
+                    return Err(LinkError::Refused(kind, request.address, error));
+                }
+                Err(error) => {
+                    tracing::warn!(%error, bytes = %hex(&self.buffer[..length]), "unreadable reply");
+                    return Err(LinkError::Reply(error));
+                }
             }
         }
         Err(LinkError::NoReply(kind, request.address))

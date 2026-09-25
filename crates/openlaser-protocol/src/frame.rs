@@ -182,6 +182,9 @@ impl Frame {
     /// Parses bytes that travelled in `direction`, verifying length, checksum
     /// and shape.
     pub fn decode(bytes: &[u8], direction: Direction) -> Result<Self, FrameError> {
+        if let Some(refusal) = exception(bytes, direction) {
+            return Err(refusal);
+        }
         if bytes.len() < MIN_FRAME_BYTES {
             return Err(FrameError::TooShort { actual: bytes.len() });
         }
@@ -260,9 +263,47 @@ impl Frame {
     }
 }
 
+/// A Modbus exception reply: the header, the unit, the request's function
+/// with its high bit set, and one code byte. The controller sends one when
+/// it refuses a request, which it then has not carried out.
+fn exception(bytes: &[u8], direction: Direction) -> Option<FrameError> {
+    let [t0, t1, c0, c1, 0, 3, UNIT, function, code] = *bytes else { return None };
+    if function & 0x80 == 0 || direction.read_checksum([c0, c1]) != crc16(&bytes[4..]) {
+        return None;
+    }
+    Some(FrameError::Exception {
+        transaction: u16::from_be_bytes([t0, t1]),
+        function: function & 0x7f,
+        code,
+    })
+}
+
+/// What a Modbus exception code means, in words.
+fn exception_meaning(code: u8) -> &'static str {
+    match code {
+        1 => "function not supported",
+        2 => "register address not accepted",
+        3 => "value not accepted",
+        4 => "controller failure",
+        5 => "accepted, still working",
+        6 => "controller busy",
+        _ => "unknown exception",
+    }
+}
+
 /// Why bytes could not be read as a frame, or a frame could not be written.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 pub enum FrameError {
+    /// The controller refused the request, and did not carry it out.
+    #[error("the controller refused the request: Modbus exception {code} ({})", exception_meaning(*code))]
+    Exception {
+        /// The refused request's transaction.
+        transaction: u16,
+        /// The refused request's function byte.
+        function: u8,
+        /// The exception code.
+        code: u8,
+    },
     /// Fewer bytes than the smallest frame.
     #[error("frame is {actual} bytes; the minimum is {MIN_FRAME_BYTES}")]
     TooShort {
@@ -389,6 +430,24 @@ mod tests {
         let write = Frame::write(1, 101, vec![1]).unwrap();
         assert!(matches!(write.response(vec![1]), Err(FrameError::Shape(_))));
         assert!(write.response(vec![]).is_ok());
+    }
+
+    /// A nine-byte refusal, the write function with its high bit set and
+    /// one code byte, is read as the controller's exception, not as a
+    /// truncated frame; with a bad checksum it stays a truncated frame.
+    #[test]
+    fn exception_replies_are_read_as_refusals() {
+        let mut bytes = vec![0x12, 0x34, 0, 0, 0, 3, 0, 0xC0, 6];
+        let checksum = crc16(&bytes[4..]);
+        bytes[2..4].copy_from_slice(&Direction::Response.checksum_bytes(checksum));
+        let refusal = Frame::decode(&bytes, Direction::Response).unwrap_err();
+        assert_eq!(refusal, FrameError::Exception { transaction: 0x1234, function: 0x40, code: 6 });
+        assert!(refusal.to_string().contains("controller busy"), "{refusal}");
+        bytes[2] ^= 0xff;
+        assert_eq!(
+            Frame::decode(&bytes, Direction::Response),
+            Err(FrameError::TooShort { actual: 9 })
+        );
     }
 
     /// Truncated frames, wrong declared lengths, bad unit or function bytes, zero counts and stray words are each rejected with the matching error.
