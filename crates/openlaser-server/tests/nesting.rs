@@ -9,7 +9,6 @@ use openlaser_core::features::Features;
 use openlaser_core::geometry::{Contour, Curve, Drawing, Point, Transform};
 use openlaser_core::nesting::{NestRotation, NestSettings};
 use openlaser_server::coordinator::{NewRecipe, Shared, Values};
-use openlaser_server::layers::LayerChange;
 use openlaser_server::nesting::{self, NestRequest, NestView, StockChoice, StockSource};
 use openlaser_server::{Coordinator, machine};
 
@@ -54,11 +53,6 @@ async fn setup(shared: &Shared) {
     c.open_part(&part.id).unwrap();
     c.set_recipe(&recipe.id).unwrap();
     c.set_features(Features::default()).unwrap();
-    // Two layers: each is cut with the job's recipe.
-    for layer in ["Cut", "Hole"] {
-        let change = LayerChange::Recipe { layer: layer.into(), recipe: None };
-        c.change_layers(change).unwrap();
-    }
     drop(c);
     machine::prepare(shared).await.unwrap();
     shared.lock().await.set_stock(StockChoice::Outline { contour: 0 }).unwrap();
@@ -93,7 +87,7 @@ async fn numbered_sheets_switch_persist_and_save_as_one_history_edit() {
     assert!(full.needs_sheets, "{:?}", full.error);
     assert!(full.placed < 66 && full.error.as_deref().is_some_and(|e| e.contains("add sheets")));
     // The operator chooses the next sheets.
-    request.stock = vec![StockSource::Sheet { width: 240., height: 160., count: Some(3) }];
+    request.stock = vec![StockSource::Sheet { width: 240., height: 160., count: 3 }];
     let task = nesting::start(&shared, revision, request).await.unwrap();
     let result = finished(&shared, task.id).await;
     assert!(result.error.is_none(), "{:?}", result.error);
@@ -318,14 +312,14 @@ async fn chosen_sheets_fill_in_order_within_what_is_on_hand() {
             StockSource::Stock { id: steel.clone(), count: 2 },
         ],
         vec![StockSource::Stock { id: other, count: 1 }],
-        vec![StockSource::Sheet { width: 80., height: 50., count: Some(0) }],
+        vec![StockSource::Sheet { width: 80., height: 50., count: 0 }],
     ];
     for stock in refused {
         assert!(nesting::start(&shared, revision, asking(stock)).await.is_err());
     }
     let stock = vec![
         StockSource::Stock { id: steel.clone(), count: 1 },
-        StockSource::Sheet { width: 80., height: 50., count: None },
+        StockSource::Sheet { width: 80., height: 50., count: 5 },
     ];
     let task = nesting::start(&shared, revision, asking(stock)).await.unwrap();
     let result = finished(&shared, task.id).await;

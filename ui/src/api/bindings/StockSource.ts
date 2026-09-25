@@ -15,9 +15,9 @@ width: number,
  */
 height: number,
 /**
- * At most this many; none opens as many as the parts need.
+ * At most this many.
  */
-count: number | null, } | { "kind": "stock",
+count: number, } | { "kind": "stock",
 /**
  * Inventory entry.
  */

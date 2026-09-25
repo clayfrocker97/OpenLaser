@@ -15,6 +15,15 @@ use std::path::Path;
 const FILE: &str = "inventory.json";
 /// No sheet side is longer than this; it rejects unit mistakes.
 const MAX_SIDE_MM: f64 = 20_000.;
+
+/// A sheet's sides, on the rack or saved as a size: finite, above zero and
+/// at most [`MAX_SIDE_MM`].
+pub(crate) fn check_sides(width_mm: f64, height_mm: f64) -> Result<()> {
+    if [width_mm, height_mm].iter().all(|s| s.is_finite() && *s > 0. && *s <= MAX_SIDE_MM) {
+        return Ok(());
+    }
+    Err(Error::Request(format!("a sheet side must be above 0 and at most {MAX_SIDE_MM} mm")))
+}
 /// More than any rack holds; it rejects typing slips.
 const MAX_QUANTITY: u32 = 10_000;
 /// Sizes this close are the same sheet.
@@ -101,13 +110,7 @@ impl StockItem {
         if !self.thickness_mm.is_finite() || self.thickness_mm <= 0. || self.thickness_mm > 1000. {
             return Err(Error::Request("the thickness must be above 0 and at most 1000 mm".into()));
         }
-        for side in [self.width_mm, self.height_mm] {
-            if !side.is_finite() || side <= 0. || side > MAX_SIDE_MM {
-                return Err(Error::Request(format!(
-                    "a sheet side must be above 0 and at most {MAX_SIDE_MM} mm"
-                )));
-            }
-        }
+        check_sides(self.width_mm, self.height_mm)?;
         if self.quantity > MAX_QUANTITY {
             return Err(Error::Request(format!("keep at most {MAX_QUANTITY} sheets of a size")));
         }

@@ -1601,7 +1601,8 @@ impl Coordinator {
 
     /// What a compile needs, taken out so the work can run off the lock:
     /// the prepared geometry, the recipe bound, the film process bound on
-    /// its own when the recipe removes film, and the scale.
+    /// its own when the recipe removes film, each layer's own recipe bound,
+    /// and the scale.
     pub fn compile_inputs(&mut self, dry_run: bool) -> Result<CompileInputs> {
         self.compile_serial += 1;
         let draft =

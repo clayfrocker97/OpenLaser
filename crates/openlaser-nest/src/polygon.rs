@@ -27,7 +27,7 @@ const COMPILED_ROUNDING: f64 = 0.001;
 /// Tessellate a closed contour without replacing any original cutting curves.
 pub fn polygon(contour: &Contour) -> Result<Vec<[f64; 2]>, Error> {
     if !contour.is_closed() || contour.signed_area().abs() < MIN_OUTLINE_AREA {
-        return Err(Error(
+        return Err(Error::new(
             "nesting needs closed part and sheet outlines with positive area".into(),
         ));
     }
@@ -36,7 +36,7 @@ pub fn polygon(contour: &Contour) -> Result<Vec<[f64; 2]>, Error> {
         let samples = sample(curve)?;
         points.extend(samples.into_iter().skip(1).map(<[f64; 2]>::from));
         if points.len() > MAX_OUTLINE_VERTICES {
-            return Err(Error(format!(
+            return Err(Error::new(format!(
                 "an outline exceeds the nesting limit of {MAX_OUTLINE_VERTICES} vertices"
             )));
         }
@@ -59,7 +59,7 @@ fn sample(curve: &Curve) -> Result<Vec<Point>, Error> {
                 || p.y.abs() > MAX_COORDINATE
         })
     {
-        return Err(Error("nesting geometry must be finite and within 100000 mm".into()));
+        return Err(Error::new("nesting geometry must be finite and within 100000 mm".into()));
     }
     let steps = match *curve {
         Curve::Line { .. } => 1.,
@@ -70,7 +70,7 @@ fn sample(curve: &Curve) -> Result<Vec<Point>, Error> {
         }
     };
     if steps > MAX_OUTLINE_VERTICES as f64 {
-        return Err(Error("an arc exceeds the nesting tessellation limit".into()));
+        return Err(Error::new("an arc exceeds the nesting tessellation limit".into()));
     }
     let steps = steps as usize;
     Ok((0..=steps).map(|i| curve.point(i as f64 / steps as f64)).collect())
@@ -94,7 +94,9 @@ pub fn check_region(
         if contour.is_closed() && !check.cutouts.is_empty() {
             let boundary: Vec<Point> = polygon(contour)?.into_iter().map(Into::into).collect();
             if check.cutouts.iter().any(|hole| contains(&boundary, hole[0])) {
-                return Err(Error("a part covers material already removed from the sheet".into()));
+                return Err(Error::new(
+                    "a part covers material already removed from the sheet".into(),
+                ));
             }
         }
         for curve in &contour.curves {
@@ -140,7 +142,7 @@ impl PathKind {
             Self::Machining => "a part or machining path",
             Self::Compiled => "a compiled cutting path",
         };
-        Error(format!("{path} {reason}"))
+        Error::new(format!("{path} {reason}"))
     }
 }
 
@@ -162,7 +164,7 @@ impl Containment {
         kind: PathKind,
     ) -> Result<Self, Error> {
         if !margin.is_finite() || margin < 0. {
-            return Err(Error("the sheet edge margin must be finite and nonnegative".into()));
+            return Err(Error::new("the sheet edge margin must be finite and nonnegative".into()));
         }
         let boundary = polygon(stock)?.into_iter().map(Into::into).collect();
         let margin = margin
@@ -176,7 +178,9 @@ impl Containment {
             .map(|c| polygon(c).map(|p| p.into_iter().map(Into::into).collect()))
             .collect::<Result<Vec<Vec<Point>>, Error>>()?;
         if cutouts.iter().map(Vec::len).sum::<usize>() > MAX_TOTAL_VERTICES {
-            return Err(Error(format!("remnant cutouts exceed {MAX_TOTAL_VERTICES} vertices")));
+            return Err(Error::new(format!(
+                "remnant cutouts exceed {MAX_TOTAL_VERTICES} vertices"
+            )));
         }
         Ok(Self { boundary, cutouts, work: 0, margin, kind })
     }
@@ -186,7 +190,9 @@ impl Containment {
             self.boundary.len() + self.cutouts.iter().map(Vec::len).sum::<usize>(),
         ));
         if self.work > 50_000_000 {
-            return Err(Error("the sheet containment check exceeds its geometry limit".into()));
+            return Err(Error::new(
+                "the sheet containment check exceeds its geometry limit".into(),
+            ));
         }
         let Some(mut previous) = points.next() else { return Ok(()) };
         for point in points {

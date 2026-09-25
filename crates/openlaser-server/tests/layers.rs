@@ -87,7 +87,6 @@ async fn cuts_run_on_the_material_and_a_mark_runs_bare_under_its_own_recipe_in_o
             c.document().draft.unwrap().layers.iter().map(|l| l.name.clone()).collect();
         assert_eq!(names, ["Bend", "Cut", "Slots"], "a new layer after those already listed");
         c.change_layers(LayerChange::Output { layer: "Slots".into(), on: false }).unwrap();
-        c.change_layers(LayerChange::Recipe { layer: "Cut".into(), recipe: None }).unwrap();
         c.change_layers(LayerChange::Recipe { layer: "Bend".into(), recipe: Some(etch) }).unwrap();
         let layers = c.document().draft.unwrap().layers.clone();
         assert!(layers.iter().all(|l| l.chosen));
@@ -129,7 +128,7 @@ async fn cuts_run_on_the_material_and_a_mark_runs_bare_under_its_own_recipe_in_o
     let mut c = shared.lock().await;
     let saved = c.save_job("Layered bracket").unwrap();
     let job = c.library.job(&saved.id).unwrap().clone();
-    assert_eq!(job.layers.len(), 2);
+    assert_eq!(job.layers.len(), 1, "only the mark's recipe is a choice");
     assert_eq!(job.features.layers.len(), 3);
     assert_eq!(job.recipe.name, job_steel.name);
     assert_eq!(job.features.layer_edits.len(), 1);

@@ -13,8 +13,8 @@ use openlaser_library::{Anchor, Id};
 use serde::{Deserialize, Serialize};
 
 /// Most sheets one job set may hold, and most parts one saved sheet may
-/// list; the same bound as copies in one nesting search.
-const MAX_SHEETS: usize = 500;
+/// list: as many as copies in one nesting search.
+const MAX_SHEETS: usize = crate::nesting::MAX_NEST_COPIES as usize;
 
 /// Geometry specific to a sheet; material and correction belong to the job set.
 ///

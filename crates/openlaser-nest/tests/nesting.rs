@@ -411,7 +411,10 @@ fn impossible_and_cancelled_searches_return_no_partial_solution() {
             .contains("no complete layout")
     );
     assert!(
-        nest(&request(), &AtomicBool::new(true), |_, _| {}).unwrap_err().0.contains("cancelled")
+        nest(&request(), &AtomicBool::new(true), |_, _| {})
+            .unwrap_err()
+            .message
+            .contains("cancelled")
     );
 }
 
@@ -496,5 +499,5 @@ fn chosen_sheets_fill_in_order_within_their_counts() {
         |_, _| {},
     )
     .unwrap_err();
-    assert!(error.0.contains("fit on the chosen sheets; add sheets"), "{}", error.0);
+    assert!(error.sheets_full, "{}", error.message);
 }

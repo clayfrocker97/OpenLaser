@@ -46,7 +46,7 @@ export function current(plan: StockSource[], rack: StockItem[], remnants: SheetV
       const listed = out.findIndex((o) => o.kind === 'sheet' && o.width === source.width && o.height === source.height);
       const before = listed >= 0 ? out[listed] as typeof source : null;
       if (!before) out.push(source);
-      else out[listed] = { ...before, count: before.count === null || source.count === null ? null : before.count + source.count };
+      else out[listed] = { ...before, count: before.count + source.count };
     }
   }
   return out;
@@ -54,7 +54,7 @@ export function current(plan: StockSource[], rack: StockItem[], remnants: SheetV
 
 /** One more of a listed sheet: a new sheet always, a rack sheet while more are on hand. */
 export function oneMore(source: StockSource | undefined, rack: StockItem[]): StockSource | null {
-  if (source?.kind === 'sheet') return { ...source, count: (source.count ?? 1) + 1 };
+  if (source?.kind === 'sheet') return { ...source, count: source.count + 1 };
   if (source?.kind === 'stock') {
     const onHand = rack.find((i) => i.id === source.id)?.quantity ?? 0;
     return source.count < onHand ? { ...source, count: source.count + 1 } : null;

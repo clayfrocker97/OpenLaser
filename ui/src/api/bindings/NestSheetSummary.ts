@@ -17,8 +17,8 @@ parts: number,
  */
 coverage: number,
 /**
- * Which of the requested stock sources it is; with none requested, 0
- * is the draft's stock and 1 full sheets after a remnant.
+ * Which of the requested stock sources it is; 0, the draft's own
+ * sheet, when none were requested.
  */
 source: number,
 /**

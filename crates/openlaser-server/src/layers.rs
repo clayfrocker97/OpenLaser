@@ -3,8 +3,9 @@
 //! The job's layers, as `LightBurn`'s Cuts / Layers list has them: in the
 //! order they run, each with its colour, whether it is output, what it does
 //! to the sheet (cut through or mark), the recipe that runs it and, when it
-//! has its own, its machining. With more than one layer to output, every
-//! layer needs a recipe or to be switched off before the job compiles.
+//! has its own, its machining. Cut layers run on the job's material unless
+//! given another recipe; a mark among other layers needs one of its own, or
+//! to be switched off, before the job compiles.
 //! Shapes move between layers, and layers can be renamed. A layer's own
 //! machining is a features edit, as the job's is.
 

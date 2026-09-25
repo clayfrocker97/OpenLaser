@@ -78,15 +78,6 @@ async fn sheet(shared: &Shared, name: &str, variant: u32, mode: LaserMode) -> us
         };
         c.transform(&(0..count).collect::<Vec<_>>(), Some(transform)).unwrap();
     }
-    // A drawing of several layers cuts each with the job's recipe.
-    let layers = c.document().draft.unwrap().layers.clone();
-    if layers.len() > 1 {
-        for layer in layers {
-            let change =
-                openlaser_server::layers::LayerChange::Recipe { layer: layer.name, recipe: None };
-            c.change_layers(change).unwrap();
-        }
-    }
     drop(c);
     machine::prepare(shared).await.unwrap();
     let mut c = shared.lock().await;

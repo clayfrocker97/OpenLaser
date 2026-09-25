@@ -540,12 +540,12 @@ async fn completed_sheet_survives_edits_and_becomes_stock_with_all_cutouts_exclu
 }
 
 /// Several parts nest onto an inspected remnant clear of its cut area, what
-/// does not fit goes onto a fresh sheet of the remnant's size, the running
+/// does not fit goes onto the fresh sheet listed after it, the running
 /// search shows each sheet with its own stock, and each saved sheet cuts
 /// only its parts and keeps its stock.
 #[tokio::test]
 #[allow(clippy::too_many_lines, reason = "one journey from a used sheet to saved remnant jobs")]
-async fn several_parts_nest_on_a_remnant_and_overflow_onto_a_fresh_sheet() {
+async fn several_parts_nest_on_a_remnant_then_a_chosen_sheet() {
     use openlaser_core::LaserMode;
     use openlaser_core::features::Features;
     use openlaser_core::geometry::{Contour, Curve, Drawing, Point};
@@ -638,8 +638,7 @@ async fn several_parts_nest_on_a_remnant_and_overflow_onto_a_fresh_sheet() {
     };
     // The remnant first, then one fresh sheet of its size, as the operator
     // lists them.
-    let fresh =
-        StockSource::Sheet { width: remnant.width(), height: remnant.height(), count: Some(1) };
+    let fresh = StockSource::Sheet { width: remnant.width(), height: remnant.height(), count: 1 };
     let stock = vec![StockSource::Remnant { id: sheet.clone() }, fresh];
     let request = NestRequest { contours: vec![], quantity: 1, settings, seconds: 2, stock };
     let work = nesting::start(&server.shared, revision, request).await.unwrap();

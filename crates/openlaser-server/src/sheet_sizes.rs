@@ -10,9 +10,6 @@ use std::path::Path;
 const FILE: &str = "sheet-sizes.json";
 /// Enough for a shop's stock list without turning the chooser into a scroll.
 const MAX_SIZES: usize = 50;
-/// No sheet side is longer than this; it rejects unit mistakes (metres typed
-/// as millimetres) without limiting real stock.
-const MAX_SIDE_MM: f64 = 20_000.;
 
 /// One sheet, width along X by height along Y, in millimetres.
 #[cfg_attr(feature = "typescript", derive(ts_rs::TS), ts(export))]
@@ -38,13 +35,7 @@ pub fn validate(sizes: &[SheetSize]) -> Result<()> {
         return Err(Error::Request(format!("keep at most {MAX_SIZES} sheet sizes")));
     }
     for (i, size) in sizes.iter().enumerate() {
-        for side in [size.width_mm, size.height_mm] {
-            if !side.is_finite() || side <= 0. || side > MAX_SIDE_MM {
-                return Err(Error::Request(format!(
-                    "a sheet side must be above 0 and at most {MAX_SIDE_MM} mm"
-                )));
-            }
-        }
+        crate::inventory::check_sides(size.width_mm, size.height_mm)?;
         if sizes[..i].contains(size) {
             return Err(Error::Request("that sheet size is already saved".into()));
         }

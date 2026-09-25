@@ -46,8 +46,6 @@ const REPEATED_FIT_SAMPLES: SampleConfig =
 const EXPLORE_SHARE: f64 = 0.8;
 /// Share of the remaining time Sparrow compresses; see [`EXPLORE_SHARE`].
 const COMPRESS_SHARE: f64 = 0.2;
-/// Sparrow separator workers, matching the search's two threads.
-const SEPARATOR_WORKERS: usize = 2;
 
 /// How often a running search shows where it stands.
 pub const LIVE_INTERVAL: Duration = Duration::from_millis(200);
@@ -118,7 +116,7 @@ fn ext(points: &[[f64; 2]], origin: Point) -> ExtShape {
 }
 
 fn err(error: impl std::fmt::Display) -> Error {
-    Error(error.to_string())
+    Error::new(error.to_string())
 }
 
 #[allow(
@@ -137,7 +135,7 @@ pub(crate) fn run(
         .iter()
         .fold([0, 0], |sum, item| (0..item.quantity).fold(sum, |sum, _| plus(sum, load(item))));
     if !fits(&request.sheet_limit, whole) {
-        return Err(Error(format!(
+        return Err(Error::new(format!(
             "these copies hold {} contours and {} lines and arcs; one sheet can prepare {} and {}",
             whole[0], whole[1], request.sheet_limit.contours, request.sheet_limit.curves
         )));
@@ -151,20 +149,24 @@ pub(crate) fn run(
     let mut progress = Progress { callback: progress, most_placed: 0, total };
     let best = initial_search(request, &geometry, &budget, &mut rng, &mut progress);
     check_cancelled(cancel)?;
-    let mut best = best.ok_or_else(|| Error(format!("no complete layout found ({} of {total} parts placed); try fewer copies, a larger container, less spacing, or different rotations", progress.most_placed)))?;
+    let mut best = best.ok_or_else(|| Error::new(format!("no complete layout found ({} of {total} parts placed); try fewer copies, a larger container, less spacing, or different rotations", progress.most_placed)))?;
     if request.rectangular && request.cutouts.is_empty() && !budget.kill() {
         let mut quiet = DummySolListener;
         best = compress(best, &geometry.items, &geometry.stock, &mut budget, &mut rng, &mut quiet)?;
     }
     check_cancelled(cancel)?;
     if !best.is_feasible() || best.placed_items.len() != total {
-        return Err(Error("nesting result failed its collision check".into()));
+        return Err(Error::new("nesting result failed its collision check".into()));
     }
     solution(request, &best, &geometry.items, geometry.origin, &geometry.item_origins, true)
 }
 
 fn check_cancelled(cancel: &AtomicBool) -> Result<(), Error> {
-    if cancel.load(Ordering::Relaxed) { Err(Error("nesting cancelled".into())) } else { Ok(()) }
+    if cancel.load(Ordering::Relaxed) {
+        Err(Error::new("nesting cancelled".into()))
+    } else {
+        Ok(())
+    }
 }
 
 /// Bounded first-fit placement across sheets, largest parts first. Every sheet
@@ -177,7 +179,7 @@ pub(crate) fn run_sheets(
     live: &mut Live<'_>,
 ) -> Result<Vec<SheetSolution>, Error> {
     if sheets.is_empty() {
-        return Err(Error("choose at least one sheet to nest on".into()));
+        return Err(Error::new("choose at least one sheet to nest on".into()));
     }
     let total = validate(request)?;
     check_cancelled(cancel)?;
@@ -208,7 +210,7 @@ pub(crate) fn run_sheets(
             open.place(&stocks, request, id, &budget, &mut rng).map_err(
                 |unplaced| match unplaced {
                     Unplaced::OutOfTime => time_limit_reached(placed, total),
-                    Unplaced::TooLarge => Error(format!(
+                    Unplaced::TooLarge => Error::new(format!(
                         "part {} fits on none of the sheets left with this spacing and rotation; add a larger sheet",
                         id + 1
                     )),
@@ -247,7 +249,9 @@ fn largest_first(geometry: &Geometry) -> Vec<usize> {
 }
 
 fn time_limit_reached(placed: usize, total: usize) -> Error {
-    Error(format!("nesting time limit reached ({placed} of {total} parts); increase search time"))
+    Error::new(format!(
+        "nesting time limit reached ({placed} of {total} parts); increase search time"
+    ))
 }
 
 /// Why a copy found no sheet.
@@ -351,7 +355,7 @@ impl Stocks<'_> {
                 continue;
             }
             if !layout.is_feasible() {
-                return Err(Error("a sheet failed its collision check".into()));
+                return Err(Error::new("a sheet failed its collision check".into()));
             }
             let geometry = &self.geometries[kind];
             let layout = solution(
@@ -368,7 +372,7 @@ impl Stocks<'_> {
             sheets.push(SheetSolution { sheet: kind, layout });
         }
         if counts.iter().zip(items).any(|(count, item)| *count != item.quantity) {
-            return Err(Error("multi-sheet nesting lost a requested copy".into()));
+            return Err(Error::new("multi-sheet nesting lost a requested copy".into()));
         }
         Ok(sheets)
     }
@@ -540,7 +544,7 @@ fn solution(
         placements.push(placement);
     }
     if complete && counts.iter().zip(items).any(|(a, (_, b))| a != b) {
-        return Err(Error("nesting result lost a requested copy".into()));
+        return Err(Error::new("nesting result lost a requested copy".into()));
     }
     Ok(Solution { placements, coverage: coverage(request, items, &counts) })
 }
@@ -606,29 +610,28 @@ fn coverage(request: &Request, items: &[(Item, usize)], counts: &[usize]) -> f64
 }
 
 fn validate(request: &Request) -> Result<usize, Error> {
-    request.settings.validate().map_err(Error)?;
+    request.settings.validate().map_err(Error::new)?;
+    let copies = || Error::new(format!("nest between 1 and {MAX_COPIES} complete parts at a time"));
     let total = request
         .items
         .iter()
         .try_fold(0usize, |sum, item| sum.checked_add(item.quantity))
-        .ok_or_else(|| {
-        Error(format!("nest between 1 and {MAX_COPIES} complete parts at a time"))
-    })?;
+        .ok_or_else(copies)?;
     if total == 0
         || total > MAX_COPIES
         || request.items.iter().any(|i| i.quantity == 0 || i.contours.is_empty())
     {
-        return Err(Error(format!("nest between 1 and {MAX_COPIES} complete parts at a time")));
+        return Err(copies());
     }
     if request.time_limit.is_zero()
         || request.time_limit > MAX_SEARCH_TIME
         || !request.machining_clearance.is_finite()
         || !(0. ..=MAX_MACHINING_CLEARANCE).contains(&request.machining_clearance)
     {
-        return Err(Error("invalid nesting time or machining clearance".into()));
+        return Err(Error::new("invalid nesting time or machining clearance".into()));
     }
     if request.items.iter().any(|item| !fits(&request.sheet_limit, load(item))) {
-        return Err(Error(format!(
+        return Err(Error::new(format!(
             "a part holds more than one sheet can prepare ({} contours, {} lines and arcs)",
             request.sheet_limit.contours, request.sheet_limit.curves
         )));
@@ -663,7 +666,7 @@ struct Geometry {
 fn geometry(request: &Request, cancel: &AtomicBool) -> Result<Geometry, Error> {
     let deadline = Instant::now() + MAX_SEARCH_TIME;
     let stock_points = polygon(&request.stock)?;
-    let bounds = request.stock.bounds().ok_or_else(|| Error("empty sheet".into()))?;
+    let bounds = request.stock.bounds().ok_or_else(|| Error::new("empty sheet".into()))?;
     let origin = bounds.min;
     let config = DEFAULT_SPARROW_CONFIG;
     let item_offset = request.settings.spacing / 2. + request.machining_clearance + GUARD;
@@ -675,7 +678,7 @@ fn geometry(request: &Request, cancel: &AtomicBool) -> Result<Geometry, Error> {
     let holes = request.cutouts.iter().map(polygon).collect::<Result<Vec<_>, Error>>()?;
     let hole_vertices = holes.iter().map(Vec::len).sum::<usize>();
     if hole_vertices + stock_points.len() > MAX_TOTAL_VERTICES {
-        return Err(Error(format!("nesting geometry exceeds {MAX_TOTAL_VERTICES} vertices")));
+        return Err(Error::new(format!("nesting geometry exceeds {MAX_TOTAL_VERTICES} vertices")));
     }
     let stock = stock_importer
         .import_container(&ExtContainer {
@@ -698,14 +701,16 @@ fn geometry(request: &Request, cancel: &AtomicBool) -> Result<Geometry, Error> {
     for (id, input) in request.items.iter().enumerate() {
         check_cancelled(cancel)?;
         if Instant::now() >= deadline {
-            return Err(Error(
+            return Err(Error::new(
                 "shape preparation took too long; use fewer or simpler parts".into(),
             ));
         }
         let points = outer_polygon(input, id)?;
         vertices += points.len();
         if vertices > MAX_TOTAL_VERTICES {
-            return Err(Error(format!("nesting geometry exceeds {MAX_TOTAL_VERTICES} vertices")));
+            return Err(Error::new(format!(
+                "nesting geometry exceeds {MAX_TOTAL_VERTICES} vertices"
+            )));
         }
         let item_origin = Point::new(
             points.iter().map(|p| p[0]).fold(f64::INFINITY, f64::min),
@@ -761,7 +766,7 @@ fn outer_polygon(input: &crate::Item, id: usize) -> Result<Vec<[f64; 2]>, Error>
         .iter()
         .filter(|c| c.is_closed())
         .max_by(|a, b| a.signed_area().abs().total_cmp(&b.signed_area().abs()))
-        .ok_or_else(|| Error(format!("part {} has no closed outer contour", id + 1)))?;
+        .ok_or_else(|| Error::new(format!("part {} has no closed outer contour", id + 1)))?;
     let points = polygon(outer)?;
     let poly: Vec<Point> = points.iter().copied().map(Into::into).collect();
     // The original outer arc can sit outside its own inscribed polygon.
@@ -775,7 +780,7 @@ fn outer_polygon(input: &crate::Item, id: usize) -> Result<Vec<[f64; 2]>, Error>
             .iter()
             .any(|c| (0..=8).any(|k| !contains(&poly, c.point(f64::from(k) / 8.))))
         {
-            return Err(Error(format!(
+            return Err(Error::new(format!(
                 "part {} contains separate outer shapes; remove their connection before nesting",
                 id + 1
             )));
@@ -884,7 +889,7 @@ fn compress(
     // Rebuild under the same rectangular container identity as SPProblem.
     layout.swap_container(strip.into());
     if !layout.is_feasible() {
-        return Err(Error("rectangular warm start failed its collision check".into()));
+        return Err(Error::new("rectangular warm start failed its collision check".into()));
     }
     let instance = SPInstance::new(items.to_vec(), strip);
     // Start from a strip fitted to the first fit, as Sparrow does after its
@@ -903,8 +908,8 @@ fn compress(
     let mut config = DEFAULT_SPARROW_CONFIG;
     config.expl_cfg.time_limit = remaining.mul_f64(EXPLORE_SHARE);
     config.cmpr_cfg.time_limit = remaining.mul_f64(COMPRESS_SHARE);
-    config.expl_cfg.separator_config.n_workers = SEPARATOR_WORKERS;
-    config.cmpr_cfg.separator_config.n_workers = SEPARATOR_WORKERS;
+    config.expl_cfg.separator_config.n_workers = crate::SEARCH_THREADS;
+    config.cmpr_cfg.separator_config.n_workers = crate::SEARCH_THREADS;
     // Sparrow panics once it shrinks the strip below a part it must place,
     // which a sheet of few parts can start close to. The first fit stands.
     let optimized = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {

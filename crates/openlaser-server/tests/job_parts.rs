@@ -330,7 +330,7 @@ async fn nested_sheets_save_as_jobs_of_their_own_parts() {
     shared.lock().await.set_stock(StockChoice::Rectangle { width: 120., height: 80. }).unwrap();
     machine::prepare(&shared).await.unwrap();
     // Two sheets of that size, chosen: none opens unasked.
-    let two = vec![StockSource::Sheet { width: 120., height: 80., count: Some(2) }];
+    let two = vec![StockSource::Sheet { width: 120., height: 80., count: 2 }];
     let view = nest(&shared, vec![0], 1, two).await;
     assert_eq!(view.sheets.len(), 2);
     assert_eq!(view.sheets.iter().map(|s| s.parts).collect::<Vec<_>>(), [1, 2]);

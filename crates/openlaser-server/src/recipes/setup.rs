@@ -83,12 +83,6 @@ impl HeadSetup {
         setup
     }
 
-    /// Whether nothing was found.
-    #[must_use]
-    pub fn is_empty(&self) -> bool {
-        *self == Self::default()
-    }
-
     /// Takes the values this setup lacks from `other`.
     fn fill(&mut self, other: &Self) {
         if self.nozzle_diameter_mm.is_none() {

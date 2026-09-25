@@ -93,10 +93,10 @@ impl Nozzle {
     #[must_use]
     pub fn of_attributes(attributes: &BTreeMap<String, String>) -> Option<Self> {
         let diameter = attributes
-            .get("OpenLaserNozzleDiameter")
+            .get(crate::recipes::setup::NOZZLE_DIAMETER)
             .and_then(|v| v.trim().parse::<f64>().ok())
             .filter(|d| d.is_finite() && *d > 0. && *d <= 20.)?;
-        let kind = match attributes.get("OpenLaserNozzleType").map(|v| v.trim()) {
+        let kind = match attributes.get(crate::recipes::setup::NOZZLE_TYPE).map(|v| v.trim()) {
             Some("double") => NozzleType::Double,
             _ => NozzleType::Single,
         };

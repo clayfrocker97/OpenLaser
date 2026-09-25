@@ -73,8 +73,8 @@ pub enum StockSource {
         width: f64,
         /// Height in millimetres.
         height: f64,
-        /// At most this many; none opens as many as the parts need.
-        count: Option<u32>,
+        /// At most this many.
+        count: u32,
     },
     /// Sheets from the rack, at most as many as are on hand.
     Stock {
@@ -98,7 +98,7 @@ const MAX_SOURCES: usize = 32;
 #[derive(Clone)]
 struct Source {
     stock: NestStock,
-    count: Option<usize>,
+    count: usize,
 }
 
 /// Compact progress plus a complete preview once a search succeeds.
@@ -173,8 +173,8 @@ pub struct NestSheetSummary {
     pub parts: usize,
     /// Area fraction used on this sheet.
     pub coverage: f64,
-    /// Which of the requested stock sources it is; with none requested, 0
-    /// is the draft's stock and 1 full sheets after a remnant.
+    /// Which of the requested stock sources it is; 0, the draft's own
+    /// sheet, when none were requested.
     pub source: usize,
     /// Outer width and height of the sheet in millimetres.
     pub size: [f64; 2],
@@ -354,7 +354,7 @@ impl Coordinator {
                 .nesting
                 .as_ref()
                 .ok_or_else(|| Error::Request("choose the sheets to nest on first".into()))?;
-            return Ok(vec![Source { stock: nesting.stock.clone(), count: Some(1) }]);
+            return Ok(vec![Source { stock: nesting.stock.clone(), count: 1 }]);
         }
         if request.stock.len() > MAX_SOURCES {
             return Err(Error::Request(format!("choose at most {MAX_SOURCES} kinds of sheet")));
@@ -366,12 +366,12 @@ impl Coordinator {
             .iter()
             .map(|source| match source {
                 StockSource::Sheet { width, height, count } => {
-                    if *count == Some(0) {
+                    if *count == 0 {
                         return Err(Error::Request("use at least one sheet of each size".into()));
                     }
                     Ok(Source {
                         stock: self.rectangle(draft, drawing, *width, *height),
-                        count: count.map(|n| n as usize),
+                        count: *count as usize,
                     })
                 }
                 StockSource::Stock { id, count } => {
@@ -401,7 +401,7 @@ impl Coordinator {
                     }
                     Ok(Source {
                         stock: self.rectangle(draft, drawing, item.width_mm, item.height_mm),
-                        count: Some(*count as usize),
+                        count: *count as usize,
                     })
                 }
                 StockSource::Remnant { id } => {
@@ -409,7 +409,7 @@ impl Coordinator {
                         return Err(Error::Request("list each remnant once".into()));
                     }
                     remnants.push(id);
-                    Ok(Source { stock: self.remnant(draft, id)?, count: Some(1) })
+                    Ok(Source { stock: self.remnant(draft, id)?, count: 1 })
                 }
             })
             .collect()
@@ -531,7 +531,7 @@ fn search_sheets(
     };
     let solutions =
         openlaser_nest::nest_sheets(input, sheets, cancel, progress, show).map_err(|e| {
-            full.store(e.wants_sheets(), Ordering::Relaxed);
+            full.store(e.sheets_full, Ordering::Relaxed);
             Error::Refused(e.to_string())
         })?;
     let mut drafts = Vec::new();
@@ -622,7 +622,7 @@ fn task(c: &Coordinator, id: u64) -> Result<&Task> {
 
 /// Most copies one nesting request may ask for; the nesting crate's own
 /// limit.
-const MAX_NEST_COPIES: u32 = 500;
+pub(crate) const MAX_NEST_COPIES: u32 = 500;
 /// Longest nesting search, in seconds, a request may ask for; the nesting
 /// crate's own limit.
 const MAX_NEST_SECONDS: u32 = 30;
@@ -664,7 +664,7 @@ fn input(
                 cutouts: cutouts(&nesting).to_vec(),
                 rectangular: matches!(nesting.stock, NestStock::Rectangle { .. }),
                 margin: nesting.margin(),
-                count: source.count,
+                count: Some(source.count),
             })
         })
         .collect::<Result<Vec<_>>>()?;

@@ -76,30 +76,34 @@ pub struct Solution {
 
 /// A rejected input or an incomplete heuristic search.
 #[derive(Clone, Debug, thiserror::Error)]
-#[error("{0}")]
-pub struct Error(pub String);
-
-/// How the message ends when every chosen sheet is full.
-const SHEETS_FULL: &str = "fit on the chosen sheets; add sheets";
-
-impl Error {
-    /// Every chosen sheet is full: `placed` of `total` parts fit.
-    pub(crate) fn sheets_full(placed: usize, total: usize) -> Self {
-        Self(format!("{placed} of {total} parts {SHEETS_FULL}"))
-    }
-
+#[error("{message}")]
+pub struct Error {
+    /// What went wrong, for the operator.
+    pub message: String,
     /// The chosen sheets filled up with parts still to place, so another
     /// sheet would take the rest.
-    #[must_use]
-    pub fn wants_sheets(&self) -> bool {
-        self.0.ends_with(SHEETS_FULL)
+    pub sheets_full: bool,
+}
+
+impl Error {
+    pub(crate) fn new(message: String) -> Self {
+        Self { message, sheets_full: false }
+    }
+
+    /// Every chosen sheet is full: `placed` of `total` parts fit.
+    pub(crate) fn sheets_full(placed: usize, total: usize) -> Self {
+        Self {
+            message: format!("{placed} of {total} parts fit on the chosen sheets; add sheets"),
+            sheets_full: true,
+        }
     }
 }
 
 /// Worker threads for one nesting search. Two keep the controller link and
 /// the HTTP server responsive on small shop computers while a search runs;
-/// a choice, not a measured optimum.
-const SEARCH_THREADS: usize = 2;
+/// a choice, not a measured optimum. Sparrow's separator runs as many
+/// workers.
+pub(crate) const SEARCH_THREADS: usize = 2;
 
 /// Search without ever changing the input. Progress reports placed/total.
 pub fn nest(
@@ -110,7 +114,7 @@ pub fn nest(
     let pool = rayon::ThreadPoolBuilder::new()
         .num_threads(SEARCH_THREADS)
         .build()
-        .map_err(|e| Error(format!("could not start nesting workers: {e}")))?;
+        .map_err(|e| Error::new(format!("could not start nesting workers: {e}")))?;
     pool.install(|| search::run(request, cancel, &progress))
 }
 
@@ -162,7 +166,7 @@ pub fn nest_sheets(
     let pool = rayon::ThreadPoolBuilder::new()
         .num_threads(SEARCH_THREADS)
         .build()
-        .map_err(|e| Error(format!("could not start nesting workers: {e}")))?;
+        .map_err(|e| Error::new(format!("could not start nesting workers: {e}")))?;
     pool.install(|| {
         let mut live = search::Live::new(&live);
         let mut solutions = search::run_sheets(request, sheets, cancel, &progress, &mut live)?;

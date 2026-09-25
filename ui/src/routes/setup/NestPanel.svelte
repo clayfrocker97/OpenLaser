@@ -61,8 +61,7 @@
         ? { title: sheetLabel(item.width_mm, item.height_mm), detail: `Rack · ${source.count} of ${item.quantity}` }
         : { title: 'Rack sheets', detail: 'No longer on the rack' };
     }
-    return { title: sheetLabel(source.width, source.height),
-      detail: source.count === null ? 'New · as needed' : `New · ${plural(source.count, 'sheet')}` };
+    return { title: sheetLabel(source.width, source.height), detail: `New · ${plural(source.count, 'sheet')}` };
   }
   /** Sheets added to the list; they replace a drawing outline, which Undo brings back. */
   async function add(source: StockSource): Promise<void> {
@@ -259,9 +258,9 @@
           {#if source?.kind === 'stock'}
             <button class="plan-count" aria-label="Sheets to use"
               onclick={() => osk.number('Rack sheets to use', source.count, 'sheets', (v) => setCount(i, v))}>{source.count}</button>
-          {:else if source?.kind === 'sheet' && source.count !== null}
+          {:else if source?.kind === 'sheet'}
             <button class="plan-count" aria-label="New sheets to use"
-              onclick={() => osk.number('New sheets to use', source.count ?? 1, 'sheets', (v) => setCount(i, v))}>{source.count}</button>
+              onclick={() => osk.number('New sheets to use', source.count, 'sheets', (v) => setCount(i, v))}>{source.count}</button>
           {/if}
           {#if source}
             <button class="plan-remove" aria-label="Leave out" onclick={() => edit(plan.filter((_, j) => j !== i))}><i class="ic ic-x"></i></button>
