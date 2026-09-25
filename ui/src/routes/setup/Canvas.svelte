@@ -33,7 +33,7 @@
   import { pathOf, type Box } from '../../lib/svg';
   import { layerColor } from '../../lib/drawing-layers';
   import {
-    drawingPath, hitPath, boundsOfShapes, marqueeContours, marqueeGroups, pickLine, unionBounds, axisAlignedBounds, transformedBounds, BoundsIndex, inverseBounds,
+    drawingPath, contourPath, groupPath, boundsOfShapes, nearestShape, marqueeContours, marqueeGroups, pickLine, unionBounds, axisAlignedBounds, transformedBounds, BoundsIndex, inverseBounds,
   } from '../../lib/viewer-geometry';
   import type { Features, PreviewContour, Spot, Transform } from '../../api';
 
@@ -126,16 +126,21 @@
   let local = $state<{ groups: number[]; m: Transform } | null>(null);
   const movingSet = $derived(new Set(local?.groups ?? []));
   const movingAll = $derived(!!local && movingSet.size === groups.length);
+  /** A drag moves its shapes on a layer of their own until the server has them. */
+  let lifting = $state(false);
+  $effect(() => { if (!local) lifting = false; });
   const boundsIndex = $derived(new BoundsIndex(groupBounds));
   let lastVisible: number[] = [];
   const visibleGroups = $derived.by(() => {
     // Overscan keeps marks and hit strokes visible at the boundary and avoids
     // repeatedly mounting shapes while the pointer moves by a few pixels.
-    const padding = view.mmPerPixel * 80;
-    const camera = { minX: view.x - zero[0] - padding, maxX: view.x + view.w - zero[0] + padding,
-      minY: -view.y - view.h - zero[1] - padding, maxY: -view.y - zero[1] + padding };
-    const visible = movingAll ? [] : boundsIndex.query(camera).filter(g => !movingSet.has(g));
-    if (local) {
+    // The view as drawn: a zoom or pan redraws only when it settles.
+    const shown = view.shown;
+    const padding = view.shownMmPerPixel * 80;
+    const camera = { minX: shown.x - zero[0] - padding, maxX: shown.x + shown.w - zero[0] + padding,
+      minY: -shown.y - shown.h - zero[1] - padding, maxY: -shown.y - zero[1] + padding };
+    const visible = movingAll && !lifting ? [] : boundsIndex.query(camera).filter(g => !movingSet.has(g));
+    if (local && !lifting) {
       const original = inverseBounds(camera, local.m);
       visible.push(...(original ? boundsIndex.query(original).filter(g => movingSet.has(g)) : local.groups));
     }
@@ -359,7 +364,7 @@
 
   // Gestures: a shape moves; turns and sizes change only through the tools
   // and typed values, never by a drag. While picking, the shapes stay put and taps go to the feature.
-  const grab = (target: Element): string | null => {
+  const grab = (target: Element, at: Point): string | null => {
     if (canvasBusy) return null;
     const lead = target.closest<SVGGElement>('[data-lead]')?.dataset['lead'];
     if (lead !== undefined) return `lead:${lead}`;
@@ -367,8 +372,10 @@
     if (picks.length) return null;
     // Anywhere inside the selection's box moves it.
     if (target.closest('[data-selection]') && selected.length) return `move:${selected[0]}`;
-    const g = target.closest<SVGGElement>('[data-group]')?.dataset['group'];
-    return g === undefined ? null : `move:${g}`;
+    // A line within half a fingertip moves its part, found as a tap finds
+    // it rather than by stroked hit areas the browser tests on every move.
+    const near = nearestShape(shapes, boundsIndex, toDrawing(at), HALO * view.mmPerPixel, (c) => !hidden(c.layer));
+    return near ? `move:${near.group}` : null;
   };
   let anchor: { revision: number; groups: number[]; box: Box } | null = null;
   let guides = $state<Array<[number, number, number, number]>>([]);
@@ -397,6 +404,7 @@
       if (!draft) return;
       anchor = { revision: draft.revision, groups: [...selected], box };
       dragging = true;
+      lifting = true;
     }
     let dx = to[0] - from[0];
     let dy = to[1] - from[1];
@@ -619,18 +627,75 @@
   /** Shapes on their way to a layer, while their layer is chosen. */
   let assigning = $state<number[] | null>(null);
   const hidden = (layer: string) => ui.drawingLayerHidden(layer);
+  const hiddenKey = $derived([...ui.hiddenDrawingLayers].join('\n'));
 
   /** A mark size in millimetres that keeps its screen size. */
-  const mark = $derived(Math.min(view.w, view.h) / 120);
+  const mark = $derived(Math.min(view.shown.w, view.shown.h) / 120);
   // Non-scaling round strokes keep the same dot size without rewriting a
   // radius on every contour during zoom. Recompute only with canvas size.
-  const markPixels = $derived(Math.min(view.pixelWidth, Math.round(view.h / view.mmPerPixel)) / 120);
+  const markPixels = $derived(Math.min(view.pixelWidth, Math.round(view.shown.h / view.shownMmPerPixel)) / 120);
   $effect(() => { void ui.selectionEpoch; untrack(() => { selected = []; local = null; }); });
 </script>
 
+{#snippet shape(g: number, moved: string)}
+  {@const on = selectedSet.has(g)}
+  {@const bounds = groupBounds.get(g)}
+  {@const details = on || !!bounds && Math.max(bounds.maxX - bounds.minX, bounds.maxY - bounds.minY) >= 24 * view.shownMmPerPixel}
+  <g class="shape" class:selected={on} class:drilled={on && picks.length > 0} class:dragging={dragging && on} data-group={g}
+    transform={moved}>
+    <!-- The selection's halo: the whole part softly, one shape taken alone strongly. -->
+    {#if on && !picks.length}<path class="halo" d={groupPath(shapes.get(g) ?? [], hiddenKey, (c) => !hidden(c.layer))} vector-effect="non-scaling-stroke"/>{/if}
+    {#each shapes.get(g) ?? [] as contour}
+      {#if !hidden(contour.layer)}
+        {@const picked = contour.sources.length === 1 && pickSet.has(contour.sources[0]!)}
+        <g class="contour" class:picked>
+        {#if picked}<path class="halo strong" d={contourPath(contour)} vector-effect="non-scaling-stroke"/>{/if}
+        {#each contour.paths as path}
+          {#if ui.layerShown(path.kind)}<path class="path {path.kind}" class:mark={marked.has(contour.layer)}
+            style:stroke={path.kind === 'cut' ? colors.get(contour.layer) : null} d={drawingPath(path.points)} vector-effect="non-scaling-stroke"/>{/if}
+        {/each}
+        {#if details && (ui.setupPanel !== 'nest' || on)}
+          {#if ui.layerShown('cooling')}
+            {#each contour.cooling as [x, y]}
+              <path class="mark cooling" d="M{x} {y}h0" stroke="#d04c79" stroke-width={markPixels * 2}
+                stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+            {/each}
+          {/if}
+          <path class="mark start" d="M{contour.start[0]} {contour.start[1]}h0" stroke="var(--accent)"
+            stroke-width={Math.min(markPixels * 1.4, 4)} stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+        {/if}
+        {#if ranksShown && contour.sources.length === 1 && ranks.has(contour.sources[0]!)}
+          <text class="order-label" transform="translate({contour.start[0] + 1.5 * mark} {contour.start[1] + 1.5 * mark}) scale(1 -1)"
+            font-size={mark * 3}>{ranks.get(contour.sources[0]!)}</text>
+        {/if}
+        </g>
+      {/if}
+    {/each}
+  </g>
+{/snippet}
+
+{#snippet gizmo(box: Box)}
+  <g class="gizmo">
+    <rect class="sel-grab" data-selection x={box.minX - 2 * mark} y={box.minY - 2 * mark}
+      width={box.maxX - box.minX + 4 * mark} height={box.maxY - box.minY + 4 * mark}/>
+    <rect class="sel-box" x={box.minX - 2 * mark} y={box.minY - 2 * mark}
+      width={box.maxX - box.minX + 4 * mark} height={box.maxY - box.minY + 4 * mark} vector-effect="non-scaling-stroke"/>
+  </g>
+{/snippet}
+
+<!-- A dragged selection, drawn once on a layer of its own that the drag
+     slides, so the rest of the drawing is not drawn again every frame. -->
+{#snippet liftedShapes()}
+  <g transform="translate({zero[0]} {zero[1]})">
+    {#each local?.groups ?? [] as g (g)}{@render shape(g, '')}{/each}
+    {#if selectionBase && selectionShown && !picks.length}{@render gizmo(selectionBase)}{/if}
+  </g>
+{/snippet}
+
 <div class="canvas-wrap">
 
-  <Stage {view} bed={frame.bed} head={frame.head} origin={ui.nestShown ? null : frame.origin} {grab} {ondrag} {ondragend} {ontap} {onmarquee}>
+  <Stage {view} bed={frame.bed} head={frame.head} origin={ui.nestShown ? null : frame.origin} {grab} {ondrag} {ondragend} {ontap} {onmarquee}
+    lift={lifting && local ? [local.m[4], local.m[5]] : null} lifted={liftedShapes}>
     <g transform="translate({zero[0]} {zero[1]})">
     {#if stockOutline.length}
       <path d={pathOf(stockOutline, false) + 'Z'} fill="var(--accent)" fill-opacity="0.035" stroke="var(--accent)"
@@ -660,42 +725,9 @@
       {/each}
     {/if}
     {#if preview && !ui.nestShown}
-      <g transform={movingAll && local ? svgMatrix(local.m) : ''}>
+      <g transform={movingAll && local && !lifting ? svgMatrix(local.m) : ''}>
       {#each visibleGroups as g (g)}
-        {@const on = selectedSet.has(g)}
-        {@const bounds = groupBounds.get(g)}
-        {@const details = on || !!bounds && Math.max(bounds.maxX - bounds.minX, bounds.maxY - bounds.minY) >= 24 * view.mmPerPixel}
-        <g class="shape" class:selected={on} class:drilled={on && picks.length > 0} class:dragging={dragging && on} data-group={g}
-          transform={!movingAll && local && movingSet.has(g) ? svgMatrix(local.m) : ''}>
-          {#each shapes.get(g) ?? [] as contour}
-            {#if !hidden(contour.layer)}
-              {@const picked = contour.sources.length === 1 && pickSet.has(contour.sources[0]!)}
-              <g class="contour" class:picked>
-              <!-- The selection's halo: the whole part softly, one shape taken alone strongly. -->
-              {#if on && (!picks.length || picked)}<path class="halo" class:strong={picked} d={hitPath(contour)} vector-effect="non-scaling-stroke"/>{/if}
-              <path class="hit" d={hitPath(contour)} vector-effect="non-scaling-stroke"/>
-              {#each contour.paths as path}
-                {#if ui.layerShown(path.kind)}<path class="path {path.kind}" class:mark={marked.has(contour.layer)}
-                  style:stroke={path.kind === 'cut' ? colors.get(contour.layer) : null} d={drawingPath(path.points)} vector-effect="non-scaling-stroke"/>{/if}
-              {/each}
-              {#if details && (ui.setupPanel !== 'nest' || on)}
-                {#if ui.layerShown('cooling')}
-                  {#each contour.cooling as [x, y]}
-                    <path class="mark cooling" d="M{x} {y}h0" stroke="#d04c79" stroke-width={markPixels * 2}
-                      stroke-linecap="round" vector-effect="non-scaling-stroke"/>
-                  {/each}
-                {/if}
-                <path class="mark start" d="M{contour.start[0]} {contour.start[1]}h0" stroke="var(--accent)"
-                  stroke-width={Math.min(markPixels * 1.4, 4)} stroke-linecap="round" vector-effect="non-scaling-stroke"/>
-              {/if}
-              {#if ranksShown && contour.sources.length === 1 && ranks.has(contour.sources[0]!)}
-                <text class="order-label" transform="translate({contour.start[0] + 1.5 * mark} {contour.start[1] + 1.5 * mark}) scale(1 -1)"
-                  font-size={mark * 3}>{ranks.get(contour.sources[0]!)}</text>
-              {/if}
-              </g>
-            {/if}
-          {/each}
-        </g>
+        {@render shape(g, !lifting && !movingAll && local && movingSet.has(g) ? svgMatrix(local.m) : '')}
       {/each}
       </g>
       {#each ui.picking?.marks ?? [] as [x, y]}<circle class="mark bridge" cx={x} cy={y} r={mark} />{/each}
@@ -711,14 +743,7 @@
         <path d="M{leadDrag.handle.anchor.join(' ')}L{leadDrag.point.join(' ')}" stroke="var(--accent)" stroke-width="2" vector-effect="non-scaling-stroke" />
       {/if}
       {#if firstEnd}<circle class="mark bridge" cx={firstEnd[0]} cy={firstEnd[1]} r={mark * 1.5} vector-effect="non-scaling-stroke"/>{/if}
-      {#if selection && selectionShown && !picks.length}
-        <g class="gizmo">
-          <rect class="sel-grab" data-selection x={selection.minX - 2 * mark} y={selection.minY - 2 * mark}
-            width={selection.maxX - selection.minX + 4 * mark} height={selection.maxY - selection.minY + 4 * mark}/>
-          <rect class="sel-box" x={selection.minX - 2 * mark} y={selection.minY - 2 * mark}
-            width={selection.maxX - selection.minX + 4 * mark} height={selection.maxY - selection.minY + 4 * mark} vector-effect="non-scaling-stroke"/>
-        </g>
-      {/if}
+      {#if selection && selectionShown && !picks.length && !lifting}{@render gizmo(selection)}{/if}
     {/if}
     </g>
     <g class="guide">{#each guides as [x1, y1, x2, y2]}<line {x1} {y1} {x2} {y2} vector-effect="non-scaling-stroke"/>{/each}</g>

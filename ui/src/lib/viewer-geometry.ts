@@ -4,16 +4,28 @@ import type { PreviewContour, Transform } from '../api';
 // Preview arrays are immutable snapshots from the server. The weak caches
 // disappear with the snapshot; cut geometry is never rounded or modified here.
 const paths = new WeakMap<Polyline, string>();
-const hits = new WeakMap<PreviewContour, string>();
+const contourPaths = new WeakMap<PreviewContour, string>();
+const groupPaths = new WeakMap<readonly PreviewContour[], { shown: string; path: string }>();
 const contourBounds = new WeakMap<PreviewContour, Box | null>();
 export function drawingPath(points: Polyline): string {
   let path = paths.get(points);
   if (path === undefined) { path = pathOf(points, false); paths.set(points, path); }
   return path;
 }
-export function hitPath(contour: PreviewContour): string {
-  let path = hits.get(contour);
-  if (path === undefined) { path = contour.paths.map(p => drawingPath(p.points)).join(' '); hits.set(contour, path); }
+/** Every path of a contour as one SVG path. */
+export function contourPath(contour: PreviewContour): string {
+  let path = contourPaths.get(contour);
+  if (path === undefined) { path = contour.paths.map(p => drawingPath(p.points)).join(' '); contourPaths.set(contour, path); }
+  return path;
+}
+/** A part's shown contours as one SVG path, so its selection halo is one
+ *  stroke rather than one blended stroke a contour. `shown` names what is
+ *  shown, for the cache. */
+export function groupPath(contours: readonly PreviewContour[], shown: string, show: (c: PreviewContour) => boolean): string {
+  const cached = groupPaths.get(contours);
+  if (cached?.shown === shown) return cached.path;
+  const path = contours.filter(show).map(contourPath).join(' ');
+  groupPaths.set(contours, { shown, path });
   return path;
 }
 function boundsOfContour(contour: PreviewContour): Box | null {

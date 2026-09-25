@@ -37,4 +37,18 @@ describe('an operator-owned Run viewport', () => {
     expect(runView('viewport-test/sheet-1').fitted).toBe(true);
     expect(second.view).not.toBe(first.view);
   });
+
+  it('keeps the drawn view through a held gesture and draws the view on release', () => {
+    const view = new Viewport();
+    view.setLimit(bed); view.home(); view.resize(800, 500);
+    const drawn = view.viewBox;
+    view.hold();
+    view.zoom(2); view.pan(10, 5);
+    expect(view.viewBox).toBe(drawn);
+    expect(view.shownMmPerPixel).toBeCloseTo(view.mmPerPixel * 2, 12);
+    view.release();
+    expect(view.viewBox).toBe(`${view.x} ${view.y} ${view.w} ${view.h}`);
+    view.zoom(2);
+    expect(view.shown.w).toBe(view.w);
+  });
 });

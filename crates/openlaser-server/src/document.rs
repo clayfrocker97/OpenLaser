@@ -505,6 +505,7 @@ pub struct PartView {
     /// How many contours it has.
     pub contours: usize,
     /// A thumbnail: the contours as polylines in drawing coordinates.
+    #[serde(serialize_with = "crate::display_path::micrometres")]
     pub outline: Vec<Vec<[f64; 2]>>,
     /// The drawing's layers and how many contours each holds.
     pub layers: Vec<LayerView>,
@@ -543,7 +544,7 @@ impl PartView {
             file_name: part.file_name.clone(),
             bounds: part.bounds(),
             contours: part.drawing.contours.len(),
-            outline: crate::draft::outline(&part.drawing, 64),
+            outline: crate::display_path::thumbnail(&crate::draft::outline(&part.drawing, 64)),
             layers,
             favourite: part.favourite,
             updated: part.updated,
@@ -707,6 +708,7 @@ pub struct JobView {
     /// Extent of the saved placements, including scaling and removed contours.
     pub bounds: Option<Bounds>,
     /// Thumbnail of the saved placements.
+    #[serde(serialize_with = "crate::display_path::micrometres")]
     pub outline: Vec<Vec<[f64; 2]>>,
     /// Number of saved placed contours.
     pub contours: usize,
@@ -745,7 +747,7 @@ impl JobView {
         Self {
             sheet: job.sheet.clone(),
             bounds: drawing.bounds(),
-            outline: crate::draft::outline(&drawing, 64),
+            outline: crate::display_path::thumbnail(&crate::draft::outline(&drawing, 64)),
             contours: drawing.contours.len(),
             tags: job.tags.clone(),
             notes: job.notes.clone(),
@@ -816,8 +818,10 @@ pub struct DraftView {
     /// Nominal, uncorrected calibration coupons.
     pub calibration: bool,
     /// Stock reference polyline, excluded from cutting and hit selection.
+    #[serde(serialize_with = "crate::display_path::micrometres")]
     pub stock_outline: Vec<[f64; 2]>,
     /// Previously removed material in the stock.
+    #[serde(serialize_with = "crate::display_path::micrometres")]
     pub stock_cutouts: Vec<Vec<[f64; 2]>>,
     /// Stock reference and the last applied nesting settings.
     pub nesting: Option<openlaser_core::nesting::Nesting>,
@@ -937,8 +941,10 @@ pub struct PreviewContour {
     /// The path in cutting order, split where the process changes.
     pub paths: Vec<Path>,
     /// Where the cooling stops are.
+    #[serde(serialize_with = "crate::display_path::micrometres")]
     pub cooling: Vec<[f64; 2]>,
     /// The start of the cut, after the lead-in.
+    #[serde(serialize_with = "crate::display_path::micrometres")]
     pub start: [f64; 2],
 }
 
@@ -949,6 +955,7 @@ pub struct Path {
     /// What the laser does along it.
     pub kind: PathKind,
     /// The polyline in drawing coordinates.
+    #[serde(serialize_with = "crate::display_path::micrometres")]
     pub points: Vec<[f64; 2]>,
 }
 
@@ -986,6 +993,7 @@ pub struct Compiled {
     /// Every pass, including its original identity after a continuation.
     pub plan: Vec<PassView>,
     /// Where each pass pierces or starts, in drawing coordinates.
+    #[serde(serialize_with = "crate::display_path::micrometres")]
     pub pierces: Vec<[f64; 2]>,
     /// How many upload blocks.
     pub blocks: usize,
@@ -1140,6 +1148,7 @@ pub struct Move {
     /// The pass, for progress.
     pub pass: Option<usize>,
     /// The polyline.
+    #[serde(serialize_with = "crate::display_path::micrometres")]
     pub points: Vec<[f64; 2]>,
 }
 

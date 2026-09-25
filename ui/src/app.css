@@ -194,7 +194,8 @@ h3 { font-size: var(--t-sm); font-weight: 700; margin: 0; color: var(--ink-3); t
 
 /* ---------- Canvas: drawing, gizmo, HUD, layers ---------- */
 .canvas-panel { position: relative; }
-.canvas svg { width: 100%; height: 100%; display: block; touch-action: none; }
+.canvas svg { width: 100%; height: 100%; display: block; touch-action: none; transform-origin: 0 0; will-change: transform; }
+.canvas svg.lift { position: absolute; inset: 0; pointer-events: none; }
 .cut { fill: none; stroke: var(--ink); stroke-width: 2.5; }
 .cut.selected { stroke: var(--accent); stroke-width: 3; }
 .cut.done { stroke: var(--ink-3); }
@@ -261,7 +262,6 @@ h3 { font-size: var(--t-sm); font-weight: 700; margin: 0; color: var(--ink-3); t
 .shape { cursor: grab; }
 .shape.dragging { cursor: grabbing; }
 /* Each line's halo: a fingertip either side takes it; empty space inside a part does not. */
-.shape .hit { fill: none; stroke: transparent; stroke-width: 40px; stroke-linecap: round; stroke-linejoin: round; pointer-events: stroke; }
 .shape.selected .path { stroke-width: 3; }
 /* The selection glows: a part softly, one shape taken alone strongly while the rest of its part fades. */
 .shape .halo { fill: none; stroke: var(--accent); stroke-opacity: .22; stroke-width: 10px; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }

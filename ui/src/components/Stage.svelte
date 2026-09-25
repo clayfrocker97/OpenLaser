@@ -22,6 +22,8 @@
     ontap,
     onmarquee,
     children,
+    lift = null,
+    lifted,
     overlay,
     variant = '',
   }: {
@@ -33,7 +35,7 @@
     /** The job origin, in machine coordinates. */
     origin?: Point | null;
     /** What a selecting pointer takes hold of at `target`, or nothing. */
-    grab?: (target: Element) => string | null;
+    grab?: (target: Element, at: Point) => string | null;
     ondrag?: (kind: string, from: Point, to: Point) => void;
     ondragend?: (kind: string, cancelled: boolean) => void;
     /** A tap, and whether it adds to a selection. */
@@ -41,6 +43,10 @@
     /** A marquee swept over empty space, in drawing coordinates. */
     onmarquee?: (box: Box, additive: boolean) => void;
     children?: Snippet;
+    /** How far the lifted layer has moved, in drawing millimetres, while it shows. */
+    lift?: Point | null;
+    /** Shapes drawn once on a layer of their own that `lift` slides. */
+    lifted?: Snippet;
     /** HTML over the drawing, given a function from drawing points to pixel offsets inside the canvas. */
     overlay?: Snippet<[(p: Point) => Point]>;
     variant?: string;
@@ -50,12 +56,13 @@
   let svg = $state<SVGSVGElement | null>(null);
   let rect: DOMRect | null = null;
   const invalidateRect = () => { rect = null; };
-  const screenRect = (): DOMRect => rect ??= svg!.getBoundingClientRect();
+  // The frame, not the drawing, which a gesture moves by a transform.
+  const screenRect = (): DOMRect => rect ??= svg!.parentElement!.getBoundingClientRect();
 
   $effect(() => { view.setLimit(bed); });
   $effect(() => {
     if (!svg) return;
-    const measure = () => { rect = svg!.getBoundingClientRect(); view.resize(rect.width, rect.height); };
+    const measure = () => { rect = svg!.parentElement!.getBoundingClientRect(); view.resize(rect.width, rect.height); };
     untrack(measure);
     const observer = new ResizeObserver(measure);
     observer.observe(svg);
@@ -96,12 +103,49 @@
     if (animation) cancelAnimationFrame(animation);
     animation = 0;
     for (const wheel of pendingWheels) view.zoom(wheel.factor, toSvg(wheel.x, wheel.y));
+    if (pendingWheels.length) viewMoved();
     pendingWheels = [];
     const event = pendingMove;
     pendingMove = null;
     if (event) updateGesture(event);
   }
   function schedule(): void { if (!animation) animation = requestAnimationFrame(flush); }
+
+  // A zoom or pan moves the picture already drawn, which the graphics card
+  // does for free, and draws it again a few times a second and once it
+  // stops: redrawing thousands of shapes every frame is what slows a small
+  // PC down.
+  const REDRAW_MS = 250;
+  const SETTLE_MS = 120;
+  let settleTimer: ReturnType<typeof setTimeout> | undefined;
+  let lastDrawn = 0;
+  function viewMoved(): void {
+    view.hold();
+    const now = performance.now();
+    if (now - lastDrawn > REDRAW_MS) { lastDrawn = now; view.settle(); }
+    clearTimeout(settleTimer);
+    settleTimer = setTimeout(settle, SETTLE_MS);
+  }
+  function settle(): void {
+    clearTimeout(settleTimer);
+    // A pinch or pan still under way keeps holding.
+    if (gesture?.kind === 'pinch' || gesture?.kind === 'pan') { settleTimer = setTimeout(settle, SETTLE_MS); view.settle(); lastDrawn = performance.now(); return; }
+    lastDrawn = performance.now();
+    view.release();
+  }
+  $effect(() => () => { clearTimeout(settleTimer); view.release(); });
+  /** Moves the drawn picture from where it was drawn to where the view is. */
+  const lag = $derived.by(() => {
+    const s = view.shown;
+    if (s.x === view.x && s.y === view.y && s.w === view.w) return undefined;
+    const k = view.pixelWidth / view.w;
+    return `translate(${(s.x - view.x) * k}px, ${(s.y - view.y) * k}px) scale(${s.w / view.w})`;
+  });
+  const liftTransform = $derived.by(() => {
+    if (!lift) return undefined;
+    const k = view.pixelWidth / view.w;
+    return `translate(${lift[0] * k}px, ${-lift[1] * k}px) ${lag ?? ''}`;
+  });
   function cancel(): void {
     if (animation) cancelAnimationFrame(animation);
     animation = 0;
@@ -140,7 +184,7 @@
       return;
     }
     const from = toDrawing(e.clientX, e.clientY);
-    const grabbed = grab(e.target as Element);
+    const grabbed = grab(e.target as Element, from);
     gesture = grabbed
       ? { kind: 'drag', grabbed, from, moved: false }
       : { kind: 'marquee', from, moved: false, additive: e.shiftKey, target: e.target as Element };
@@ -160,10 +204,12 @@
       const [a, b] = [...pointers.values()] as [Point, Point];
       const scale = distance(a, b) / Math.max(gesture.span, 1);
       view.place(gesture.width / scale, gesture.anchor, middle(a, b), screenRect());
+      viewMoved();
     } else if (gesture.kind === 'pan') {
       const k = view.mmPerPixel;
       view.pan(-(e.clientX - gesture.last[0]) * k, -(e.clientY - gesture.last[1]) * k);
       gesture.last = [e.clientX, e.clientY];
+      viewMoved();
     } else {
       const to = toDrawing(e.clientX, e.clientY);
       gesture.moved ||= distance(gesture.from, to) > slop(e);
@@ -212,24 +258,25 @@
 
   // Paint only the camera rectangle. Pattern tiles far outside it can become
   // enormous raster surfaces when a small part is viewed close up.
-  const grid = $derived(toSource(10 ** Math.ceil(Math.log10(toDisplay(view.mmPerPixel * 8, 'mm'))), 'mm'));
+  const grid = $derived(toSource(10 ** Math.ceil(Math.log10(toDisplay(view.shownMmPerPixel * 8, 'mm'))), 'mm'));
   const coarseGrid = $derived(grid * 10);
   /** A stroke-independent size in drawing units: the smaller of the view's dimensions over 90. */
-  const unit = $derived(Math.min(view.w, view.h) / 90);
+  const unit = $derived(Math.min(view.shown.w, view.shown.h) / 90);
+  const shown = $derived(view.shown);
 </script>
 
 <div class="canvas {variant}">
   <svg
-    bind:this={svg} viewBox={view.viewBox} preserveAspectRatio="xMidYMid meet" role="application" aria-label="Drawing"
+    bind:this={svg} viewBox={view.viewBox} style:transform={lag} preserveAspectRatio="xMidYMid meet" role="application" aria-label="Drawing"
     onpointerdown={down} onpointermove={move} onpointerup={up} onpointercancel={cancel}
     onlostpointercapture={(e) => { if (pointers.has(e.pointerId)) cancel(); }} onwheel={wheel} oncontextmenu={(e) => e.preventDefault()}>
     <defs>
-      <pattern id="fine-{uid}" width={grid} height={grid} patternUnits="userSpaceOnUse"><path d="M{grid} 0H0V{grid}" fill="none" stroke="var(--grid)" stroke-width={view.mmPerPixel * 0.5}/></pattern>
+      <pattern id="fine-{uid}" width={grid} height={grid} patternUnits="userSpaceOnUse"><path d="M{grid} 0H0V{grid}" fill="none" stroke="var(--grid)" stroke-width={view.shownMmPerPixel * 0.5}/></pattern>
       <pattern id="coarse-{uid}" width={coarseGrid} height={coarseGrid} patternUnits="userSpaceOnUse"><rect
         width={coarseGrid} height={coarseGrid} fill="url(#fine-{uid})"/><path
-        d="M{coarseGrid} 0H0V{coarseGrid}" fill="none" stroke="var(--grid-strong)" stroke-width={view.mmPerPixel}/></pattern>
+        d="M{coarseGrid} 0H0V{coarseGrid}" fill="none" stroke="var(--grid-strong)" stroke-width={view.shownMmPerPixel}/></pattern>
     </defs>
-    <rect x={view.x} y={view.y} width={view.w} height={view.h} fill="url(#coarse-{uid})"/>
+    <rect x={shown.x} y={shown.y} width={shown.w} height={shown.h} fill="url(#coarse-{uid})"/>
     <g transform="scale(1 -1)">
       {#if bed}<rect class="bed" x={bed.minX} y={bed.minY} width={bed.maxX - bed.minX} height={bed.maxY - bed.minY} vector-effect="non-scaling-stroke"/>{/if}
       {#if origin}
@@ -241,13 +288,18 @@
       {@render children?.()}
       {#if head}
         <g class="crosshair">
-          <line x1={head[0]} y1={-view.y - view.h} x2={head[0]} y2={-view.y} vector-effect="non-scaling-stroke"/>
-          <line x1={view.x} y1={head[1]} x2={view.x + view.w} y2={head[1]} vector-effect="non-scaling-stroke"/>
+          <line x1={head[0]} y1={-shown.y - shown.h} x2={head[0]} y2={-shown.y} vector-effect="non-scaling-stroke"/>
+          <line x1={shown.x} y1={head[1]} x2={shown.x + shown.w} y2={head[1]} vector-effect="non-scaling-stroke"/>
           <circle cx={head[0]} cy={head[1]} r={unit} vector-effect="non-scaling-stroke"/>
         </g>
       {/if}
       {#if marquee}<rect class="marquee" x={marquee.minX} y={marquee.minY} width={marquee.maxX - marquee.minX} height={marquee.maxY - marquee.minY} vector-effect="non-scaling-stroke"/>{/if}
     </g>
   </svg>
+  {#if lift && lifted}
+    <svg class="lift" viewBox={view.viewBox} style:transform={liftTransform} preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+      <g transform="scale(1 -1)">{@render lifted()}</g>
+    </svg>
+  {/if}
   {@render overlay?.(project)}
 </div>

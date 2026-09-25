@@ -178,7 +178,7 @@
     } catch (error) { ui.say(explain(error), true); }
     finally { reviewing = false; }
   }
-  const mark = $derived(Math.min(view.w, view.h) / 120);
+  const mark = $derived(Math.min(view.shown.w, view.shown.h) / 120);
   let pickingRestart = false;
   async function pickRestart(point: [number, number]): Promise<void> {
     if (!recovering || !compiled || !doc.recovery || machine.operation || pickingRestart) return;

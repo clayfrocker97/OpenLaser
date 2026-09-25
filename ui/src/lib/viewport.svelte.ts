@@ -24,9 +24,42 @@ export class Viewport {
   /** What was last fitted, applied again when the element's aspect becomes known. */
   private request: { box: Box; margin: number } | null = null;
   private fittedBox: { box: Box; margin: number } | null = null;
+  /** The view the drawing is rendered at. It follows the view, except while
+   *  a gesture holds it: the stage then shows the view by moving the picture
+   *  already drawn, and the drawing is rendered again only when it settles. */
+  shown = $state.raw({ x: 0, y: -300, w: 500, h: 300 });
+  private holding = false;
 
   get viewBox(): string {
-    return `${this.x} ${this.y} ${this.w} ${this.h}`;
+    const { x, y, w, h } = this.shown;
+    return `${x} ${y} ${w} ${h}`;
+  }
+
+  /** Drawing millimetres per screen pixel, as the drawing is rendered. */
+  get shownMmPerPixel(): number {
+    return this.shown.w / this.pixels;
+  }
+
+  /** Keeps the rendered view while a gesture moves the view. */
+  hold(): void {
+    this.holding = true;
+  }
+
+  /** Renders the view as it is now, held or not. */
+  settle(): void {
+    const { x, y, w, h } = this;
+    const s = this.shown;
+    if (s.x !== x || s.y !== y || s.w !== w || s.h !== h) this.shown = { x, y, w, h };
+  }
+
+  /** Ends a hold, rendering the view as it is now. */
+  release(): void {
+    this.holding = false;
+    this.settle();
+  }
+
+  private changed(): void {
+    if (!this.holding) this.settle();
   }
 
   /** Zoom relative to the whole bed, which is 100%. */
@@ -64,6 +97,7 @@ export class Viewport {
     this.y = -(box.minY + box.maxY) / 2 - h / 2;
     this.w = w;
     this.h = h;
+    this.changed();
   }
 
   /** The element measures `width` by `height` pixels. */
@@ -85,6 +119,7 @@ export class Viewport {
       this.x = cx - this.w / 2;
       this.y = cy - this.h / 2;
     }
+    this.changed();
   }
 
   /** Zooms by `factor` about an SVG point, the centre by default. */
@@ -97,6 +132,7 @@ export class Viewport {
     this.y = py - (py - this.y) / f;
     this.w = w;
     this.h = w / this.aspect;
+    this.changed();
   }
 
   /** Shows the view `w` wide with the SVG point `anchor` under the screen point `client`. */
@@ -108,6 +144,7 @@ export class Viewport {
     this.y = anchor[1] - ((client[1] - rect.top) * height) / rect.height;
     this.w = width;
     this.h = height;
+    this.changed();
   }
 
   /** Moves the view by SVG units. */
@@ -115,6 +152,7 @@ export class Viewport {
     this.request = null;
     this.x += dx;
     this.y += dy;
+    this.changed();
   }
 
   /** The view width that shows `box` with `margin` around it at this aspect. */

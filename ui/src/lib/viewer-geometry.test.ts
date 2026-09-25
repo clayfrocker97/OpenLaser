@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { axisAlignedBounds, boundsOfShapes, BoundsIndex, drawingPath, hitPath, inverseBounds, marqueeContours, marqueeGroups, nearestShape, overlaps, pickLine, transformedBounds } from './viewer-geometry';
+import { axisAlignedBounds, boundsOfShapes, BoundsIndex, contourPath, drawingPath, groupPath, inverseBounds, marqueeContours, marqueeGroups, nearestShape, overlaps, pickLine, transformedBounds } from './viewer-geometry';
 import { boxOf, pathOf } from './svg';
 import type { PreviewContour, Transform } from '../api';
 
@@ -19,7 +19,11 @@ describe('viewer bounds and cached paths', () => {
     const entry: [number, number][] = [[-25, 0], [0, 0]];
     const contour = { paths: [{ kind: 'cut', points: body }, { kind: 'lead_in', points: entry }] } as PreviewContour;
     expect(drawingPath(body)).toBe(pathOf(body, false));
-    expect(hitPath(contour)).toBe(`${pathOf(body, false)} ${pathOf(entry, false)}`);
+    expect(contourPath(contour)).toBe(`${pathOf(body, false)} ${pathOf(entry, false)}`);
+    const other = { paths: [{ kind: 'cut', points: entry }], layer: 'Hidden' } as PreviewContour;
+    const group = [contour, other];
+    expect(groupPath(group, '', () => true)).toBe(`${contourPath(contour)} ${contourPath(other)}`);
+    expect(groupPath(group, 'Hidden', (c) => c.layer !== 'Hidden')).toBe(contourPath(contour));
     const bounds = boundsOfShapes(new Map([[8, [contour]]]));
     expect(bounds.get(8)).toEqual({ minX: -25, minY: 0, maxX: 10, maxY: 10 });
     expect(new BoundsIndex(bounds).query({ minX: -26, minY: -1, maxX: -24, maxY: 1 })).toEqual([8]);
