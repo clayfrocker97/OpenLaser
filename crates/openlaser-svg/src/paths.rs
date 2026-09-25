@@ -11,6 +11,7 @@
 use crate::{Error, Result, TOLERANCE};
 use openlaser_core::fit;
 use openlaser_core::geometry::{Contour, Curve, Drawing, Point};
+use std::collections::BTreeSet;
 use std::f64::consts::TAU;
 use usvg::tiny_skia_path::PathSegment;
 
@@ -29,7 +30,7 @@ pub(crate) fn drawing(
     tree: &usvg::Tree,
     mm_per_px: f64,
     tolerance: f64,
-) -> Result<(Drawing, Vec<LayerColor>)> {
+) -> Result<(Drawing, Vec<LayerColor>, BTreeSet<String>)> {
     let mut reader = Reader {
         drawing: Drawing::default(),
         height: f64::from(tree.size().height()) * mm_per_px,
@@ -38,9 +39,10 @@ pub(crate) fn drawing(
         count: 0,
         paints: None,
         colors: Vec::new(),
+        warnings: BTreeSet::new(),
     };
     reader.group(tree.root(), DEFAULT_LAYER, 0)?;
-    Ok((reader.drawing, reader.colors))
+    Ok((reader.drawing, reader.colors, reader.warnings))
 }
 
 /// A path's colour: its stroke's, else its fill's, when it is a plain one.
@@ -67,6 +69,8 @@ struct Reader {
     paints: Option<Vec<(std::ops::Range<usize>, usvg::FillRule)>>,
     /// The colour of each layer that has one, first path first.
     colors: Vec<LayerColor>,
+    /// What the import set aside, for the operator to review.
+    warnings: BTreeSet<String>,
 }
 
 impl Reader {
@@ -77,11 +81,92 @@ impl Reader {
         if depth > 100 {
             return Err(Error("SVG groups are nested too deeply".into()));
         }
-        if group.clip_path().is_some() || group.mask().is_some() || !group.filters().is_empty() {
-            return Err(Error(
-                "SVG clipping, masks and filters must be applied to paths before importing".into(),
-            ));
+        // Filters only change how a shape looks: its outline is cut as drawn.
+        if !group.filters().is_empty() {
+            self.warnings.insert(
+                "SVG filters such as blurs and shadows were ignored; the shapes are cut as drawn."
+                    .into(),
+            );
         }
+        // A clip or mask that hides nothing, such as an artboard-sized clip,
+        // is ignored; one that hides part of the artwork is refused, since
+        // what it hides would be cut.
+        let region = match (group.clip_path(), group.mask()) {
+            (Some(clip), _) => Some((
+                "clipping path",
+                self.region(clip.root(), group.abs_transform().pre_concat(clip.transform()))?,
+            )),
+            (None, Some(mask)) => {
+                Some(("mask", vec![self.rectangle(mask.rect(), group.abs_transform())]))
+            }
+            (None, None) => None,
+        };
+        let start = self.drawing.contours.len();
+        self.children(group, layer, depth)?;
+        if let Some((what, region)) = region {
+            let tolerance = self.tolerance.max(0.01);
+            let hidden =
+                self.drawing.contours[start..].iter().flat_map(|c| &c.curves).any(|curve| {
+                    (0..=8).any(|i| !within(curve.point(f64::from(i) / 8.), &region, tolerance))
+                });
+            if hidden {
+                return Err(Error(format!(
+                    "an SVG {what} hides part of the artwork; release it or apply it to the paths before importing"
+                )));
+            }
+            self.warnings.insert(format!("An SVG {what} around the whole artwork was ignored."));
+        }
+        Ok(())
+    }
+
+    /// A clip path's shapes as closed polygons, in millimetres, through
+    /// `base`, the space of the element it clips.
+    fn region(&self, root: &usvg::Group, base: usvg::Transform) -> Result<Vec<Vec<Point>>> {
+        let mut reader = Self {
+            drawing: Drawing::default(),
+            height: self.height,
+            mm_per_px: self.mm_per_px,
+            tolerance: self.tolerance,
+            count: 0,
+            paints: None,
+            colors: Vec::new(),
+            warnings: BTreeSet::new(),
+        };
+        let mut paths = Vec::new();
+        collect_paths(root, &mut paths);
+        for path in paths {
+            reader.path_through(path, base.pre_concat(path.abs_transform()), DEFAULT_LAYER)?;
+        }
+        Ok(reader
+            .drawing
+            .contours
+            .iter()
+            .map(|c| {
+                c.curves
+                    .iter()
+                    .flat_map(|curve| (0..8).map(move |i| curve.point(f64::from(i) / 8.)))
+                    .collect()
+            })
+            .collect())
+    }
+
+    /// A rectangle in `transform`'s space as a polygon, in millimetres.
+    fn rectangle(&self, rect: usvg::NonZeroRect, transform: usvg::Transform) -> Vec<Point> {
+        let (left, top, right, bottom) = (rect.left(), rect.top(), rect.right(), rect.bottom());
+        [(left, top), (right, top), (right, bottom), (left, bottom)]
+            .into_iter()
+            .map(|(x, y)| {
+                let mut corner = usvg::tiny_skia_path::Point::from_xy(x, y);
+                transform.map_point(&mut corner);
+                Point::new(
+                    f64::from(corner.x) * self.mm_per_px,
+                    self.height - f64::from(corner.y) * self.mm_per_px,
+                )
+            })
+            .collect()
+    }
+
+    fn children(&mut self, group: &usvg::Group, layer: &str, depth: usize) -> Result<()> {
         let layer = if group.id().is_empty() { layer } else { group.id() };
         for node in group.children() {
             match node {
@@ -140,8 +225,10 @@ impl Reader {
             count: self.count,
             paints: Some(Vec::new()),
             colors: Vec::new(),
+            warnings: BTreeSet::new(),
         };
         reader.group(text.flattened(), layer, depth)?;
+        self.warnings.append(&mut reader.warnings);
         for (name, rgb) in reader.colors {
             if !self.colors.iter().any(|(known, _)| *known == name) {
                 self.colors.push((name, rgb));
@@ -160,7 +247,16 @@ impl Reader {
     }
 
     fn path(&mut self, path: &usvg::Path, layer: &str) -> Result<()> {
-        let transform = path.abs_transform();
+        self.path_through(path, path.abs_transform(), layer)
+    }
+
+    /// A path's outline, placed by `transform` rather than its own.
+    fn path_through(
+        &mut self,
+        path: &usvg::Path,
+        transform: usvg::Transform,
+        layer: &str,
+    ) -> Result<()> {
         let (height, mm_per_px) = (self.height, self.mm_per_px);
         let point = |p: usvg::tiny_skia_path::Point| {
             Point::new(
@@ -389,4 +485,42 @@ fn distance_to_chord(point: Point, a: Point, b: Point) -> f64 {
     let length = chord.dot(chord);
     let fraction = if length == 0. { 0. } else { ((point - a).dot(chord) / length).clamp(0., 1.) };
     point.distance(a.lerp(b, fraction))
+}
+
+/// Every path under a group, however deeply grouped.
+fn collect_paths<'a>(group: &'a usvg::Group, out: &mut Vec<&'a usvg::Path>) {
+    for node in group.children() {
+        match node {
+            usvg::Node::Group(inner) => collect_paths(inner, out),
+            usvg::Node::Path(path) => out.push(path),
+            usvg::Node::Image(_) | usvg::Node::Text(_) => {}
+        }
+    }
+}
+
+/// Whether a point lies inside one of the polygons, or within `tolerance`
+/// of an edge.
+fn within(point: Point, polygons: &[Vec<Point>], tolerance: f64) -> bool {
+    polygons.iter().any(|polygon| {
+        let mut inside = false;
+        for (i, a) in polygon.iter().enumerate() {
+            let b = polygon[(i + 1) % polygon.len()];
+            if distance_to_segment(point, *a, b) <= tolerance {
+                return true;
+            }
+            if (a.y > point.y) != (b.y > point.y)
+                && point.x < (b.x - a.x) * (point.y - a.y) / (b.y - a.y) + a.x
+            {
+                inside = !inside;
+            }
+        }
+        inside
+    })
+}
+
+fn distance_to_segment(point: Point, a: Point, b: Point) -> f64 {
+    let d = b - a;
+    let length = d.dot(d);
+    let t = if length > 0. { ((point - a).dot(d) / length).clamp(0., 1.) } else { 0. };
+    point.distance(a + d * t)
 }

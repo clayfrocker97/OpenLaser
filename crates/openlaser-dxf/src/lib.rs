@@ -34,9 +34,10 @@ mod blocks;
 mod colors;
 mod entities;
 mod pairs;
+mod source;
 
 use entities::curves::Parametric;
-use entities::{Piece, Read};
+use entities::{Note, Piece, Read};
 use openlaser_core::fit;
 use openlaser_core::geometry::{Contour, Curve, Drawing, Point, Transform};
 use openlaser_core::repair::{self, Repair, Repairs};
@@ -48,14 +49,6 @@ pub const MAX_BYTES: usize = 64 * 1024 * 1024;
 /// Why a file could not be imported.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 pub enum Error {
-    /// The file is a binary DXF; only ASCII is read.
-    #[error("binary DXF is not supported; save as ASCII DXF")]
-    Binary,
-    /// Legacy non-UTF-8 strings need conversion, never replacement glyphs.
-    #[error(
-        "DXF text encoding is not UTF-8; save as AutoCAD 2007 or later ASCII DXF, or escape Unicode characters"
-    )]
-    Encoding,
     /// The file is larger than [`MAX_BYTES`].
     #[error("the DXF is larger than {MAX_BYTES} bytes")]
     TooLarge,
@@ -85,8 +78,10 @@ pub enum Error {
         /// The entity type.
         entity: String,
     },
-    /// A `$INSUNITS` code other than millimetres or inches.
-    #[error("drawing units code {0} is not supported; save in millimetres or inches")]
+    /// A `$INSUNITS` code for a unit no part is drawn in, such as miles.
+    #[error(
+        "drawing units code {0} is not a unit parts are drawn in; save in millimetres or inches"
+    )]
     Units(u32),
     /// Nothing to cut.
     #[error("the drawing has no lines, arcs, circles, polylines, curves or text outlines")]
@@ -116,8 +111,54 @@ pub enum Units {
     Millimeters,
     /// `$INSUNITS` 1, converted to millimetres.
     Inches,
+    /// `$INSUNITS` 2.
+    Feet,
+    /// `$INSUNITS` 5.
+    Centimeters,
+    /// `$INSUNITS` 6.
+    Meters,
+    /// `$INSUNITS` 9, thousandths of an inch.
+    Mils,
+    /// `$INSUNITS` 10.
+    Yards,
+    /// `$INSUNITS` 13.
+    Micrometers,
+    /// `$INSUNITS` 14.
+    Decimeters,
     /// No usable declaration; the coordinates were taken as millimetres.
     Unspecified,
+}
+
+impl Units {
+    /// Millimetres in one drawing unit.
+    #[must_use]
+    pub const fn millimeters(self) -> f64 {
+        match self {
+            Self::Millimeters | Self::Unspecified => 1.,
+            Self::Inches => 25.4,
+            Self::Feet => 304.8,
+            Self::Centimeters => 10.,
+            Self::Meters => 1000.,
+            Self::Mils => 0.0254,
+            Self::Yards => 914.4,
+            Self::Micrometers => 0.001,
+            Self::Decimeters => 100.,
+        }
+    }
+
+    /// The unit's name, when the drawing was converted from it.
+    const fn converted(self) -> Option<&'static str> {
+        match self {
+            Self::Millimeters | Self::Unspecified | Self::Inches => None,
+            Self::Feet => Some("feet"),
+            Self::Centimeters => Some("centimetres"),
+            Self::Meters => Some("metres"),
+            Self::Mils => Some("mils"),
+            Self::Yards => Some("yards"),
+            Self::Micrometers => Some("micrometres"),
+            Self::Decimeters => Some("decimetres"),
+        }
+    }
 }
 
 /// An entity that was read past because it carries nothing to cut.
@@ -216,17 +257,18 @@ pub fn import_with(bytes: &[u8], options: &Options) -> Result<Import> {
     if bytes.len() > MAX_BYTES {
         return Err(Error::TooLarge);
     }
-    if bytes.starts_with(b"AutoCAD Binary DXF") {
-        return Err(Error::Binary);
-    }
-    let text = std::str::from_utf8(bytes).map_err(|_| Error::Encoding)?;
+    let text = source::text(bytes)?;
     let pairs = pairs::tokenize(text.trim_start_matches('\u{feff}'))?;
     let sections = Sections::read(&pairs)?;
-    let scale = if sections.units == Units::Inches { 25.4 } else { 1. };
+    let scale = sections.units.millimeters();
     let placed = blocks::expand(&sections.entities, &sections.blocks)?;
     let mut warnings = left_out(&placed);
+    if let Some(unit) = sections.units.converted() {
+        warnings.push(format!("The drawing is in {unit}; it was converted to millimetres."));
+    }
+    let mut notes = placed.notes.clone();
     if placed.entities.is_empty() && placed.texts.is_empty() {
-        return Err(Error::Empty);
+        return Err(nothing_to_cut(&notes));
     }
     let layers = layers(&placed, &sections.layers, options.layers.as_deref());
     let chosen: BTreeSet<String> =
@@ -255,7 +297,14 @@ pub fn import_with(bytes: &[u8], options: &Options) -> Result<Import> {
         {
             colors.push((layer.clone(), rgb));
         }
-        let contour = place(entity, transform, layer, scale, options.tolerance)?;
+        let contour = match place(entity, transform, layer, scale, options.tolerance) {
+            Ok(contour) => contour,
+            Err(Error::Entity { reason, .. }) if reason == entities::EMPTY => {
+                notes.push(Note { entity: entity.name.clone(), line: entity.line, reason });
+                continue;
+            }
+            Err(other) => return Err(other),
+        };
         curves = curves.saturating_add(contour.curves.len());
         if curves > MAX_CURVES {
             return Err(Error::Block {
@@ -272,7 +321,11 @@ pub fn import_with(bytes: &[u8], options: &Options) -> Result<Import> {
     }
     let (mut pieces, duplicates) = repair::without_duplicates(pieces, options.tolerance);
     repairs.duplicates = duplicates;
-    warnings.extend(outline_text(&placed, &chosen, scale, &mut pieces)?);
+    warnings.extend(outline_text(&placed, &chosen, scale, &mut pieces, &mut notes)?);
+    if pieces.is_empty() && !chosen.is_empty() {
+        return Err(nothing_to_cut(&notes));
+    }
+    warnings.extend(grouped(&notes));
     let (contours, gaps) = repair::chain(&pieces, options.gap);
     repairs.gaps = gaps;
     let mut skipped = placed.skipped;
@@ -311,24 +364,68 @@ fn left_out(placed: &blocks::Placed<'_>) -> Vec<String> {
     warnings
 }
 
+/// Why a drawing has nothing to cut: the first entity left out, when one
+/// was, else that there was none.
+fn nothing_to_cut(notes: &[Note]) -> Error {
+    notes.first().map_or(Error::Empty, |note| Error::Entity {
+        line: note.line,
+        entity: note.entity.clone(),
+        reason: note.reason.clone(),
+    })
+}
+
+/// One line per reason and entity type, with how many and where the first is.
+fn grouped(notes: &[Note]) -> Vec<String> {
+    let mut groups: BTreeMap<(&str, &str), (usize, usize)> = BTreeMap::new();
+    for note in notes {
+        let group = groups.entry((&note.reason, &note.entity)).or_insert((0, note.line));
+        group.0 += 1;
+        group.1 = group.1.min(note.line);
+    }
+    groups
+        .into_iter()
+        .map(|((reason, entity), (count, line))| match count {
+            1 => format!("{entity} at line {line}: {reason}."),
+            _ => format!("{count} {entity} entities, the first at line {line}: {reason}."),
+        })
+        .collect()
+}
+
 /// Outlines the text on the chosen layers into `pieces`, in millimetres,
-/// and says which styles were substituted.
+/// and says which styles were substituted; text that cannot be laid out is
+/// left out and noted.
 fn outline_text(
     placed: &blocks::Placed<'_>,
     chosen: &BTreeSet<String>,
     scale: f64,
     pieces: &mut Vec<Contour>,
+    notes: &mut Vec<Note>,
 ) -> Result<BTreeSet<String>> {
     let mut styles = BTreeSet::new();
     for (text, transform, layer) in &placed.texts {
         if !chosen.contains(&layer.to_uppercase()) {
             continue;
         }
+        let outlines = match text.outlines(scale) {
+            Ok(outlines) => outlines,
+            Err(Error::Entity { entity, line, reason }) => {
+                notes.push(Note {
+                    entity,
+                    line,
+                    reason: format!("{reason}; the text was left out"),
+                });
+                continue;
+            }
+            Err(other) => return Err(other),
+        };
+        if text.formatted {
+            styles.insert("MTEXT fonts, heights, colours and stacking were left out; the lettering is in Noto Sans.".into());
+        }
         // The outlines are in millimetres already; only the move scales.
         let mut millimetres = *transform;
         millimetres.0[4] *= scale;
         millimetres.0[5] *= scale;
-        for mut contour in text.outlines(scale)? {
+        for mut contour in outlines {
             for curve in &mut contour.curves {
                 *curve = Curve::Line {
                     start: millimetres.apply(curve.start()),
@@ -416,7 +513,7 @@ fn place(
         }
     }
     if curves.is_empty() || !curves.iter().all(Curve::is_valid) {
-        return Err(error("degenerate geometry"));
+        return Err(error(entities::EMPTY));
     }
     Ok(Contour { layer: layer.to_owned(), curves })
 }
@@ -562,7 +659,14 @@ fn declared_units(value: &str) -> Result<Units> {
     match value.trim().parse::<u32>() {
         Ok(0) | Err(_) => Ok(Units::Unspecified),
         Ok(1) => Ok(Units::Inches),
+        Ok(2) => Ok(Units::Feet),
         Ok(4) => Ok(Units::Millimeters),
+        Ok(5) => Ok(Units::Centimeters),
+        Ok(6) => Ok(Units::Meters),
+        Ok(9) => Ok(Units::Mils),
+        Ok(10) => Ok(Units::Yards),
+        Ok(13) => Ok(Units::Micrometers),
+        Ok(14) => Ok(Units::Decimeters),
         Ok(other) => Err(Error::Units(other)),
     }
 }
@@ -604,7 +708,7 @@ mod tests {
         );
     }
 
-    /// Geometry we cannot cut is refused by name, and files that are not
+    /// A drawing of only what we cannot cut is refused by name, and files that are not
     /// ASCII pairs, have no geometry, or use other units are refused too.
     #[test]
     fn unsupported_files_are_refused_with_the_reason() {
@@ -613,18 +717,22 @@ mod tests {
             ("0\n3DSOLID\n8\n0\n", "3DSOLID"),
             ("0\nREGION\n8\n0\n", "REGION"),
         ] {
+            // Alone, it leaves nothing to cut; the refusal names it.
             let error = import(&file(entity, "4")).unwrap_err();
-            assert_eq!(error, Error::Unsupported { line: 15, entity: name.into() }, "{entity}");
+            assert!(
+                matches!(&error, Error::Entity { line: 15, entity, .. } if entity == name),
+                "{error:?}"
+            );
         }
-        assert_eq!(import(b"AutoCAD Binary DXF\r\n\x1a\0").unwrap_err(), Error::Binary);
+        assert_eq!(import(b"AutoCAD Binary DXF\r\n\x1a\0").unwrap_err(), Error::Empty);
         assert_eq!(
             import(b"0\nSECTION\n2\n").unwrap_err(),
             Error::Syntax { line: 3, reason: "a group code needs a value line" }
         );
         assert_eq!(import(&file("0\nPOINT\n8\n0\n10\n0\n20\n0\n", "4")).unwrap_err(), Error::Empty);
         assert_eq!(
-            import(&file("0\nLINE\n10\n0\n20\n0\n11\n1\n21\n1\n", "2")).unwrap_err(),
-            Error::Units(2)
+            import(&file("0\nLINE\n10\n0\n20\n0\n11\n1\n21\n1\n", "3")).unwrap_err(),
+            Error::Units(3)
         );
         let missing = import(&file("0\nINSERT\n8\n0\n2\nNOWHERE\n10\n0\n20\n0\n", "4"));
         assert!(matches!(missing, Err(Error::Block { line: 15, .. })), "{missing:?}");
@@ -633,21 +741,45 @@ mod tests {
     }
 
     /// Values that make an entity uncuttable as drawn are refused: a line
-    /// off the XY plane, a polyline with the wrong vertex count, an arc
-    /// with no extent, a wide polyline.
+    /// off the XY plane, a polyline with the wrong vertex count. Shapes with
+    /// no size are left out, and refused only when nothing else is left.
     #[test]
     fn bad_entity_values_are_refused() {
         for entity in [
             "0\nLINE\n10\n0\n20\n0\n30\n1\n11\n1\n21\n1\n",
             "0\nLWPOLYLINE\n90\n3\n70\n0\n10\n0\n20\n0\n10\n1\n20\n1\n",
             "0\nARC\n10\n0\n20\n0\n40\n1\n50\n30\n51\n30\n",
-            "0\nLWPOLYLINE\n90\n2\n70\n0\n43\n0.5\n10\n0\n20\n0\n10\n1\n20\n1\n",
             "0\nCIRCLE\n10\n0\n20\n0\n40\n0\n",
             "0\nLINE\n10\n0\n20\n0\n11\n0\n21\n0\n",
         ] {
             let result = import(&file(entity, "4"));
             assert!(matches!(result, Err(Error::Entity { line: 15, .. })), "{entity}: {result:?}");
         }
+    }
+
+    /// A zero-length line, a wide polyline, metres and an unreadable text
+    /// beside real geometry: the drawing opens, and says what it did.
+    #[test]
+    fn what_cannot_be_cut_as_drawn_is_noted_not_refused() {
+        let line = "0\nLINE\n10\n0\n20\n0\n11\n1\n21\n0\n";
+        let empty = "0\nLINE\n10\n5\n20\n5\n11\n5\n21\n5\n";
+        let wide = "0\nLWPOLYLINE\n90\n2\n70\n0\n43\n0.5\n10\n0\n20\n2\n10\n1\n20\n2\n";
+        let fitted = "0\nTEXT\n10\n0\n20\n0\n40\n1\n1\nH\n72\n5\n";
+        let import = import(&file(&format!("{line}{empty}{empty}{wide}{fitted}"), "6")).unwrap();
+        assert!((import.drawing.length() - 2000.).abs() < 1e-9, "metres become millimetres");
+        let said = import.warnings.join("\n");
+        assert!(said.contains("in metres"), "{said}");
+        assert!(said.contains("2 LINE entities, the first at line 25: it has no length"), "{said}");
+        assert!(
+            said.contains("LWPOLYLINE at line 45: it is drawn with width; its centreline is cut"),
+            "{said}"
+        );
+        assert!(
+            said.contains(
+                "TEXT at line 61: aligned or fitted text is not supported; the text was left out"
+            ),
+            "{said}"
+        );
     }
 
     /// A byte order mark, Windows line endings, lower-case names and
@@ -674,15 +806,23 @@ mod tests {
         let expected = import(&file(line, "4")).unwrap().drawing;
         assert_eq!(import(&file(light, "4")).unwrap().drawing, expected);
         assert_eq!(import(&file(&heavy("", "40\n0\n41\n0\n"), "4")).unwrap().drawing, expected);
-        for header in ["30\n1\n", "39\n1\n", "230\n0.5\n", "40\n1\n", "70\n8\n", "70\n16\n"] {
+        for header in ["30\n1\n", "39\n1\n", "230\n0.5\n", "70\n8\n", "70\n16\n"] {
             assert!(
                 matches!(import(&file(&heavy(header, ""), "4")), Err(Error::Entity { entity, .. }) if entity == "POLYLINE")
             );
         }
-        for vertex in ["30\n1\n", "39\n1\n", "40\n1\n", "41\n1\n", "70\n1\n", "70\n8\n"] {
+        for vertex in ["30\n1\n", "39\n1\n", "70\n1\n", "70\n8\n"] {
             assert!(import(&file(&heavy("", vertex), "4")).is_err(), "{vertex}");
         }
-        assert!(import(&file(&light.replacen("40\n0", "40\n1", 1), "4")).is_err());
+        // Width is how the line is drawn: the centreline is cut, and said so.
+        for wide in [
+            import(&file(&heavy("40\n1\n", ""), "4")).unwrap(),
+            import(&file(&heavy("", "41\n1\n"), "4")).unwrap(),
+            import(&file(&light.replacen("40\n0", "40\n1", 1), "4")).unwrap(),
+        ] {
+            assert_eq!(wide.drawing, expected);
+            assert!(wide.warnings.iter().any(|w| w.contains("centreline")), "{:?}", wide.warnings);
+        }
         assert!(import(&file(&light.replacen("20\n0", "20\n0\n20\n1", 1), "4")).is_err());
     }
 }

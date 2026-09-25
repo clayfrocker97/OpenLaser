@@ -120,6 +120,17 @@ Local review candidate built on 2026-09-24. Not published.
   real units and ask when the scale is ambiguous; circles and arcs stay true
   arcs. A review shows the size check and open or self-crossing shapes. 27
   authored CAD fixtures with curve-accuracy tests.
+- Checked against about 3,200 public test drawings (ezdxf, ACadSharp,
+  dxf-parser, LibreCAD, OpenSCAD, resvg); none crashes or hangs. One entity
+  that cannot be cut no longer refuses the whole DXF: shapes with no length,
+  3D entities, curves off the XY plane and text that cannot be laid out are
+  left out and listed, and polylines drawn with width are cut on their
+  centreline. DXF in centimetres, metres, feet, mils and other units, older
+  DXFs in their Windows code page and binary DXF are read. MTEXT wraps to
+  its box and drops formatting it cannot draw. Skipped entities are listed
+  once per kind. SVG filters, and clips or masks around the whole artwork,
+  are ignored with a note; a clip that hides artwork is still refused, as
+  are SVGs with embedded images.
 
 ### Gas and laser costs
 

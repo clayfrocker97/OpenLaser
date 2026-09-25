@@ -60,17 +60,47 @@ fn text_holes_and_open_geometry_coexist() {
 }
 
 #[test]
-fn unsupported_text_features_and_encoding_fail_instead_of_disappearing() {
-    for source in [
-        text("H", "72\n5\n"),
-        text("\\U+ZZZZ", ""),
-        text("🚧", ""),
-        "0\nMTEXT\n10\n0\n20\n0\n40\n10\n1\nHHHH\n41\n1\n".into(),
-        "0\nMTEXT\n10\n0\n20\n0\n40\n10\n1\n{\\H2x;H}\n".into(),
-    ] {
+fn text_that_cannot_be_drawn_is_left_out_named_and_never_silent() {
+    // Alone, it leaves nothing to cut: the import refuses, naming the text.
+    for source in [text("H", "72\n5\n"), text("\\U+ZZZZ", ""), text("🚧", "")] {
         assert!(import(&file(&source, 4)).is_err(), "{source}");
     }
-    let mut invalid = file(&text("H", ""), 4);
-    invalid.push(0xe9);
-    assert_eq!(import(&invalid).unwrap_err(), openlaser_dxf::Error::Encoding);
+    // Beside a line, the drawing opens and says what was left out.
+    let beside = format!("{}0\nLINE\n10\n0\n20\n0\n11\n5\n21\n0\n", text("🚧", ""));
+    let opened = import(&file(&beside, 4)).unwrap();
+    assert_eq!(opened.drawing.contours.len(), 1);
+    assert!(
+        opened.warnings.iter().any(|w| w.contains("the text was left out")),
+        "{:?}",
+        opened.warnings
+    );
+}
+
+#[test]
+fn mtext_wraps_to_its_box_and_drops_formatting_it_cannot_draw() {
+    let one_row = import(&file("0\nMTEXT\n10\n0\n20\n0\n40\n10\n1\nHH HH HH\n", 4)).unwrap();
+    let wrapped =
+        import(&file("0\nMTEXT\n10\n0\n20\n0\n40\n10\n41\n25\n1\nHH HH HH\n", 4)).unwrap();
+    let height = |i: &openlaser_dxf::Import| i.drawing.bounds().unwrap().height();
+    assert!(height(&wrapped) > 2. * height(&one_row), "three rows");
+    assert!(wrapped.drawing.bounds().unwrap().width() < 25.);
+    let formatted =
+        import(&file("0\nMTEXT\n10\n0\n20\n0\n40\n10\n1\n{\\H2x;\\fArial|b1;H}\\S1^2;\\NH\n", 4))
+            .unwrap();
+    assert!(
+        formatted.warnings.iter().any(|w| w.contains("MTEXT fonts")),
+        "{:?}",
+        formatted.warnings
+    );
+    // TEXT has no formatting codes: a backslash is drawn.
+    assert!(import(&file(&text("A\\B", ""), 4)).is_ok());
+}
+
+#[test]
+fn older_files_are_read_in_their_code_page() {
+    let mut western = file(&text("X", ""), 4);
+    let at = western.windows(3).position(|w| w == b"\nX\n").unwrap() + 1;
+    western[at] = 0xD8; // Ø in Windows-1252
+    let opened = import(&western).unwrap();
+    assert!(!opened.drawing.contours.is_empty());
 }

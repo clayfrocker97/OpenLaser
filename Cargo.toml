@@ -52,6 +52,7 @@ usvg = { version = "=0.48.1", default-features = false, features = ["text"] }
 read-fonts = "=0.41.0"
 i_overlay = "=8.1.1"
 svgtypes = "0.16.1"
+encoding_rs = "0.8.42"
 sparrow = { version = "=0.2.0", git = "https://github.com/JeroenGar/sparrow", rev = "9ef45676695ef94d045ac8bff0530822127f1437" }
 jagua-rs = { version = "=0.8.1", features = ["spp"] }
 rand = "0.10"

@@ -160,20 +160,18 @@ pub fn import_with(bytes: &[u8], fonts: &Fonts, options: &Options) -> Result<Imp
     let warnings = Mutex::new(BTreeSet::new());
     let fonts = fonts.options(&warnings);
     let tree = usvg::Tree::from_str(source, &fonts).map_err(|e| Error(format!("SVG: {e}")))?;
-    let (drawing, colors) = paths::drawing(&tree, mm_per_px, options.tolerance)?;
+    let (drawing, colors, set_aside) = paths::drawing(&tree, mm_per_px, options.tolerance)?;
     if drawing.contours.is_empty() {
         return Err(Error("the SVG has no visible paths or text outlines".into()));
     }
     drop(fonts);
+    let mut warnings = warnings.into_inner().unwrap_or_else(std::sync::PoisonError::into_inner);
+    warnings.extend(set_aside);
     let (contours, duplicates) = repair::without_duplicates(drawing.contours, options.tolerance);
     let (contours, gaps) = repair::chain(&contours, options.gap);
     Ok(Import {
         drawing: Drawing { contours },
-        warnings: warnings
-            .into_inner()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .into_iter()
-            .collect(),
+        warnings: warnings.into_iter().collect(),
         units,
         scale,
         repairs: Repairs { gaps, duplicates, mirrored: Vec::new() },
@@ -214,15 +212,14 @@ fn units(source: &str, document: &usvg::roxmltree::Document<'_>) -> Units {
 fn validate_source(document: &usvg::roxmltree::Document<'_>) -> Result<()> {
     for node in document.descendants().filter(usvg::roxmltree::Node::is_element) {
         let name = node.tag_name().name();
+        if name == "image" {
+            return Err(Error(
+                "SVG files with embedded images are not supported yet; remove the image or trace it to paths before importing".into(),
+            ));
+        }
         if matches!(
             name,
-            "image"
-                | "foreignObject"
-                | "script"
-                | "animate"
-                | "animateMotion"
-                | "animateTransform"
-                | "set"
+            "foreignObject" | "script" | "animate" | "animateMotion" | "animateTransform" | "set"
         ) {
             return Err(Error(format!(
                 "SVG {name} is not a static cutting path; convert the artwork to paths before importing"
@@ -350,5 +347,30 @@ mod tests {
         }
         assert!(import(b"not SVG").is_err());
         assert!(import(&svg("<path d=\"M0 0\"/>")).is_err());
+    }
+
+    /// A clip or mask around the whole artwork, as Illustrator puts an
+    /// artboard clip, and filters are set aside with a note; a clip that
+    /// hides part of the artwork is refused, since what it hides would be cut.
+    #[test]
+    fn clips_around_everything_and_filters_are_ignored_and_real_clips_refused() {
+        let defs = "<defs><clipPath id=\"board\"><rect x=\"-1\" y=\"-1\" width=\"30\" height=\"30\"/></clipPath>\
+            <clipPath id=\"small\"><rect width=\"4\" height=\"4\"/></clipPath>\
+            <mask id=\"m\" maskUnits=\"userSpaceOnUse\" x=\"-1\" y=\"-1\" width=\"30\" height=\"30\"><rect width=\"30\" height=\"30\" fill=\"white\"/></mask>\
+            <filter id=\"blur\"><feGaussianBlur stdDeviation=\"1\"/></filter></defs>";
+        let shape = "<path fill=\"none\" stroke=\"black\" d=\"M0 0L10 0L10 10Z\"/>";
+        // The clip is in the space of the group it clips, moved with it.
+        let around = import(&svg(&format!(
+            "{defs}<g transform=\"translate(50 5)\" clip-path=\"url(#board)\" filter=\"url(#blur)\">{shape}</g><g mask=\"url(#m)\">{shape}</g>"
+        )))
+        .unwrap();
+        assert_eq!(around.drawing.contours.len(), 2);
+        let said = around.warnings.join("\n");
+        assert!(said.contains("clipping path around the whole artwork"), "{said}");
+        assert!(said.contains("mask around the whole artwork"), "{said}");
+        assert!(said.contains("filters"), "{said}");
+        let hiding =
+            import(&svg(&format!("{defs}<g clip-path=\"url(#small)\">{shape}</g>"))).unwrap_err();
+        assert!(hiding.0.contains("hides part of the artwork"), "{hiding}");
     }
 }

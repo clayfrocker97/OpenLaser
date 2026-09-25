@@ -9,6 +9,7 @@ use crate::{Error, Result};
 use openlaser_core::geometry::{Bounds, Drawing};
 use openlaser_core::repair::Repairs;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 /// How the operator asks for a file to be imported.
 #[cfg_attr(feature = "typescript", derive(ts_rs::TS), ts(export))]
@@ -240,12 +241,19 @@ fn dxf(bytes: &[u8], options: &ImportOptions) -> Result<Import> {
             if hidden == 1 { "was" } else { "were" }
         ));
     }
-    warnings.extend(
-        imported
-            .skipped
-            .iter()
-            .map(|item| format!("Skipped {} at line {}.", item.entity, item.line)),
-    );
+    // Skipped entities carry nothing to cut: one line for each kind.
+    let mut skipped: BTreeMap<&str, (usize, usize)> = BTreeMap::new();
+    for item in &imported.skipped {
+        let kind = skipped.entry(&item.entity).or_insert((0, item.line));
+        kind.0 += 1;
+        kind.1 = kind.1.min(item.line);
+    }
+    warnings.extend(skipped.into_iter().map(|(entity, (count, line))| match count {
+        1 => format!("Skipped {entity} at line {line}: nothing to cut."),
+        _ => {
+            format!("Skipped {count} {entity} entities, the first at line {line}: nothing to cut.")
+        }
+    }));
     Ok(Import {
         drawing: imported.drawing,
         warnings,

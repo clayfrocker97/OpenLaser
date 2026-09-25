@@ -10,7 +10,7 @@
 
 use crate::colors::Color;
 use crate::entities::text::TextEntity;
-use crate::entities::{Entity, Insert, Read};
+use crate::entities::{Entity, Insert, Note, Read};
 use crate::{Error, Result, Skipped};
 use openlaser_core::geometry::{Point, Transform};
 use std::collections::BTreeMap;
@@ -40,6 +40,7 @@ pub(crate) struct Placed<'a> {
     pub entities: Vec<(&'a Entity, Transform, String, Option<[u8; 3]>)>,
     pub texts: Vec<(&'a TextEntity, Transform, String)>,
     pub skipped: Vec<Skipped>,
+    pub notes: Vec<Note>,
     pub paper: usize,
     pub invisible: usize,
 }
@@ -48,6 +49,7 @@ pub(crate) struct Placed<'a> {
 pub(crate) fn expand<'a>(top: &'a Read, blocks: &'a BTreeMap<String, Block>) -> Result<Placed<'a>> {
     let mut placed = Placed {
         skipped: top.skipped.clone(),
+        notes: top.notes.clone(),
         paper: top.paper,
         invisible: top.invisible,
         ..Placed::default()
@@ -141,6 +143,7 @@ impl<'a> Expansion<'a, '_> {
         if !self.used.contains(&key) {
             self.used.push(key.clone());
             self.placed.skipped.extend(block.read.skipped.iter().cloned());
+            self.placed.notes.extend(block.read.notes.iter().cloned());
             self.placed.paper += block.read.paper;
             self.placed.invisible += block.read.invisible;
         }

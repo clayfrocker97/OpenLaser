@@ -17,6 +17,9 @@ const SKIPPED: &[&str] = &[
     "DIMENSION",
     "LEADER",
     "MLEADER",
+    "MULTILEADER",
+    "ARC_DIMENSION",
+    "LARGE_RADIAL_DIMENSION",
     "HATCH",
     "SOLID",
     "TRACE",
@@ -87,7 +90,28 @@ pub(crate) struct Read {
     pub paper: usize,
     /// Entities marked invisible and left out.
     pub invisible: usize,
+    /// Entities left out, or cut differently from how they are drawn, and why.
+    pub notes: Vec<Note>,
 }
+
+/// An entity the import could not use as drawn, and what it did instead.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct Note {
+    /// The entity type.
+    pub entity: String,
+    /// The line it starts on.
+    pub line: usize,
+    /// What happened to it, for the operator.
+    pub reason: String,
+}
+
+/// Why an entity with no length or area is left out.
+pub(crate) const EMPTY: &str = "it has no length, so it was left out";
+/// Why an entity type with no cuttable outline was left out.
+const UNSUPPORTED: &str =
+    "this kind of entity has no outline to cut, such as a 3D solid or mesh, so it was left out";
+/// What a polyline drawn with width becomes.
+const WIDE: &str = "it is drawn with width; its centreline is cut";
 
 /// Reads the entity whose type is `pairs[start]` into `read` and returns
 /// the index of the next entity.
@@ -95,7 +119,11 @@ pub(crate) fn read(pairs: &[Pair<'_>], start: usize, read: &mut Read) -> Result<
     let name = pairs[start].value.to_ascii_uppercase();
     let line = pairs[start].line;
     let end = next_entity(pairs, start + 1);
-    let fields = Fields { pairs: &pairs[start + 1..end], line, entity: &name };
+    // An MTEXT's embedded object (group 101 onwards) repeats the entity's
+    // own groups for AutoCAD's column editor; the entity ends before it.
+    let own =
+        pairs[start + 1..end].iter().position(|p| p.code == 101).map_or(end, |n| start + 1 + n);
+    let fields = Fields { pairs: &pairs[start + 1..own], line, entity: &name };
     // Whatever follows a polyline or a reference with attributes belongs to
     // it, so it is read past even when the entity itself is left out.
     let next = match name.as_str() {
@@ -112,9 +140,20 @@ pub(crate) fn read(pairs: &[Pair<'_>], start: usize, read: &mut Read) -> Result<
         return Ok(next);
     }
     if matches!(name.as_str(), "TEXT" | "MTEXT") {
-        let flipped = fields.planar()?;
-        let text = text::TextEntity::read(&fields, name == "MTEXT")?;
-        read.texts.push((text, if flipped { FLIP } else { Transform::IDENTITY }));
+        // Lettering is rarely what a part is cut from: text the import
+        // cannot lay out is left out and named, and the drawing still opens.
+        match fields
+            .planar()
+            .and_then(|flipped| Ok((flipped, text::TextEntity::read(&fields, name == "MTEXT")?)))
+        {
+            Ok((flipped, text)) => {
+                read.texts.push((text, if flipped { FLIP } else { Transform::IDENTITY }));
+            }
+            Err(Error::Entity { reason, .. }) => {
+                read.notes.push(Note { entity: name, line, reason: text_left_out(&reason) });
+            }
+            Err(other) => return Err(other),
+        }
         return Ok(next);
     }
     if name == "INSERT" {
@@ -126,23 +165,43 @@ pub(crate) fn read(pairs: &[Pair<'_>], start: usize, read: &mut Read) -> Result<
         }
         return Ok(next);
     }
-    let (pieces, flipped) = match name.as_str() {
-        "LINE" => {
-            fields.planar()?;
-            (vec![Piece::Curve(fields.line()?)], false)
-        }
-        "CIRCLE" => (vec![Piece::Curve(fields.circle()?)], fields.planar()?),
-        "ARC" => (vec![Piece::Curve(fields.arc()?)], fields.planar()?),
-        "LWPOLYLINE" => (fields.lwpolyline()?, fields.planar()?),
-        "POLYLINE" => (fields.polyline(pairs, end)?, fields.planar()?),
-        "ELLIPSE" => (vec![fields.ellipse()?], false),
-        "SPLINE" => (vec![fields.spline()?], false),
+    let geometry = match name.as_str() {
+        "LINE" => fields.planar().and_then(|_| Ok((vec![Piece::Curve(fields.line()?)], false))),
+        "CIRCLE" => fields.circle().and_then(|c| Ok((vec![Piece::Curve(c)], fields.planar()?))),
+        "ARC" => fields.arc().and_then(|c| Ok((vec![Piece::Curve(c)], fields.planar()?))),
+        "LWPOLYLINE" => fields.lwpolyline().and_then(|p| Ok((p, fields.planar()?))),
+        "POLYLINE" => fields.polyline(pairs, end).and_then(|p| Ok((p, fields.planar()?))),
+        "ELLIPSE" => fields.ellipse().map(|p| (vec![p], false)),
+        "SPLINE" => fields.spline().map(|p| (vec![p], false)),
         _ if SKIPPED.contains(&name.as_str()) => {
             read.skipped.push(Skipped { entity: name, line });
             return Ok(next);
         }
-        _ => return Err(Error::Unsupported { line, entity: name }),
+        _ => Err(Error::Unsupported { line, entity: name.clone() }),
     };
+    // One entity that cannot be cut as drawn, such as a 3D mesh, a curve off
+    // the XY plane or a malformed polyline, is left out and named; the rest
+    // of the drawing still opens, and a drawing left with nothing is refused.
+    let (pieces, flipped) = match geometry {
+        Ok(geometry) => geometry,
+        Err(Error::Entity { reason, .. }) => {
+            read.notes.push(Note { entity: name, line, reason: left_out(&reason) });
+            return Ok(next);
+        }
+        Err(Error::Unsupported { entity, .. }) => {
+            read.notes.push(Note { entity, line, reason: UNSUPPORTED.into() });
+            return Ok(next);
+        }
+        Err(other) => return Err(other),
+    };
+    let wide = match name.as_str() {
+        "LWPOLYLINE" => has_width(fields.pairs, &[40, 41, 43]),
+        "POLYLINE" => has_width(&pairs[start + 1..next], &[40, 41]),
+        _ => false,
+    };
+    if wide {
+        read.notes.push(Note { entity: name.clone(), line, reason: WIDE.into() });
+    }
     let pieces = if flipped { pieces.iter().map(mirrored).collect() } else { pieces };
     let color = fields.color()?;
     read.entities.push(Entity { layer: fields.layer(), color, pieces, line, name, flipped });
@@ -161,6 +220,23 @@ fn mirrored(piece: &Piece) -> Piece {
         Piece::Path(other) => Piece::Path(other.clone()),
         Piece::Points(points) => Piece::Points(points.iter().map(|p| FLIP.apply(*p)).collect()),
     }
+}
+
+/// What the operator reads for text left out: the reason, and that it was.
+fn text_left_out(reason: &str) -> String {
+    format!("{reason}; the text was left out")
+}
+
+/// What the operator reads for a shape left out: the reason, and that it was.
+fn left_out(reason: &str) -> String {
+    if reason == EMPTY { reason.to_owned() } else { format!("{reason}, so it was left out") }
+}
+
+/// Whether any of `codes` gives a width other than zero.
+fn has_width(pairs: &[Pair<'_>], codes: &[i32]) -> bool {
+    pairs
+        .iter()
+        .any(|p| codes.contains(&p.code) && p.value.trim().parse::<f64>().is_ok_and(|w| w != 0.))
 }
 
 /// The index after the `SEQEND` that closes the sequence starting at `at`.
@@ -288,7 +364,7 @@ impl Fields<'_> {
     }
 
     fn checked(&self, curve: Curve) -> Result<Curve> {
-        if curve.is_valid() { Ok(curve) } else { Err(self.error("degenerate geometry")) }
+        if curve.is_valid() { Ok(curve) } else { Err(self.error(EMPTY)) }
     }
 
     fn line(&self) -> Result<Curve> {
@@ -304,7 +380,7 @@ impl Fields<'_> {
         let start_angle = self.required(50)?.to_radians();
         let sweep = (self.required(51)?.to_radians() - start_angle).rem_euclid(TAU);
         if sweep == 0. {
-            return Err(self.error("an arc needs an extent; draw a full turn as a circle"));
+            return Err(self.error(EMPTY));
         }
         self.checked(Curve::Arc {
             center: self.point(10, 20)?,
@@ -326,8 +402,10 @@ impl Fields<'_> {
         let center = self.point(10, 20)?;
         let major = self.point(11, 21)?;
         let ratio = self.required(40)?;
-        if major.norm() <= 1e-9 || !(1e-6..=1. + 1e-9).contains(&ratio) {
-            return Err(self.error("an ellipse needs a major axis and a ratio of 0 to 1"));
+        // Some programs write the longer axis as the minor one, a ratio above
+        // one: the ellipse is the same, traced from the other axis.
+        if major.norm() <= 1e-9 || !(1e-6..=1e6).contains(&ratio) {
+            return Err(self.error(EMPTY));
         }
         let minor = if flipped { -major.perpendicular() } else { major.perpendicular() } * ratio;
         let start = self.number(41)?.unwrap_or(0.);
@@ -338,7 +416,7 @@ impl Fields<'_> {
             end = start + (end - start).rem_euclid(TAU);
         }
         if end - start <= 1e-12 {
-            return Err(self.error("an elliptical arc needs an extent"));
+            return Err(self.error(EMPTY));
         }
         let ellipse = Ellipse { center, major, minor, start, end };
         Ok(match ellipse.as_arc() {
@@ -409,19 +487,7 @@ impl Fields<'_> {
         Ok(Insert { block, layer: self.layer(), color: self.color()?, copies, line: self.line })
     }
 
-    /// Refuses a polyline drawn with width.
-    #[allow(clippy::float_cmp, reason = "the default is written exactly as 0")]
-    fn narrow(&self, codes: &[i32]) -> Result<()> {
-        for code in codes {
-            if self.number(*code)?.is_some_and(|v| v != 0.) {
-                return Err(self.error("polylines with width are not supported"));
-            }
-        }
-        Ok(())
-    }
-
     fn lwpolyline(&self) -> Result<Vec<Piece>> {
-        self.narrow(&[43])?;
         let declared = self.whole(90)?;
         let flags = self.flags(70)?;
         if flags & !(1 | 128) != 0 {
@@ -453,7 +519,6 @@ impl Fields<'_> {
 
     fn vertex(&self) -> Result<(Point, f64)> {
         self.planar()?;
-        self.narrow(&[40, 41])?;
         Ok((self.point(10, 20)?, self.number(42)?.unwrap_or(0.)))
     }
 
@@ -461,7 +526,6 @@ impl Fields<'_> {
     /// A curve-fit polyline keeps the arcs its fitting added; a spline-fit
     /// one is fitted through the points its spline was evaluated at.
     fn polyline(&self, pairs: &[Pair<'_>], mut at: usize) -> Result<Vec<Piece>> {
-        self.narrow(&[40, 41])?;
         let flags = self.flags(70)?;
         if flags & !(1 | 2 | 4 | 128) != 0 {
             return Err(self.error("3D polylines and meshes are not supported"));

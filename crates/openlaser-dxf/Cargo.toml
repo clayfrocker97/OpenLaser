@@ -14,6 +14,7 @@ workspace = true
 openlaser-core.workspace = true
 openlaser-svg.workspace = true
 thiserror.workspace = true
+encoding_rs.workspace = true
 
 [dev-dependencies]
 insta.workspace = true

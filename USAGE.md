@@ -21,6 +21,7 @@ on a working controller connection and is not a replacement for it.
 - [Try the simulator](#try-the-simulator)
 - [First machine setup](#first-machine-setup)
 - [Parts, jobs, materials and sheets](#parts-jobs-materials-and-sheets)
+- [Import drawings](#import-drawings)
 - [Run your first job](#run-your-first-job)
 - [Several parts in one job](#several-parts-in-one-job)
 - [Simplify a drawing](#simplify-a-drawing)
@@ -169,6 +170,30 @@ Open a saved JOB ────→ Saved setup ──→ Review or change ─┘
                                                          ↓
                                           Select in a future job & nest
 ```
+
+## Import drawings
+
+**Parts** imports DXF (ASCII or binary, any AutoCAD version) and SVG. The
+review before it opens lists anything the import changed or set aside, so
+nothing goes missing silently.
+
+- **Units.** DXF drawings in millimetres, centimetres, metres, inches, feet
+  and mils are converted to millimetres; a DXF with no units is taken as
+  millimetres and says so. SVGs use their real size, and ask when a
+  pixel-sized file could be 72 or 96 dpi.
+- **Older DXFs** are read in the Windows code page they were saved in, so
+  accented and special characters in layer names and text come through.
+- **Left out, and listed:** dimensions, hatches, points and other
+  annotation; 3D solids, meshes and curves off the XY plane; shapes with no
+  length; text the bundled font cannot lay out. A drawing left with nothing
+  to cut is refused and says why.
+- **Changed, and listed:** polylines drawn with width are cut on their
+  centreline; MTEXT wraps to its box, and its fonts, colours and stacking
+  are dropped.
+- **SVG:** filters (blurs, shadows) are ignored, and a clip or mask around
+  the whole artwork, such as an artboard clip, is ignored. A clip or mask
+  that hides part of the artwork is refused, since what it hides would be
+  cut; release it first. SVGs with embedded images are not supported yet.
 
 ## Run your first job
 
