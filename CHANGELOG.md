@@ -2,9 +2,9 @@
 
 Versions use Semantic Versioning, with prerelease identifiers for alpha builds.
 
-## 0.1.0-alpha.4 — review candidate
+## 0.1.0-alpha.4 — 2026-09-25
 
-Local review candidate built on 2026-09-24. Not published.
+Windows and Mac test builds shared with testers.
 
 ### Build
 
@@ -30,6 +30,22 @@ Local review candidate built on 2026-09-24. Not published.
   resizes. Fit frames the sheet and its parts, and cut lines are brighter.
   A selection no longer has a drag handle to scale it; Scale and the typed
   sizes set exact sizes.
+
+### Speed on the laser PC
+
+- Zooming and panning move the picture already drawn and redraw it a few
+  times a second and once they stop, instead of every frame. A dragged
+  selection is drawn once on a layer of its own and slid; the rest of the
+  drawing is left alone until the drop. Grabbing a shape uses the same
+  search as a tap, so the invisible wide copy of every contour is gone, and
+  a selected part has one glow instead of one per contour.
+- An edit no longer sends the whole toolpath to the screen: the run page
+  fetches it once. Coordinates are sent to the micrometre and library
+  thumbnails at thumbnail detail. On a 26-part job an edit's reply went
+  from 5 MB to 0.7 MB.
+- A held finger no longer opens the web view's own menu (Back, Refresh,
+  Print) over the controls. A numpad opened for one value closes when
+  something else is tapped, and opens with at most four decimals.
 
 ### Run and jog
 
@@ -141,6 +157,9 @@ Local review candidate built on 2026-09-24. Not published.
   once per kind. SVG filters, and clips or masks around the whole artwork,
   are ignored with a note; a clip that hides artwork is still refused, as
   are SVGs with embedded images.
+- Folder import skips the `._` files and `__MACOSX` folder a Mac puts in
+  zips, which carry a drawing's extension but are not drawings; picked on
+  their own they are named instead of failing to parse.
 
 ### Gas and laser costs
 
