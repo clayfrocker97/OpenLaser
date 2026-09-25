@@ -570,12 +570,20 @@
     return m ? apply(m, p) : null;
   });
 
-  /** The cutting rank of each drawing contour, while an order is picked or once one is set. */
+  /** Each drawing contour's place in the cut: as tapped while an order is
+   *  picked, else as the prepared preview runs, whatever the strategy. */
   const ranks = $derived.by(() => {
-    const strategy = scene?.features.order.strategy;
-    const list = !updating && ui.picking?.feature === 'order' ? ui.picking.order : typeof strategy === 'object' ? strategy.manual : [];
-    return new Map(list.map((contour, i) => [contour, i + 1]));
+    if (!updating && ui.picking?.feature === 'order') return new Map(ui.picking.order.map((contour, i) => [contour, i + 1]));
+    const out = new Map<number, number>();
+    for (const contour of preview?.contours ?? []) {
+      const source = contour.sources.length === 1 ? contour.sources[0]! : null;
+      if (source !== null && !out.has(source)) out.set(source, out.size + 1);
+    }
+    return out;
   });
+  /** The numbers show while the order is open or picked, and once one is picked by hand. */
+  const ranksShown = $derived(ui.setupPanel === 'order' || ui.picking?.feature === 'order'
+    || typeof scene?.features.order.strategy === 'object');
 
   const leadHandles = $derived.by((): LeadHandle[] => {
     if (updating || featureEdits.busy || ui.setupPanel !== 'leads' || ui.picking || local) return [];
@@ -658,9 +666,9 @@
                 <path class="mark start" d="M{contour.start[0]} {contour.start[1]}h0" stroke="var(--accent)"
                   stroke-width={Math.min(markPixels * 1.4, 4)} stroke-linecap="round" vector-effect="non-scaling-stroke"/>
               {/if}
-              {#if contour.sources.length === 1 && (ranks.has(contour.sources[0]!) || ui.setupPanel === 'order')}
+              {#if ranksShown && contour.sources.length === 1 && ranks.has(contour.sources[0]!)}
                 <text class="order-label" transform="translate({contour.start[0] + 1.5 * mark} {contour.start[1] + 1.5 * mark}) scale(1 -1)"
-                  font-size={mark * 3}>{ranks.get(contour.sources[0]!) ?? contour.sources[0]! + 1}</text>
+                  font-size={mark * 3}>{ranks.get(contour.sources[0]!)}</text>
               {/if}
               </g>
             {/if}

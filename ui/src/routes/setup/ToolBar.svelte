@@ -24,11 +24,13 @@
   // One row of tools, shared by Setup's machining bar and the drawing bar:
   // Order lets the operator drag the tools into their own order, the same
   // way on both. `icons` tiles show an icon over the label; `names` tiles
-  // show the label over the tool's state.
+  // show the label over the tool's state. A `corner` bar shows every tool:
+  // those that do not fit along the top continue down a column, placed by
+  // the parent grid's `top` and `side` areas.
   import { flip } from 'svelte/animate';
   import { Reorder } from '../../lib/reorder.svelte';
 
-  let { tools, order, save, editing = $bindable(false), selected = false, variant = 'icons', label, class: className = '', more }: {
+  let { tools, order, save, editing = $bindable(false), selected = false, variant = 'icons', label, class: className = '', corner = false }: {
     tools: Record<string, Tool>;
     /** Every tool's place, the ones not shown too. */
     order: string[];
@@ -39,8 +41,8 @@
     variant?: 'icons' | 'names';
     label: string;
     class?: string;
-    /** A tile before Order that opens every tool, such as a menu. */
-    more?: { label: string; detail: string; run: () => void };
+    /** Every tool shown: the row, then a column down the side. */
+    corner?: boolean;
   } = $props();
 
   // While arranging, every tool shows so each can be placed.
@@ -50,51 +52,64 @@
     const tool = tools[id];
     return !!tool && (editing || shows(tool));
   }));
-  const bar = new Reorder({ attribute: 'bar-tool', order: () => order, save: (next) => save(next), editing: () => editing });
+  // Tiles fill the top row, as many as fit at their least width; the rest go down the side.
+  const TILE = { icons: 56, names: 136 } as const;
+  const GAP = 6;
+  let row = $state<HTMLDivElement | null>(null);
+  let width = $state(0);
+  $effect(() => {
+    if (!row || !corner) return;
+    const observer = new ResizeObserver(([entry]) => { width = entry?.contentRect.width ?? 0; });
+    observer.observe(row);
+    return () => observer.disconnect();
+  });
+  const fits = $derived(corner && width > 0 ? Math.max(1, Math.floor((width + GAP) / (TILE[variant] + GAP))) : Infinity);
+  const top = $derived(shown.slice(0, fits));
+  const side = $derived(corner ? shown.slice(fits) : []);
+  const bar = new Reorder({
+    attribute: 'bar-tool', order: () => order, save: (next) => save(next), editing: () => editing,
+    horizontal: (tile) => !tile.closest('.tool-col'),
+  });
   function run(tool: Tool): void {
     if (!editing) tool.run();
   }
 </script>
 
-<div class="tool-bar {variant} {className}" role="toolbar" aria-label={label}>
-  <div class="tool-row" class:editing>
-    <!-- The tools scroll; All tools and Order stay in reach at the end. -->
-    <div class="tiles">
-    {#each shown as id (id)}
-      {@const tool = tools[id]!}
-      <div class="slot" animate:flip={{ duration: 180 }}>
-        <button class="tile" data-bar-tool={id} class:on={tool.on?.() ?? false} class:set={tool.set?.() ?? false}
-          class:placeholder={bar.dragging === id} class:editing
-          title={tool.title ?? tool.label} disabled={!editing && tool.disabled()} onclick={() => run(tool)}
-          onpointerdown={bar.down} onpointermove={bar.move} onpointerup={bar.up} onpointercancel={bar.up}>
-          {#if variant === 'names'}
-            {#if tool.icon}<i class="ic {tool.icon}"></i>{/if}
-            <span class="texts"><span class="name">{tool.label}</span>{#if tool.detail}<small class="detail">{tool.detail()}</small>{/if}</span>
-          {:else}
-            {#if id === 'group'}
-              <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-                <rect x="2" y="2" width="20" height="20" rx="2" stroke-dasharray="3 2"/>
-                <rect x="5" y="5" width="7" height="7"/><rect x="12" y="12" width="7" height="7"/>
-              </svg>
-            {:else if id === 'ungroup'}
-              <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-                <rect x="2" y="2" width="8" height="8"/><rect x="14" y="14" width="8" height="8"/>
-                <path d="M14 4h6v6M20 4l-7 7M4 14v6h6M4 20l7-7"/>
-              </svg>
-            {:else if tool.text}<strong>{tool.text()}</strong>
-            {:else}<i class="ic {tool.icon}"></i>{/if}
-            <small>{tool.label}</small>
-          {/if}
-        </button>
-      </div>
-    {/each}
-    </div>
-    {#if more && !editing}
-      <button class="tile more" onclick={more.run}>
-        {#if variant === 'names'}<span class="texts"><span class="name">{more.label}</span><small class="detail">{more.detail}</small></span>
-        {:else}<i class="ic ic-chev-down"></i><small>{more.label}</small>{/if}
-      </button>
+{#snippet tile(id: string)}
+  {@const tool = tools[id]!}
+  <button class="tile" data-bar-tool={id} class:on={tool.on?.() ?? false} class:set={tool.set?.() ?? false}
+    class:placeholder={bar.dragging === id} class:editing
+    title={tool.title ?? tool.label} disabled={!editing && tool.disabled()} onclick={() => run(tool)}
+    onpointerdown={bar.down} onpointermove={bar.move} onpointerup={bar.up} onpointercancel={bar.up}>
+    {#if variant === 'names'}
+      {#if tool.icon}<i class="ic {tool.icon}"></i>{/if}
+      <span class="texts"><span class="name">{tool.label}</span>{#if tool.detail}<small class="detail">{tool.detail()}</small>{/if}</span>
+    {:else}
+      {#if id === 'group'}
+        <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+          <rect x="2" y="2" width="20" height="20" rx="2" stroke-dasharray="3 2"/>
+          <rect x="5" y="5" width="7" height="7"/><rect x="12" y="12" width="7" height="7"/>
+        </svg>
+      {:else if id === 'ungroup'}
+        <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+          <rect x="2" y="2" width="8" height="8"/><rect x="14" y="14" width="8" height="8"/>
+          <path d="M14 4h6v6M20 4l-7 7M4 14v6h6M4 20l7-7"/>
+        </svg>
+      {:else if tool.text}<strong>{tool.text()}</strong>
+      {:else}<i class="ic {tool.icon}"></i>{/if}
+      <small>{tool.label}</small>
     {/if}
+  </button>
+{/snippet}
+
+<div class="tool-bar {variant} {className}" class:corner role="toolbar" aria-label={label}>
+  <div class="tool-row" class:editing>
+    <!-- The tools scroll; Order stays in reach at the end. -->
+    <div class="tiles" bind:this={row}>
+      {#each top as id (id)}
+        <div class="slot" animate:flip={{ duration: 180 }}>{@render tile(id)}</div>
+      {/each}
+    </div>
     {#if editing || !selected}
       <button class="tile arrange" class:on={editing}
         title={editing ? 'Finish arranging' : 'Drag the tools into your order'} onclick={() => (editing = !editing)}>
@@ -102,6 +117,13 @@
       </button>
     {/if}
   </div>
+  {#if side.length}
+    <div class="tool-col" class:editing>
+      {#each side as id (id)}
+        <div class="slot" animate:flip={{ duration: 180 }}>{@render tile(id)}</div>
+      {/each}
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -114,8 +136,14 @@
   .editing .tiles > .slot { flex: 0 0 72px; }
   .names .editing .tiles > .slot { flex: 0 0 136px; }
   .tool-row > .arrange { flex: 0 0 56px; align-self: flex-start; }
-  .tool-row > .more { flex: 0 0 112px; background: var(--panel); }
-  .editing .tiles .tile { cursor: grab; border-style: dashed; touch-action: none; }
+  .editing .tiles .tile, .tool-col.editing .tile { cursor: grab; border-style: dashed; touch-action: none; }
+  /* A corner bar lays its row and column into the parent's grid. */
+  .tool-bar.corner { display: contents; }
+  .corner > .tool-row { grid-area: top; padding: 8px 12px; background: var(--panel); border-bottom: 1px solid var(--line); }
+  .corner .editing .tiles { flex-wrap: nowrap; overflow: hidden; }
+  .corner .editing .tiles > .slot { flex: 1 0 136px; }
+  .tool-col { grid-area: side; width: 160px; display: flex; flex-direction: column; gap: 6px; padding: 8px; overflow-y: auto; scrollbar-width: none; background: var(--panel); border-right: 1px solid var(--line); }
+  .tool-col > .slot { flex: none; }
   .tile {
     width: 100%; min-height: 66px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px;
     border-radius: 12px; border: 1px solid var(--line); background: var(--panel-2); color: var(--ink); font: inherit; font-weight: 700; line-height: 1; cursor: pointer;

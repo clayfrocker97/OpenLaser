@@ -76,7 +76,11 @@ Local review candidate built on 2026-09-24. Not published.
   fades. A drag inside the selection's box moves it. Layer colours leave out
   the selection's orange.
 - The machining bar and the drawing bar are one component, arranged with
-  Order the same way; machining tools have icons.
+  Order the same way; machining tools have icons. The machining bar shows
+  every tool, along the top and on down the left of the drawing, with no
+  All tools menu.
+- Cut order numbers on the drawing follow the order the job cuts in, for
+  every strategy, not only one picked by hand.
 - Setup's side panel fits without scrolling: a one-row material with its
   values, then the layers under it, and gas and laser folded to one line.
 - One place for layers: the list under the material drags to reorder and

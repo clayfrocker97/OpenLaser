@@ -1,7 +1,6 @@
 <script lang="ts">
   import SheetStrip from '../components/SheetStrip.svelte';
   import Canvas from './setup/Canvas.svelte';
-  import Modal from '../components/Modal.svelte';
   import JobPanel from './setup/JobPanel.svelte';
   import FeaturePanel from './setup/FeaturePanel.svelte';
   import LayerSheet from './setup/LayerSheet.svelte';
@@ -30,9 +29,7 @@
   const doc = $derived(server.doc!);
   const draft = $derived(doc.draft);
 
-  const EXTRA = [{ id: 'nest', short: 'Nest parts', name: 'Nest parts…' }, { id: 'copy', short: 'Copy job', name: 'Copy machining from job…' }];
-  const tools = $derived(ui.favTools.filter((id) => TOOLS.some((t) => t.id === id) || EXTRA.some((t) => t.id === id)));
-  let menu = $state(false);
+  const EXTRA = [{ id: 'nest', short: 'Nest parts' }, { id: 'copy', short: 'Copy job' }];
   let texting = $state(false);
   let selectedContours = $state<number[]>([]);
   let orderProgress = $state(0);
@@ -73,9 +70,9 @@
 
 </script>
 
-<section class="panel main canvas-panel" bind:this={canvasPanel}>
-  <ToolBar class="setup-head" variant="names" label="Machining tools" tools={BAR_TOOLS} order={tools} save={(order) => ui.setBar(order)}
-    bind:editing={ui.editBar} more={{ label: 'All tools', detail: 'browse', run: () => (menu = !menu) }} />
+<section class="panel main canvas-panel" class:corner={!compact} bind:this={canvasPanel}>
+  <ToolBar class="setup-head" variant="names" label="Machining tools" tools={BAR_TOOLS} order={ui.bar} save={(order) => ui.setBar(order)}
+    bind:editing={ui.editBar} corner={!compact} />
 
   <SheetStrip />
   <Canvas bind:this={canvas} bind:selectedContours bind:clipboard bind:pasting {pasteSettings} {orderProgress} />
@@ -105,40 +102,14 @@
 {#if ui.layerSheet && draft}{#key ui.layerSheet}<LayerSheet name={ui.layerSheet} onclose={() => (ui.layerSheet = null)} />{/key}{/if}
 
 
-{#if menu}
-  <Modal title="All tools" onclose={() => (menu = false)}>
-    <div class="tools-heading"><span>Starred tools are on the bar; Order arranges them.</span></div>
-    <div class="tool-choices">
-      {#each [...TOOLS.map(t => ({ id: t.id, name: t.name, meta: draft ? stateOf(draft.features, t.id) : '' })), ...EXTRA.map(t => ({ id: t.id, name: t.name, meta: '' }))] as t}
-        {@const starred = ui.favTools.includes(t.id)}
-        <div class="tool-choice">
-          <button
-            class="tool-star" class:on={starred} aria-label="{starred ? 'Unstar' : 'Star'} {t.name}" aria-pressed={starred}
-            onclick={() => ui.setBar(starred ? ui.favTools.filter(x => x !== t.id) : [...ui.favTools, t.id])}
-          ><i class="ic {starred ? 'ic-star-fill' : 'ic-star'}"></i></button>
-          <button class="tool-open" onclick={() => { menu = false; runTool(t.id); }}>
-            <i class="ic {t.id === 'copy' ? 'ic-copy' : `ic-tool-${t.id}`}"></i><span class="tool-texts"><span>{t.name}</span><small>{t.meta}</small></span>
-          </button>
-        </div>
-      {/each}
-    </div>
-  </Modal>
-{/if}
 
 <style>
-  .tools-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; color: var(--ink-3); font-size: var(--t-sm); }
-  .tool-choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-  .tool-choice { display: grid; grid-template-columns: 44px 1fr; min-width: 0; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); }
-  .tool-star { width: 44px; min-height: 58px; border: 0; border-radius: 10px 0 0 10px; background: transparent; color: var(--ink-3); font-size: var(--t-lg); cursor: pointer; }
-  .tool-star.on { color: var(--warn); }
-  .tool-open .ic { flex: none; width: 22px; height: 22px; }
-  .tool-texts { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-  .tool-open {
-    display: flex; flex-direction: row; justify-content: flex-start; align-items: center; gap: 10px; min-width: 0; min-height: 58px;
-    padding: 8px 10px 8px 0; border: 0; border-radius: 0 10px 10px 0; background: transparent; color: var(--ink); font: inherit;
-    font-size: var(--t-sm); font-weight: 600; text-align: left; cursor: pointer;
+  /* The machining bar runs along the top and down the left; the drawing bar spans the foot. */
+  .canvas-panel.corner {
+    display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto auto minmax(0, 1fr) auto;
+    grid-template-areas: 'top top' 'side strip' 'side canvas' 'bottom bottom';
   }
-  .tool-open small { color: var(--ink-3); font-size: var(--t-sm); font-weight: 400; }
-  .tool-star:active, .tool-open:active { background: var(--accent-soft); }
-  @media (max-width: 520px) { .tool-choices { grid-template-columns: 1fr; } }
+  .canvas-panel.corner > :global(.sheet-strip) { grid-area: strip; }
+  .canvas-panel.corner > :global(.canvas-wrap) { grid-area: canvas; }
+  .canvas-panel.corner > :global(.drawing-toolbar) { grid-area: bottom; }
 </style>

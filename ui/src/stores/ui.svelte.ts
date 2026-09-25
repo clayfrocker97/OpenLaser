@@ -37,6 +37,9 @@ export interface Picking {
 /** The drawing bar's default order: view tools, then editing tools, then history. */
 const DRAW_BAR = ['fit', 'zoom-in', 'zoom-out', 'snap', 'grid', 'layer', 'mirror-x', 'mirror-y', 'turn', 'scale', 'center', 'reset', 'group', 'ungroup', 'copy', 'paste', 'delete', 'deselect', 'undo', 'redo'];
 
+/** The machining bar's default order: every machining tool, then nesting and copying. */
+const MACHINING_BAR = [...FEATURE_IDS, 'nest', 'copy'];
+
 /** A saved order keeps only known tools and gains tools added since it was saved. */
 function withAll(order: string[], all: string[]): string[] {
   const known = order.filter((id, i) => all.includes(id) && order.indexOf(id) === i);
@@ -101,7 +104,8 @@ class Ui {
   picking = $state<Picking | null>(null);
   /** Drawing layers hidden on the canvas, for this session. */
   hiddenDrawingLayers = $state<string[]>([]);
-  favTools = $state<string[]>(remembered('ol-bar', FEATURE_IDS.filter(id => id !== 'common')));
+  /** The machining bar's tools in the operator's order, every one shown. */
+  bar = $state<string[]>(withAll(remembered('ol-bar', MACHINING_BAR), MACHINING_BAR));
   editBar = $state(false);
   /** The drawing bar's tools in the operator's order; see Canvas.svelte. */
   drawBar = $state<string[]>(withAll(remembered('ol-draw-bar', DRAW_BAR), DRAW_BAR));
@@ -144,9 +148,9 @@ class Ui {
   setDrawBar(order: string[]): void { this.drawBar = withAll(order, DRAW_BAR); remember('ol-draw-bar', this.drawBar); }
   toggleSnap(): void { this.snap = !this.snap; remember('ol-snap', this.snap); }
 
-  setBar(tools: string[]): void {
-    this.favTools = tools;
-    remember('ol-bar', tools);
+  setBar(order: string[]): void {
+    this.bar = withAll(order, MACHINING_BAR);
+    remember('ol-bar', this.bar);
   }
 
   layerShown(layer: string): boolean {
