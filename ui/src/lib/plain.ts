@@ -55,6 +55,7 @@ const PATTERNS: Array<[RegExp, (match: RegExpMatchArray) => string]> = [
   [/^setting \S+: /, () => 'A machine setting is not valid. Check the machine backup in Settings.'],
   [/no reply to \S+ of register/, () => 'The controller did not answer. Check its power and network cable.'],
   [/^socket: /, () => 'Could not open a network connection to the controller.'],
+  [/the controller refused/, () => 'The controller refused a command, even when it was sent again. Check the machine before continuing.'],
   [/^bad reply: /, () => 'The controller sent an unexpected reply. Reconnect.'],
   [/^XML /, () => 'The machine backup file could not be read.'],
   [/machine files did not bind/, () => 'Connected, but the machine files are not loaded. Import the machine backup in Settings.'],

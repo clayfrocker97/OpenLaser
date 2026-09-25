@@ -14,6 +14,8 @@ describe('plain', () => {
       detail: 'missing setting ManuParam.FC.ShortNoUpMaxLength',
     });
     expect(plain('no reply to read of register 1000').text).toBe('The controller did not answer. Check its power and network cable.');
+    expect(plain('the controller refused: write of register 0x65: the controller refused the request: Modbus exception 6 (controller busy)').text)
+      .toBe('The controller refused a command, even when it was sent again. Check the machine before continuing.');
     expect(plain('controller group 1 bit 24 is set').text).toBe('A controller signal is set.');
   });
 

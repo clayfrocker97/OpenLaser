@@ -263,6 +263,18 @@ impl Frame {
     }
 }
 
+/// The bytes of a refusal of `function` with exception `code`, as the
+/// controller answers a request it will not carry out.
+#[must_use]
+pub fn refusal(transaction: u16, function: Function, code: u8) -> Vec<u8> {
+    let mut bytes = Vec::with_capacity(9);
+    bytes.extend_from_slice(&transaction.to_be_bytes());
+    bytes.extend_from_slice(&[0, 0, 0, 3, UNIT, function.byte() | 0x80, code]);
+    let checksum = crc16(&bytes[4..]);
+    bytes[2..4].copy_from_slice(&Direction::Response.checksum_bytes(checksum));
+    bytes
+}
+
 /// A Modbus exception reply: the header, the unit, the request's function
 /// with its high bit set, and one code byte. The controller sends one when
 /// it refuses a request, which it then has not carried out.
@@ -437,9 +449,8 @@ mod tests {
     /// truncated frame; with a bad checksum it stays a truncated frame.
     #[test]
     fn exception_replies_are_read_as_refusals() {
-        let mut bytes = vec![0x12, 0x34, 0, 0, 0, 3, 0, 0xC0, 6];
-        let checksum = crc16(&bytes[4..]);
-        bytes[2..4].copy_from_slice(&Direction::Response.checksum_bytes(checksum));
+        let mut bytes = refusal(0x1234, Function::Write, 6);
+        assert_eq!(bytes[4..], [0, 3, 0, 0xC0, 6]);
         let refusal = Frame::decode(&bytes, Direction::Response).unwrap_err();
         assert_eq!(refusal, FrameError::Exception { transaction: 0x1234, function: 0x40, code: 6 });
         assert!(refusal.to_string().contains("controller busy"), "{refusal}");

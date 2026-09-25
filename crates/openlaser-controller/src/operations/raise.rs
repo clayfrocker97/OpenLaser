@@ -1,25 +1,27 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! The head raise that ends a pause: laser off, then the head up to the
-//! machine's safe height, then the gas off.
+//! The head raise that ends the vendor's manual stop, which a pause and the
+//! Stop button send (NCModule `0x10057240`).
 //!
-//! The stop that precedes it has already decelerated the axes, cancelled
-//! the head, stopped the FIFO and switched the laser off. On the first
-//! feedback taken after those writes the raise decides: the head must be
-//! referenced, clear of the Z value warning (head bit 12) and at least the
-//! safe height below its origin, so the move can only go up. OpenLaser also
-//! leaves the head where it is under an emergency stop or a Z fault that
-//! makes moving it pointless or unsafe. The gas and the remaining outputs
-//! go off right after the retract request, or at once when there is none.
-//! Nothing waits for the head to arrive: the head controller finishes the
-//! move on its own, and the pause does not hang on a head that stays busy.
+//! The stop before it has already stopped the FIFO (or the axes), switched
+//! the laser, gas and outputs off and cancelled the head. On the first
+//! feedback taken after those writes, as the vendor reads the head again
+//! after its cancel, the raise decides: the head must be referenced, clear
+//! of the Z value warning (head bit 12) and at least the safe height below
+//! its origin, so the move can only go up. OpenLaser also leaves the head
+//! where it is under an emergency stop or a Z fault that makes moving it
+//! pointless or unsafe. What follows the stop, the laser mode for a fiber
+//! head, goes out right after the retract request, or at once when there
+//! is none. Nothing waits for the head to arrive: the head controller
+//! finishes the move on its own, and the pause does not hang on a head
+//! that stays busy.
 
 use crate::snapshot::Snapshot;
 use openlaser_protocol::requests::Write;
 use openlaser_protocol::sequences;
 use std::time::{Duration, Instant};
 
-/// How long the gas may wait for the feedback the raise decides on.
+/// How long the raise may wait for the feedback it decides on.
 const FEEDBACK_WAIT: Duration = Duration::from_millis(500);
 
 /// Z faults under which the head stays where it is: the upper hardware and
@@ -29,7 +31,7 @@ const STAY_BITS: u32 = (1 << 0) | (1 << 2) | (1 << 4) | (1 << 6) | (1 << 11) | (
 /// Controller group 1 bit 30, the emergency stop.
 const EMERGENCY_STOP: u32 = 1 << 30;
 
-/// A pending raise and the outputs held back until it is requested.
+/// A pending raise and the writes that follow it.
 #[derive(Debug)]
 pub struct Raise {
     request: Option<sequences::Raise>,
@@ -40,13 +42,13 @@ pub struct Raise {
 
 impl Raise {
     /// A raise decided on feedback taken after `stopped`, followed by
-    /// `after`: the gas and the other outputs.
+    /// `after`, such as the fiber head's mode.
     #[must_use]
     pub fn new(raise: Option<sequences::Raise>, after: Vec<Write>, stopped: Instant) -> Self {
         Self { request: raise, after, stopped, done: false }
     }
 
-    /// Whether the raise and the outputs after it have been requested.
+    /// Whether the raise and the writes after it have been requested.
     #[must_use]
     pub const fn done(&self) -> bool {
         self.done
@@ -64,7 +66,7 @@ impl Raise {
                     tracing::info!(
                         from_mm = f64::from(snapshot.head.height()) / 1000.,
                         to_mm = f64::from(raise.height_thousandths) / 1000.,
-                        "pause: raising the head, then the gas off"
+                        "stop: raising the head"
                     );
                     writes.push(raise.write());
                 }
@@ -72,14 +74,14 @@ impl Raise {
                     head_alarms = format_args!("{:#06x}", snapshot.head.alarm_word() & 0xffff),
                     height_mm = f64::from(snapshot.head.height()) / 1000.,
                     referenced = snapshot.head.referenced(),
-                    "pause: the head stays where it is; gas off"
+                    "stop: the head stays where it is"
                 ),
                 None => {}
             }
         } else if now.saturating_duration_since(self.stopped) <= FEEDBACK_WAIT {
             return Vec::new();
         } else {
-            tracing::warn!("pause: no fresh feedback to raise the head on; gas off");
+            tracing::warn!("stop: no fresh feedback to raise the head on");
         }
         self.done = true;
         writes.append(&mut self.after);

@@ -45,6 +45,16 @@ Local review candidate built on 2026-09-24. Not published.
 - Laser and gas tests, manual outputs and the mode switch moved from Settings
   to Run → Machine tests.
 
+- Pause and Stop send the vendor's manual stop, in its order (NCModule
+  0x10057240): the FIFO stop alone while a program runs, never the rapid
+  axis stop with it; the laser, gas and outputs off; then the head cancel,
+  the rise to the safe height on fresh head feedback, and the fiber head's
+  mode. A command the controller refuses is sent again up to three times,
+  50 ms apart, as the vendor does, and a refusal no longer drops the
+  connection: the rest of the stop still goes out and the operator is
+  told. A refusal is named by register and reason instead of "bad reply:
+  frame is 9 bytes".
+
 ### Setup and sheets
 
 - Sheets on hand: full sheets per material, thickness and laser with counts,

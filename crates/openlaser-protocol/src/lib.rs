@@ -19,4 +19,6 @@ pub mod registers;
 pub mod requests;
 pub mod sequences;
 
-pub use frame::{Direction, Frame, FrameError, Function, MAX_FRAME_BYTES, MAX_WORDS, crc16};
+pub use frame::{
+    Direction, Frame, FrameError, Function, MAX_FRAME_BYTES, MAX_WORDS, crc16, refusal,
+};

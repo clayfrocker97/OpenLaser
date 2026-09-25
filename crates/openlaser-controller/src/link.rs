@@ -17,6 +17,13 @@ use std::net::{SocketAddr, SocketAddrV4};
 use std::time::Duration;
 use tokio::net::UdpSocket;
 
+/// The command register: jogs, stops, the head, outputs and the laser.
+const COMMAND_REGISTER: u32 = 101;
+/// How many more times the vendor sends a refused command.
+const REFUSED_RETRIES: u8 = 3;
+/// How long the vendor waits before sending a refused command again.
+const REFUSED_RETRY_WAIT: Duration = Duration::from_millis(50);
+
 /// Why an exchange failed.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 pub enum LinkError {
@@ -78,9 +85,29 @@ impl Link {
     }
 
     /// Writes words. `Ok` means the controller acknowledged the write.
+    ///
+    /// A command to register 101 the controller refuses was not carried
+    /// out, so it is sent again, as the vendor does (NCModule `0x10049d30`):
+    /// up to three more times, 50 ms apart.
     pub async fn write(&mut self, write: &Write) -> Result<(), LinkError> {
-        let request = write.frame(self.next_transaction()).map_err(LinkError::Reply)?;
-        self.exchange(request, "write").await.map(|_| ())
+        let mut attempt = 0;
+        loop {
+            let request = write.frame(self.next_transaction()).map_err(LinkError::Reply)?;
+            match self.exchange(request, "write").await {
+                Err(LinkError::Refused(..))
+                    if write.address == COMMAND_REGISTER && attempt < REFUSED_RETRIES =>
+                {
+                    attempt += 1;
+                    tracing::warn!(words = ?write.words, attempt, "the controller refused a command; sending it again");
+                    tokio::time::sleep(REFUSED_RETRY_WAIT).await;
+                }
+                Err(error @ LinkError::Refused(..)) => {
+                    tracing::warn!(words = ?write.words, %error, "the controller refused a command");
+                    return Err(error);
+                }
+                other => return other.map(|_| ()),
+            }
+        }
     }
 
     fn next_transaction(&mut self) -> u16 {

@@ -637,6 +637,65 @@ fn shutdown_masks(config: &Shutdown) -> Result<(u16, u16), SequenceError> {
     Ok((standard, extended))
 }
 
+/// The vendor's manual stop, which a pause and the Stop button both send
+/// (NCModule `0x10057240`, record 10, the branch taken while the axes move),
+/// up to and including the head cancel, in its order:
+///
+/// 1. the FIFO stop while a program runs from the FIFO (`fifo_active`,
+///    status word 19), otherwise the rapid axis stop, never both;
+/// 2. in CO2 mode, the CO2 laser's analog channel to zero;
+/// 3. the laser off pair;
+/// 4. the gas channels to zero;
+/// 5. every output bank rewritten from `outputs` (status word 5) with the
+///    shutdown ports cleared, as the vendor's whole-word mask does;
+/// 6. the head cancel, unless CO2 mode keeps the head out of it.
+///
+/// The head then rises, on fresh head feedback, with [`Shutdown::raise`],
+/// and a fiber machine with a head is told its mode again, [`after_stop`].
+pub fn manual_stop(
+    config: &Shutdown,
+    fifo_active: bool,
+    outputs: u32,
+) -> Result<Vec<Write>, SequenceError> {
+    let mut writes = vec![if fifo_active {
+        requests::fifo_stop()
+    } else {
+        requests::rapid_stop(config.rapid_deceleration)
+    }];
+    if config.mode == LaserMode::Co2 && matches!(config.co2_analog_channel, 1 | 2) {
+        writes.push(requests::analog_output(config.co2_analog_channel, 0)?);
+    }
+    writes.extend(laser_off_pair(config.point_laser_frequency));
+    for &channel in config.gas_channels.iter().filter(|channel| matches!(channel, 1 | 2)) {
+        writes.push(requests::analog_output(channel, 0)?);
+    }
+    let mut mask = outputs;
+    for &port in &config.ports {
+        // The vendor clears bit (port - 1) & 31 of the whole word.
+        mask &= !(1u32 << (u32::from(port).wrapping_sub(1) & 31));
+    }
+    let [low, high] = [mask & 0xffff, mask >> 16].map(|half| u16::try_from(half).unwrap_or(0));
+    writes.push(requests::digital_outputs(OutputBank::Standard, u16::MAX, low));
+    if config.extended_outputs {
+        writes.push(requests::digital_outputs(OutputBank::Extended, u16::MAX, high));
+    }
+    if config.head_enabled && !(config.mode == LaserMode::Co2 && config.co2_skip_head_cancel) {
+        writes.push(requests::head_cancel());
+    }
+    Ok(writes)
+}
+
+/// What follows the head's rise after a manual stop: a fiber machine with a
+/// head is told its laser mode again, `[118, 5, 0]`.
+#[must_use]
+pub fn after_stop(config: &Shutdown) -> Vec<Write> {
+    if config.head_enabled && config.mode == LaserMode::Fiber {
+        vec![requests::head_mode(LaserMode::Fiber)]
+    } else {
+        Vec::new()
+    }
+}
+
 /// The abort after lost feedback: the full shutdown with the axes stopped,
 /// then the FIFO discarded so queued enabling records cannot run.
 pub fn abort(config: &Shutdown, head_active: bool) -> Result<Vec<Write>, SequenceError> {

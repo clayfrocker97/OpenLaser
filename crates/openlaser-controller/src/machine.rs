@@ -498,6 +498,9 @@ struct Active {
 
 struct Task {
     config: Config,
+    /// Writes the controller refused during the current operation, told to
+    /// the operator when it ends.
+    refused: Option<String>,
     publisher: watch::Sender<State>,
     alarm_events: mpsc::UnboundedSender<crate::alarms::Observation>,
     previous_alarms: Vec<crate::state::AlarmView>,
@@ -562,6 +565,7 @@ impl Task {
             active: None,
             program: None,
             last_error: None,
+            refused: None,
         }
     }
 
@@ -1034,7 +1038,7 @@ impl Task {
             return outcome;
         };
         if matches!(&active.job, Job::Run(..)) {
-            return self.end_run(active, Ending::Stopped, false).await;
+            return self.end_run(active, Ending::Stopped, true).await;
         }
         let mut writes = active.job.view().cancel();
         writes.extend(self.abort_writes(active.sent));
@@ -1452,18 +1456,31 @@ impl Task {
 
     /// OFF/stop/clear writes are all attempted, even after an acknowledgement
     /// is lost. Each exchange keeps the link's deadline and is sent once.
+    ///
+    /// A write the controller refuses, after the link's retries, was not
+    /// carried out: the vendor carries on with the rest and keeps the
+    /// connection, and so does this, telling the operator. A write with no
+    /// reply, or an unreadable one, leaves the outputs uncertain and faults
+    /// the connection.
     async fn cleanup(&mut self, writes: &[Write]) -> Result<()> {
         let link = self.link.as_mut().ok_or(Error::Disconnected)?;
-        let mut errors = Vec::new();
+        let (mut uncertain, mut refused) = (Vec::new(), Vec::new());
         for write in writes {
-            if let Err(error) = link.write(write).await {
-                errors.push(error.to_string());
+            match link.write(write).await {
+                Ok(()) => {}
+                Err(error @ LinkError::Refused(..)) => refused.push(error.to_string()),
+                Err(error) => uncertain.push(error.to_string()),
             }
         }
-        if errors.is_empty() {
+        if !refused.is_empty() {
+            let told = format!("the controller refused: {}", refused.join("; "));
+            self.last_error = Some(told.clone());
+            self.refused = Some(told);
+        }
+        if uncertain.is_empty() {
             return Ok(());
         }
-        let reason = format!("shutdown uncertain: {}", errors.join("; "));
+        let reason = format!("shutdown uncertain: {}", uncertain.join("; "));
         self.mark_fault(reason.clone());
         Err(Error::Link(reason))
     }
@@ -1521,6 +1538,7 @@ impl Task {
             ));
         }
         self.last_error = Some(error.to_string());
+        self.refused = None;
         self.publish();
         active.job.fail(error);
     }
@@ -1528,7 +1546,7 @@ impl Task {
     /// Records a finished operation and answers its requester.
     fn complete(&mut self, active: Active) {
         let epoch = self.session.epoch;
-        self.last_error = None;
+        self.last_error = self.refused.take();
         match active.job {
             Job::Home(home, reply) => {
                 if home.reference_verified() {

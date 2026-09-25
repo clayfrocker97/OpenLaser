@@ -212,13 +212,14 @@ impl Run {
     /// Begins a hold or a stop: the writes to send now, after which the
     /// run settles and captures its checkpoint.
     ///
-    /// With `raise`, a hold on a machine with a head switches the laser off
-    /// with the stop and holds the gas back; the settling run then sends
-    /// the head to its safe height before the gas goes off, and the hold
+    /// Both send the vendor's manual stop, as its Pause and Stop buttons do:
+    /// the FIFO stop while the program runs from the FIFO, else the rapid
+    /// axis stop; the laser, gas and outputs off; then the head cancel. On
+    /// the first head feedback after it the head rises to its safe height,
+    /// with `raise`, and a fiber machine is told its mode again. The run
     /// ends once X and Y stop and the head is still, or after `RAISE_WAIT`
-    /// with the head still busy. A stop, or a
-    /// hold that cannot trust its feedback, switches everything off at once
-    /// and cancels any raise in progress.
+    /// with the head still busy. A hold that cannot trust its feedback
+    /// passes no `raise`, and the head stays where it is.
     pub fn end(
         &mut self,
         ending: Ending,
@@ -230,15 +231,12 @@ impl Run {
         }
         let stopped = Instant::now();
         self.phase = Phase::Settling { ending, stopped };
-        let head_active = snapshot.head.command() != 0;
-        self.raise = None;
-        if raise && ending == Ending::Held && self.shutdown.raise.is_some() {
-            let after =
-                sequences::gas_and_outputs_off(&self.shutdown, &[]).map_err(|e| e.to_string())?;
-            self.raise = Some(Raise::new(self.shutdown.raise, after, stopped));
-            return Ok(sequences::stop_and_laser_off(&self.shutdown, true, head_active));
-        }
-        sequences::shutdown(&self.shutdown, true, head_active, &[]).map_err(|e| e.to_string())
+        let fifo_active = snapshot.status.fifo_activity() == 1;
+        let writes = sequences::manual_stop(&self.shutdown, fifo_active, snapshot.status.word(5))
+            .map_err(|e| e.to_string())?;
+        let request = if raise { self.shutdown.raise } else { None };
+        self.raise = Some(Raise::new(request, sequences::after_stop(&self.shutdown), stopped));
+        Ok(writes)
     }
 
     /// The uploads the reported free space admits, with their stamps.
@@ -366,6 +364,9 @@ impl Run {
                     ending
                 },
             );
+            // A stopped FIFO can go on reporting activity until it is
+            // cleared, which would hold the next start or a resume as
+            // "the axes are not idle"; clear it once the checkpoint is kept.
             return Ok(Step::Finish(vec![requests::fifo_stop(), requests::fifo_clear()]));
         }
         Ok(Step::Wait)
@@ -536,9 +537,11 @@ mod tests {
         assert!(run.has_started(Some(&current)));
     }
 
-    /// A hold decelerates, switches off and stops the FIFO, waits for the
-    /// axes to settle, captures the checkpoint, then stops and clears the
-    /// FIFO; a stop does the same and ends stopped.
+    /// A hold sends the vendor's manual stop: the FIFO stop while the
+    /// program runs from the FIFO, never the rapid stop with it, then the
+    /// laser off. On fresh feedback the fiber head is told its mode, and
+    /// once the axes settle the checkpoint is captured and the FIFO stopped
+    /// and cleared; a stop does the same and ends stopped.
     #[test]
     fn holds_settle_and_capture_the_checkpoint() {
         let now = Instant::now();
@@ -551,9 +554,12 @@ mod tests {
         let running =
             snapshot_with(&[(16, 90_000), (19, 1), (23, 7), (24, 3)], &[(0, 0x0201_0000)], &[]);
         let writes = run.end(Ending::Held, &running, false).unwrap();
-        assert_eq!(writes[0].words, vec![1, 31, 2, 5999, 200_000]);
-        assert!(writes.iter().any(|w| w.address == 103 && w.words == [3]));
+        assert_eq!((writes[0].address, writes[0].words.clone()), (103, vec![3]));
+        assert!(!writes.iter().any(|w| w.words.starts_with(&[1, 31])), "no rapid stop with it");
+        assert_eq!(writes[1].words, vec![9999, 3, 0, 0, 0]);
         assert_eq!(run.step(&running, None, now).unwrap(), Step::Wait);
+        let fresh = snapshot_with(&[(19, 1), (23, 7), (24, 3)], &[], &[]);
+        assert_eq!(words(&run.step(&fresh, None, now).unwrap()), [(101, vec![118, 5, 0])]);
         let settled = snapshot_with(&[(19, 1), (23, 7), (24, 3)], &[], &[]);
         assert_eq!(settled.class(), openlaser_protocol::feedback::AxisClass::Fifo);
         assert_eq!(
@@ -598,11 +604,21 @@ mod tests {
         run.step(&idle, None, now).unwrap();
         let step = run.step(&idle, None, now).unwrap();
         acknowledged(&mut run, &step);
-        run.end(Ending::Held, &idle, false).unwrap();
+        let writes = run.end(Ending::Held, &idle, false).unwrap();
+        assert_eq!(
+            writes[0].words,
+            vec![1, 31, 2, 5999, 200_000],
+            "no FIFO running: the rapid stop"
+        );
         assert_eq!(
             run.step(&idle, None, Instant::now()).unwrap(),
             Step::Wait,
             "old idle feedback is insufficient"
+        );
+        let moving = snapshot_with(&[], &[(1, 1)], &[]);
+        assert_eq!(
+            words(&run.step(&moving, None, Instant::now()).unwrap()),
+            [(101, vec![118, 5, 0])]
         );
         for snapshot in [snapshot_with(&[], &[(1, 1)], &[]), snapshot_with(&[], &[], &[(3, 104)])] {
             assert_eq!(snapshot.class(), openlaser_protocol::feedback::AxisClass::None);
@@ -617,6 +633,7 @@ mod tests {
 
         let mut pending = Run::new(program(2), 100_000, &bindings()).unwrap();
         pending.end(Ending::Held, &idle, false).unwrap();
+        pending.step(&snapshot_with(&[], &[], &[]), None, Instant::now()).unwrap();
         pending.step(&snapshot_with(&[], &[], &[]), None, Instant::now()).unwrap();
         assert_eq!(pending.ending(), Some(Ending::Held));
         assert_eq!(pending.checkpoint().unwrap().item, i32::MIN, "restart before the first pass");

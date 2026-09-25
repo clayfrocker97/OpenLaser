@@ -136,6 +136,9 @@ pub(super) struct Plant {
     pub(super) drop_ack_after: Option<usize>,
     pub(super) reply_delay: Duration,
     pub(super) drop_reads: BTreeMap<u32, usize>,
+    /// Writes whose words start with a prefix are refused, controller
+    /// busy, this many more times.
+    pub(super) refusals: Vec<(Vec<u32>, usize)>,
     pub(super) read_counts: BTreeMap<u32, usize>,
     last_error: Option<String>,
     pub(super) writes: Vec<Write>,
@@ -196,6 +199,7 @@ impl Plant {
             input_overrides: BTreeMap::new(),
             drop_ack_after: None,
             reply_delay: Duration::ZERO,
+            refusals: Vec::new(),
             drop_reads: BTreeMap::new(),
             read_counts: BTreeMap::new(),
             last_error: None,
@@ -247,6 +251,14 @@ impl Plant {
                 self.read(frame.address, frame.count)
             }
             Function::Write => {
+                if let Some((_, remaining)) = self
+                    .refusals
+                    .iter_mut()
+                    .find(|(prefix, remaining)| *remaining > 0 && frame.values.starts_with(prefix))
+                {
+                    *remaining -= 1;
+                    return Some(openlaser_protocol::refusal(frame.transaction, frame.function, 6));
+                }
                 self.writes.push(Write { address: frame.address, words: frame.values.clone() });
                 self.write(frame.address, &frame.values).map(|()| Vec::new())
             }

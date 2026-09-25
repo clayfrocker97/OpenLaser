@@ -540,10 +540,11 @@ async fn a_program_streams_and_completes() {
     assert_eq!((program.state, program.uploaded, program.total), (ProgramState::Completed, 3, 3));
 }
 
-/// A hold decelerates, switches everything off, waits for the axes to
-/// settle, captures the checkpoint and clears the FIFO; the run answers
-/// held and the view keeps the checkpoint. A stop does the same and
-/// answers stopped.
+/// A hold sends the vendor's manual stop: the FIFO stop alone while the
+/// program runs from the FIFO, the laser, gas and outputs off, the head
+/// cancel, then the fiber head's mode. It waits for the axes to settle,
+/// captures the checkpoint and clears the FIFO; the run answers held and
+/// the view keeps the checkpoint. A stop does the same and answers stopped.
 #[tokio::test]
 async fn hold_and_stop_capture_checkpoints() {
     let (_simulator, control, machine) = homed().await;
@@ -567,13 +568,13 @@ async fn hold_and_stop_capture_checkpoints() {
     assert_eq!(
         tail[end..],
         [
-            vec![1, 31, 2, 5999, 200_000],
-            vec![101],
             vec![3],
             vec![9999, 3, 0, 0, 0],
             vec![9999, 17, 0, 0, 0],
             vec![9999, 4, 0, 0],
-            vec![9999, 2, 7, 0],
+            vec![9999, 2, 65535, 0],
+            vec![101],
+            vec![118, 5, 0],
             vec![3],
             vec![1],
         ]
@@ -591,6 +592,32 @@ async fn hold_and_stop_capture_checkpoints() {
     assert_eq!(run.await.expect("task"), Ok(Ending::Stopped));
     assert_eq!(machine.state().program.expect("program view").state, ProgramState::Stopped);
     assert_eq!(machine.state().operation, None);
+}
+
+/// A stop write the controller refuses was not carried out, and the
+/// vendor sends it again: laser off refused twice goes through on the
+/// third try. A write refused every time is reported, the rest of the stop
+/// still goes out, and the connection stays, as the vendor keeps it.
+#[tokio::test]
+async fn refused_stop_writes_are_retried_and_never_drop_the_connection() {
+    let (_simulator, control, machine) = homed().await;
+    control.fault(Fault::StoppedFifoActivity, true);
+    control.refuse(vec![9999, 3], 2);
+    control.refuse(vec![101], 10);
+    let run = tokio::spawn({
+        let machine = machine.clone();
+        async move { machine.run(program(&machine, 20_000, 5.)).await }
+    });
+    tokio::time::sleep(Duration::from_millis(400)).await;
+    machine.hold().await.expect("hold");
+    assert_eq!(run.await.expect("task"), Ok(Ending::Held));
+    let writes = words(&control.take_writes());
+    assert!(writes.contains(&vec![9999, 3, 0, 0, 0]), "accepted on the third try");
+    assert!(writes.contains(&vec![9999, 17, 0, 0, 0]), "the rest of the stop went out");
+    assert!(!writes.contains(&vec![101]), "refused every time");
+    let state = machine.state();
+    assert!(matches!(state.connection, Connection::Connected { .. }));
+    assert!(state.last_error.is_some_and(|e| e.contains("refused")), "the operator is told");
 }
 
 #[tokio::test]
@@ -1167,11 +1194,12 @@ fn position(writes: &[Vec<u32>], words: &[u32]) -> usize {
     writes.iter().position(|w| w == words).unwrap_or_else(|| panic!("{words:?} in {writes:?}"))
 }
 
-/// A nozzle touching the plate mid-cut pauses the program: the laser goes
-/// off with the stop, the head is sent to the safe height, and only then
-/// does the gas go off. The pause does not wait for the head to arrive.
+/// A nozzle touching the plate mid-cut pauses the program as the vendor's
+/// manual stop does: the FIFO stops, the laser and gas go off, the head is
+/// cancelled and then sent to the safe height. The pause does not wait for
+/// the head to arrive.
 #[tokio::test]
-async fn plate_contact_turns_the_laser_off_raises_the_head_then_the_gas() {
+async fn plate_contact_stops_the_laser_and_gas_then_raises_the_head() {
     let (_simulator, control, machine) = raising().await;
     let mut cut = program(&machine, 20_000, 5.);
     let mut items = vec![
@@ -1191,11 +1219,17 @@ async fn plate_contact_turns_the_laser_off_raises_the_head_then_the_gas() {
     control.fault(Fault::HeadTouch, true);
     assert_eq!(run.await.unwrap(), Ok(Ending::Held));
     let writes = words(&control.take_writes());
-    let stop = position(&writes, &[1, 31, 2, 5999, 200_000]);
+    let stop = position(&writes, &[3]);
     let laser = position(&writes, &[9999, 3, 0, 0, 0]);
-    let raise = position(&writes, &[103, 1000, 15_000]);
     let gas = position(&writes, &[9999, 4, 0, 0]);
-    assert!(stop < laser && laser < raise && raise < gas, "{writes:?}");
+    let cancel = position(&writes, &[101]);
+    let raise = position(&writes, &[103, 1000, 15_000]);
+    let mode = position(&writes, &[118, 5, 0]);
+    assert!(
+        stop < laser && laser < gas && gas < cancel && cancel < raise && raise < mode,
+        "{writes:?}"
+    );
+    assert!(!writes.iter().any(|w| w.starts_with(&[1, 31])), "no rapid stop while the FIFO runs");
     head_at(&control, 15.).await;
     let view = control.view();
     assert_eq!((view.analog, view.pwm[0][2], view.pwm[1][2]), ([0, 0], 0, 0));

@@ -282,6 +282,12 @@ impl Control {
         self.with(|plant| plant.drop_ack_after = Some(accepted));
     }
 
+    /// Refuses writes whose words start with `prefix`, controller busy, the
+    /// next `times` times; a refused write is not carried out.
+    pub fn refuse(&self, prefix: Vec<u32>, times: usize) {
+        self.with(|plant| plant.refusals.push((prefix, times)));
+    }
+
     /// Delays replies, to exercise control requests during an exchange.
     pub fn reply_delay(&self, delay: Duration) {
         self.with(|plant| plant.reply_delay = delay);
