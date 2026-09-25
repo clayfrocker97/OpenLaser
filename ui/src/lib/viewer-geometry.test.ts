@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { axisAlignedBounds, boundsOfShapes, BoundsIndex, drawingPath, hitPath, inverseBounds, marqueeGroups, nearestShape, overlaps, pickLine, transformedBounds } from './viewer-geometry';
+import { axisAlignedBounds, boundsOfShapes, BoundsIndex, drawingPath, hitPath, inverseBounds, marqueeContours, marqueeGroups, nearestShape, overlaps, pickLine, transformedBounds } from './viewer-geometry';
 import { boxOf, pathOf } from './svg';
 import type { PreviewContour, Transform } from '../api';
 
@@ -69,6 +69,19 @@ describe('viewer bounds and cached paths', () => {
     expect((nearestShape(shapes, index, [4.4, 0], 2)!.contour as { sources: number[] }).sources).toEqual([1]);
     expect((nearestShape(shapes, index, [6.2, 0], 2)!.contour as { sources: number[] }).sources).toEqual([2]);
     expect(nearestShape(shapes, index, [20, 20], 2)).toBeNull();
+  });
+
+  it('takes each visible shape whose line runs through a box, across parts', () => {
+    const square = (x: number, source: number, layer = 'Text') => ({ sources: [source], layer, paths: [{ kind: 'cut', points: [[x, 0], [x + 2, 0], [x + 2, 2], [x, 2], [x, 0]] }] }) as never;
+    const shapes = new Map([[0, [square(0, 1), square(10, 2)]], [1, [square(20, 3), square(30, 4, 'Hidden')]]]);
+    const index = new BoundsIndex(boundsOfShapes(shapes));
+    const box = { minX: 1, maxX: 31, minY: -1, maxY: 3 };
+    const shown = (c: { layer: string }) => c.layer !== 'Hidden';
+    // The first square is partly covered; the last is on a hidden layer.
+    expect(marqueeContours(shapes, index, box, shown as never)).toEqual([{ group: 0, source: 1 }, { group: 0, source: 2 }, { group: 1, source: 3 }]);
+    // A plate around the box is not taken: its outline never enters it.
+    const plate = new Map([[0, [({ sources: [9], layer: 'Cut', paths: [{ kind: 'cut', points: [[-50, -50], [50, -50], [50, 50], [-50, 50], [-50, -50]] }] }) as never]]]);
+    expect(marqueeContours(plate, new BoundsIndex(boundsOfShapes(plate)), { minX: -5, maxX: 5, minY: -5, maxY: 5 })).toEqual([]);
   });
 
   it('grows halos inside a shape until they meet, and keeps them fixed outside', () => {

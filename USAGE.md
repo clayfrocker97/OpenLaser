@@ -262,7 +262,10 @@ sheet per layer.
   nearest line always wins and the middle of a hole takes the hole; outside
   every shape it reaches a fingertip, and empty space beyond takes nothing. The selection glows. Tap
   one of its shapes again to take that shape alone, such as the hole inside
-  a countersink; the rest of the part fades. Drag anywhere inside the
+  a countersink; the rest of the part fades. Then taps add or drop shapes,
+  of any part, and a drag draws a box that takes every shape whose line it
+  touches, such as all the letters of some text, but not the plate around
+  them; tap empty space to finish. Otherwise, drag anywhere inside the
   selection's box to move it. **Layer** in
   the drawing bar moves the selection to a layer, or to a new one, whose
   settings open next.

@@ -71,6 +71,30 @@ export function pickLine(
   return reach === Infinity ? null : nearestShape(shapes, index, at, reach, shown);
 }
 
+/** Whether a polyline has a point inside the box or a segment through it. */
+function crosses(points: Polyline, box: Box): boolean {
+  const inside = (x: number, y: number) => x >= box.minX && x <= box.maxX && y >= box.minY && y <= box.maxY;
+  for (let i = 0; i < points.length; i++) {
+    const [x, y] = points[i]!;
+    if (inside(x, y)) return true;
+    if (i && segmentThrough(points[i - 1]!, points[i]!, box)) return true;
+  }
+  return false;
+}
+
+/** Whether a segment passes through the box, clipped against its sides. */
+function segmentThrough(a: readonly number[], b: readonly number[], box: Box): boolean {
+  const [ax = 0, ay = 0] = a, [bx = 0, by = 0] = b;
+  let t0 = 0, t1 = 1;
+  const dx = bx - ax, dy = by - ay;
+  for (const [p, q] of [[-dx, ax - box.minX], [dx, box.maxX - ax], [-dy, ay - box.minY], [dy, box.maxY - ay]] as const) {
+    if (p === 0) { if (q < 0) return false; continue; }
+    const t = q / p;
+    if (p < 0) { if (t > t1) return false; if (t > t0) t0 = t; } else { if (t < t0) return false; if (t < t1) t1 = t; }
+  }
+  return t0 <= t1;
+}
+
 /** Whether a closed line runs around the point, by the crossings of a ray. */
 function encloses(points: Polyline, x: number, y: number): boolean {
   const first = points[0], last = points[points.length - 1];
@@ -89,6 +113,21 @@ export function marqueeGroups(shapes: Map<number, PreviewContour[]>, index: Boun
     const bounds = boundsOfContour(c);
     return bounds !== null && overlaps(bounds, box);
   })).sort((a, b) => a - b);
+}
+/** Every single-source contour whose line runs through a marquee, with its
+ *  group: the shapes a box takes one by one, such as the letters of some
+ *  text, even partly covered, and not the plate whose outline only goes
+ *  around the box. */
+export function marqueeContours(
+  shapes: Map<number, PreviewContour[]>, index: BoundsIndex, box: Box,
+  shown: (contour: PreviewContour) => boolean = () => true,
+): Array<{ group: number; source: number }> {
+  return index.query(box).flatMap((group) => (shapes.get(group) ?? []).flatMap((c) => {
+    const bounds = boundsOfContour(c);
+    const source = c.sources.length === 1 ? c.sources[0]! : null;
+    const touched = bounds !== null && overlaps(bounds, box) && c.paths.some((p) => crosses(p.points, box));
+    return source !== null && touched && shown(c) ? [{ group, source }] : [];
+  }));
 }
 export function boundsOfShapes(shapes: Map<number, PreviewContour[]>): Map<number, Box> {
   const bounds = new Map<number, Box>();

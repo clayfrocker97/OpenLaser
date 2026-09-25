@@ -71,7 +71,8 @@ Local review candidate built on 2026-09-24. Not published.
 - A tap selects the part whose line is nearest. Inside a shape each line's
   halo grows until it meets the next, so the middle of a hole takes the
   hole; outside every shape a halo reaches a fingertip. A second tap takes one shape of it, so inner shapes can be
-  moved to another layer. The selection glows, so it shows on touch
+  moved to another layer; then taps and a box take more shapes, of any part,
+  such as all the letters of some text. The selection glows, so it shows on touch
   screens; one shape taken alone glows strongly and the rest of its part
   fades. A drag inside the selection's box moves it. Layer colours leave out
   the selection's orange.
