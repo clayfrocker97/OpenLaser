@@ -1723,9 +1723,23 @@ impl Task {
         };
         // Every poll lands here, well over a hundred times a second; one
         // that changed nothing wakes no one. The state is compared with the
-        // published one at its revision, which only moves with a change.
-        if *self.publisher.borrow() == state {
-            return;
+        // published one at its revision, which only moves with a change, and
+        // with the snapshot's age, which is a millisecond or two on every
+        // poll, taken as the published one's.
+        {
+            let published = self.publisher.borrow();
+            let age = state.feedback.as_ref().map(|f| f.age_ms);
+            if let (Some(feedback), Some(old)) =
+                (state.feedback.as_mut(), published.feedback.as_ref())
+            {
+                feedback.age_ms = old.age_ms;
+            }
+            if *published == state {
+                return;
+            }
+            if let (Some(feedback), Some(age)) = (state.feedback.as_mut(), age) {
+                feedback.age_ms = age;
+            }
         }
         self.revision += 1;
         state.revision = self.revision;
