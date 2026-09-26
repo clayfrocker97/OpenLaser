@@ -2,6 +2,20 @@
 
 Versions use Semantic Versioning, with prerelease identifiers for alpha builds.
 
+## 0.1.0-alpha.4.1 — 2026-09-25
+
+Fixes for running jobs on the laser's small PC.
+
+- The screen no longer falls behind while a job runs or after it stops.
+  The controller's state was republished after every poll, well over a
+  hundred times a second, even when nothing had changed. It is now
+  published only when it changes (about once a second at rest), and each
+  screen gets at most 20 updates a second while the head moves. Taps
+  answer at once and the head follows the cut on screen again.
+- The run page rebuilds its cut history only when the job's progress
+  record changes, not on every update.
+- Pierce points on the run page are drawn smaller.
+
 ## 0.1.0-alpha.4 — 2026-09-25
 
 Windows and Mac test builds shared with testers.

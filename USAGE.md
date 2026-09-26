@@ -1,6 +1,6 @@
 # OpenLaser setup and operator manual
 
-**Version 0.1.0-alpha.4 · Alpha documentation**
+**Version 0.1.0-alpha.4.1 · Alpha documentation**
 
 The public repository provides source and documentation; prebuilt application
 binaries are not published. Start with the [source build instructions](README.md#build-from-source).
@@ -42,9 +42,9 @@ The release packages are:
 
 | Package | Contents |
 | --- | --- |
-| `OpenLaser-0.1.0-alpha.4-windows-x86_64.zip` | 64-bit Windows executable, simulator launcher and documentation |
-| `OpenLaser-0.1.0-alpha.4-macos-universal.zip` | Intel / Apple Silicon application, simulator launcher and documentation |
-| `OpenLaser-0.1.0-alpha.4-source.zip` | Matching source, embedded UI build and build instructions |
+| `OpenLaser-0.1.0-alpha.4.1-windows-x86_64.zip` | 64-bit Windows executable, simulator launcher and documentation |
+| `OpenLaser-0.1.0-alpha.4.1-macos-universal.zip` | Intel / Apple Silicon application, simulator launcher and documentation |
+| `OpenLaser-0.1.0-alpha.4.1-source.zip` | Matching source, embedded UI build and build instructions |
 
 ### Windows
 

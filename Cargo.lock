@@ -2456,7 +2456,7 @@ checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
 
 [[package]]
 name = "openlaser"
-version = "0.1.0-alpha.4"
+version = "0.1.0-alpha.4.1"
 dependencies = [
  "muda",
  "openlaser-controller",
@@ -2476,7 +2476,7 @@ dependencies = [
 
 [[package]]
 name = "openlaser-compiler"
-version = "0.1.0-alpha.4"
+version = "0.1.0-alpha.4.1"
 dependencies = [
  "openlaser-core",
  "openlaser-protocol",
@@ -2486,7 +2486,7 @@ dependencies = [
 
 [[package]]
 name = "openlaser-controller"
-version = "0.1.0-alpha.4"
+version = "0.1.0-alpha.4.1"
 dependencies = [
  "openlaser-core",
  "openlaser-protocol",
@@ -2499,7 +2499,7 @@ dependencies = [
 
 [[package]]
 name = "openlaser-core"
-version = "0.1.0-alpha.4"
+version = "0.1.0-alpha.4.1"
 dependencies = [
  "proptest",
  "serde",
@@ -2509,7 +2509,7 @@ dependencies = [
 
 [[package]]
 name = "openlaser-correction"
-version = "0.1.0-alpha.4"
+version = "0.1.0-alpha.4.1"
 dependencies = [
  "openlaser-core",
  "serde",
@@ -2520,7 +2520,7 @@ dependencies = [
 
 [[package]]
 name = "openlaser-dxf"
-version = "0.1.0-alpha.4"
+version = "0.1.0-alpha.4.1"
 dependencies = [
  "encoding_rs",
  "insta",
@@ -2531,7 +2531,7 @@ dependencies = [
 
 [[package]]
 name = "openlaser-library"
-version = "0.1.0-alpha.4"
+version = "0.1.0-alpha.4.1"
 dependencies = [
  "openlaser-core",
  "openlaser-correction",
@@ -2544,7 +2544,7 @@ dependencies = [
 
 [[package]]
 name = "openlaser-nest"
-version = "0.1.0-alpha.4"
+version = "0.1.0-alpha.4.1"
 dependencies = [
  "jagua-rs",
  "openlaser-core",
@@ -2556,7 +2556,7 @@ dependencies = [
 
 [[package]]
 name = "openlaser-network"
-version = "0.1.0-alpha.4"
+version = "0.1.0-alpha.4.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -2565,7 +2565,7 @@ dependencies = [
 
 [[package]]
 name = "openlaser-prep"
-version = "0.1.0-alpha.4"
+version = "0.1.0-alpha.4.1"
 dependencies = [
  "cavalier_contours",
  "insta",
@@ -2576,7 +2576,7 @@ dependencies = [
 
 [[package]]
 name = "openlaser-protocol"
-version = "0.1.0-alpha.4"
+version = "0.1.0-alpha.4.1"
 dependencies = [
  "openlaser-core",
  "serde",
@@ -2586,7 +2586,7 @@ dependencies = [
 
 [[package]]
 name = "openlaser-server"
-version = "0.1.0-alpha.4"
+version = "0.1.0-alpha.4.1"
 dependencies = [
  "axum",
  "mdns-sd",
@@ -2613,7 +2613,7 @@ dependencies = [
 
 [[package]]
 name = "openlaser-svg"
-version = "0.1.0-alpha.4"
+version = "0.1.0-alpha.4.1"
 dependencies = [
  "i_overlay",
  "openlaser-core",
@@ -2626,7 +2626,7 @@ dependencies = [
 
 [[package]]
 name = "openlaser-xml"
-version = "0.1.0-alpha.4"
+version = "0.1.0-alpha.4.1"
 dependencies = [
  "openlaser-compiler",
  "openlaser-core",
