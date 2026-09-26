@@ -33,15 +33,19 @@
   const machine = $derived(doc.machine);
   const program = $derived(machine.program);
   const execution = $derived(doc.execution);
+  // Its own value, so what is built from it (the cut history, the path
+  // classes) is rebuilt when the recovery changes, not on every update of
+  // the document, which comes many times a second while a job runs.
+  const recovery = $derived(doc.recovery);
   const paused = $derived(program?.state === 'held');
-  const canRecover = $derived(!!doc.recovery && ['held', 'stopped', 'failed'].includes(doc.recovery.state));
+  const canRecover = $derived(!!recovery && ['held', 'stopped', 'failed'].includes(recovery.state));
   let showRecovery = $state(false);
   const recovering = $derived(canRecover && (showRecovery || recoveryEditor));
   $effect(() => { if (!canRecover) showRecovery = false; });
-  const restartPosition = $derived(recovering ? doc.recovery?.position : paused ? doc.recovery?.pause_position : null);
+  const restartPosition = $derived(recovering ? recovery?.position : paused ? recovery?.pause_position : null);
   let original = $state<ExecutionView | null>(null);
   $effect(() => {
-    const id = doc.recovery?.id;
+    const id = recovery?.id;
     if (id && original?.id !== id) { untrack(() => {
       if (execution?.id === id) original = execution;
       else api.recoveryProgram()
@@ -49,7 +53,7 @@
         .catch(error => ui.say(explain(error), true));
     }); }
   });
-  const retained = $derived(execution && !execution.frame && original?.id === doc.recovery?.id ? original : null);
+  const retained = $derived(execution && !execution.frame && original?.id === recovery?.id ? original : null);
   const displayed = $derived(retained ?? execution);
   const compiled = $derived(displayed?.compiled ?? (recovering ? null : draft?.compiled) ?? null);
   // The pushed draft leaves its moves out: they are fetched once for the
@@ -64,7 +68,7 @@
       .catch(error => { if (!(error instanceof ApiError && error.status === 409)) ui.say(explain(error), true); });
   });
   const moves = $derived(displayed?.compiled.moves ?? (compiled && fetched && fetched.revision === draft?.revision ? fetched.moves : []));
-  const history = $derived(retained && doc.recovery ? cutHistory(retained.compiled.moves, doc.recovery.steps) : []);
+  const history = $derived(retained && recovery ? cutHistory(retained.compiled.moves, recovery.steps) : []);
   const resumed = $derived(!!retained && !!execution && retained.id !== execution.id && !recovering);
   const material = $derived(displayed ? displayed.material : draft?.recipe);
   const preview = $derived(draft?.preview ?? null);
@@ -101,9 +105,9 @@
   const running = $derived(program?.state === 'running' || program?.state === 'finishing');
   /** Item tags name the remainder; map them back to the full retained job. */
   const contours = $derived(compiled?.plan.length ?? 0);
-  const done = $derived(retained ? doc.recovery?.steps.filter(s => s.status === 'completed').length ?? 0 : execution ? doc.progress?.completed ?? 0 : 0);
+  const done = $derived(retained ? recovery?.steps.filter(s => s.status === 'completed').length ?? 0 : execution ? doc.progress?.completed ?? 0 : 0);
   const current = $derived.by(() => {
-    if (recovering) return doc.recovery?.selected?.pass ?? null;
+    if (recovering) return recovery?.selected?.pass ?? null;
     const index = doc.progress?.pass;
     if (!execution || index == null) return null;
     if (!retained) return index;
@@ -136,7 +140,7 @@
     if (recovering) return doc.can_resume ? 'Resume starts at the selected recovery point.' : 'Choose and prepare the restart point.';
     if (paused) {
       if (machine.operation?.kind === 'program') return 'Pausing · waiting for the head to stop.';
-      return doc.can_resume ? 'Paused · Resume returns to the saved position.' : doc.recovery?.problem ?? 'Paused · saving the position.';
+      return doc.can_resume ? 'Paused · Resume returns to the saved position.' : recovery?.problem ?? 'Paused · saving the position.';
     }
     if (execution && running) {
       if (execution.frame) return 'Framing · laser off.';
@@ -193,11 +197,11 @@
   const mark = $derived(Math.min(view.shown.w, view.shown.h) / 120);
   let pickingRestart = false;
   async function pickRestart(point: [number, number]): Promise<void> {
-    if (!recovering || !compiled || !doc.recovery || machine.operation || pickingRestart) return;
-    const choice = restartAt({ moves }, doc.recovery.steps, [point[0] - frame.zero[0], point[1] - frame.zero[1]], 24 * view.mmPerPixel);
+    if (!recovering || !compiled || !recovery || machine.operation || pickingRestart) return;
+    const choice = restartAt({ moves }, recovery.steps, [point[0] - frame.zero[0], point[1] - frame.zero[1]], 24 * view.mmPerPixel);
     if (!choice) return;
     pickingRestart = true;
-    try { await api.recoveryChange({ kind: 'select', ...choice }, doc.recovery.revision); }
+    try { await api.recoveryChange({ kind: 'select', ...choice }, recovery.revision); }
     catch (error) { ui.say(explain(error), true); }
     finally { pickingRestart = false; }
   }
@@ -233,13 +237,13 @@
     <g transform="translate({frame.zero[0]} {frame.zero[1]})">
     {#if compiled}
       {#each moves as move, i}
-        {@const finished = move.pass !== null && (retained ? doc.recovery?.steps[move.pass]?.status === 'completed' : move.pass < done)}
+        {@const finished = move.pass !== null && (retained ? recovery?.steps[move.pass]?.status === 'completed' : move.pass < done)}
         {#if ui.layerShown(finished ? 'done' : move.kind) && (move.kind !== 'travel' || !resumed && (ui.travelMode === 'all' || i === nextTravel))}
           <path
             class="path {move.kind}"
             class:done={finished}
             class:restart-selected={recovering && move.pass !== null && move.pass === current && move.kind !== 'travel'}
-            class:skipped={recovering && move.pass !== null && doc.recovery?.steps[move.pass]?.status === 'skipped'}
+            class:skipped={recovering && move.pass !== null && recovery?.steps[move.pass]?.status === 'skipped'}
             class:active={move.pass !== null && move.pass === cutting}
             d={pathOf(move.points, false)}
             vector-effect="non-scaling-stroke"/>

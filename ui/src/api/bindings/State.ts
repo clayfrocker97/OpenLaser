@@ -17,7 +17,7 @@ export type State = {
  */
 alarm_revision: number,
 /**
- * Changes with every publication.
+ * Changes with every publication, and a publication only with a change.
  */
 revision: number,
 /**

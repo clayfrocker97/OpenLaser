@@ -283,7 +283,7 @@ pub struct State {
     #[serde(skip)]
     #[cfg_attr(feature = "typescript", ts(skip))]
     pub observed_parameters: Option<crate::session::Verified>,
-    /// Changes with every publication.
+    /// Changes with every publication, and a publication only with a change.
     pub revision: u64,
     /// The connection.
     pub connection: Connection,

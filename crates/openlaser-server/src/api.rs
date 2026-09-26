@@ -197,6 +197,9 @@ async fn write_machine_settings(
     Ok(ok())
 }
 
+/// The shortest time between two events to one screen.
+const EVENT_INTERVAL: std::time::Duration = std::time::Duration::from_millis(50);
+
 async fn events(
     State(shared): State<Shared>,
 ) -> Sse<impl tokio_stream::Stream<Item = std::result::Result<Event, std::convert::Infallible>>> {
@@ -209,7 +212,12 @@ async fn events(
     let closed = tokio_stream::wrappers::WatchStream::new(shared.closing.subscribe())
         .filter(|closed| *closed)
         .map(|_| None);
+    // At most 20 events a second: a streaming program changes the machine's
+    // state well over a hundred times a second, and each event makes every
+    // screen rebuild. The watch keeps only the newest document, so a pause
+    // merges what changed in between and the latest state always follows.
     let stream = tokio_stream::wrappers::WatchStream::new(documents)
+        .throttle(EVENT_INTERVAL)
         .map(Some)
         .merge(closed)
         .take_while(Option::is_some)

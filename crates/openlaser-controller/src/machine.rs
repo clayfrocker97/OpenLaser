@@ -1653,7 +1653,6 @@ impl Task {
     }
 
     fn publish(&mut self) {
-        self.revision += 1;
         if let Some(Active { job: Job::Run(run, _), .. }) = &self.active {
             self.program = Some(Self::program_view(run, run.state(), None, self.snapshot.as_ref()));
         }
@@ -1674,7 +1673,7 @@ impl Task {
                 .map_or(0, |d| d.as_secs());
             let _ = self.alarm_events.send(crate::alarms::Observation { at, alarms, fault });
         }
-        let state = State {
+        let mut state = State {
             alarm_revision: self.alarm_revision,
             configuration: self.configuration(),
             observed_parameters: self.snapshot.as_ref().and_then(|s| s.parameters().ok()),
@@ -1722,6 +1721,14 @@ impl Task {
             program: self.program.clone(),
             last_error: self.last_error.clone(),
         };
+        // Every poll lands here, well over a hundred times a second; one
+        // that changed nothing wakes no one. The state is compared with the
+        // published one at its revision, which only moves with a change.
+        if *self.publisher.borrow() == state {
+            return;
+        }
+        self.revision += 1;
+        state.revision = self.revision;
         self.publisher.send_replace(state);
     }
 
