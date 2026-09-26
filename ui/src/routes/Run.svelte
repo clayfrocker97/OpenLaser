@@ -258,7 +258,7 @@
         {#each history as points}<path class="path done" d={pathOf(points, false)} vector-effect="non-scaling-stroke" />{/each}
       {/if}
       {#if ui.layerShown('pierce')}
-        {#each compiled.pierces as [x, y]}<circle class="mark pierce" cx={x} cy={y} r={mark * 1.4}/>{/each}
+        {#each compiled.pierces as [x, y]}<circle class="mark pierce" cx={x} cy={y} r={mark * 0.6}/>{/each}
       {/if}
     {:else if preview}
       {#each preview.contours as contour}
@@ -313,7 +313,7 @@
           {#each LAYERS as [layer, label]}
             <button class="legend-chip" class:off={!ui.layerShown(layer)} onclick={() => ui.toggleLayer(layer)}>
               <svg class="sample" viewBox="0 0 36 12" aria-hidden="true">
-                {#if layer === 'pierce'}<circle class="mark pierce" cx="18" cy="6" r="5"/>{:else}<path class="path {layer}" d="M2 6H34"/>{/if}
+                {#if layer === 'pierce'}<circle class="mark pierce" cx="18" cy="6" r="3"/>{:else}<path class="path {layer}" d="M2 6H34"/>{/if}
               </svg>
               {label}
             </button>
