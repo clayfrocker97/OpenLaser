@@ -93,12 +93,12 @@
 </script>
 
 {#snippet key(axis: Axis, positive: boolean, icon: string, label: string, enabled: boolean)}
-  <button onpointerdown={(event) => press(event, axis, positive)} disabled={!enabled}><i class="ic {icon}"></i><small>{label}</small></button>
+  <button class="held" onpointerdown={(event) => press(event, axis, positive)} disabled={!enabled}><i class="ic {icon}"></i><small>{label}</small></button>
 {/snippet}
 {#snippet corner(xPositive: boolean, yPositive: boolean)}
   {@const label = `${xPositive ? 'X+' : 'X−'} ${yPositive ? 'Y+' : 'Y−'}`}
   <button
-    class="diagonal"
+    class="diagonal held"
     style:--turn="{cornerTurn(xPositive, yPositive)}deg"
     aria-label="Jog {label}"
     onpointerdown={(event) => press(event, 0, xPositive, yPositive)}

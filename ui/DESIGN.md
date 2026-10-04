@@ -59,9 +59,14 @@ touch-first CNC interface and adapted for a laser.
    buttons; 64 and 80 px for the primary machine actions), with gaps of 8 px
    or more.
 10. **Hardened surfaces.** Controls never open a long-press callout, select
-    text or zoom on a double tap (`touch-action: manipulation`). Held
-    controls use `touch-action: none`. On the canvas a finger must travel
-    12 px (a mouse 4 px) before a tap becomes a drag.
+    text or zoom on a double tap (`touch-action: manipulation`, and
+    `-webkit-user-select: none` on the control itself). Held controls use
+    `touch-action: none` and the class `held`. iOS WebKit, which Chrome uses,
+    does not send `contextmenu` for a long press on a button: it opens the
+    copy/paste callout, and after that the page takes no further touches.
+    `lib/touch.ts` cancels the touch on `.held` before that callout can
+    start. Text fields are not `.held`, so they keep paste. On the canvas a
+    finger must travel 12 px (a mouse 4 px) before a tap becomes a drag.
 11. **Errors stay.** An error stays on screen until dismissed, and never
     covers a Stop control. Other notes fade.
 12. **Dialogs close on purpose.** A dialog closes on its close button or on a

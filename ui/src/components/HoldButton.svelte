@@ -68,7 +68,7 @@
 
 <button
   {...attributes}
-  class="{className} hold-btn hold-{phase}"
+  class="{className} hold-btn held hold-{phase}"
   style:--hold={progress}
   {disabled}
   {title}
