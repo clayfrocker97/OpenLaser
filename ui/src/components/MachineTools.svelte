@@ -74,13 +74,13 @@
       <div class="setting"><div class="lbl">Hold a button<small>Release to turn off.</small></div></div>
       <div class="setting">
         <div class="lbl">Pointer<small>{laserLabel(doc.mode)} · {portLabel(bindings?.outputs.pointer_port)}</small></div>
-        <button class="btn btn-ghost deadman held" disabled={!bindings?.outputs.pointer || !readiness.outputs.ok} onpointerdown={(event) => hold(event, { kind: 'pointer' })}>
+        <button class="btn btn-ghost deadman" disabled={!bindings?.outputs.pointer || !readiness.outputs.ok} onpointerdown={(event) => hold(event, { kind: 'pointer' })}>
           Hold
         </button>
       </div>
       <div class="setting">
         <div class="lbl">Shutter<small>{laserLabel(doc.mode)} · {portLabel(bindings?.outputs.shutter_port)}</small></div>
-        <button class="btn btn-warn deadman held" disabled={!bindings?.outputs.shutter || !readiness.outputs.ok} onpointerdown={(event) => hold(event, { kind: 'shutter' })}>
+        <button class="btn btn-warn deadman" disabled={!bindings?.outputs.shutter || !readiness.outputs.ok} onpointerdown={(event) => hold(event, { kind: 'shutter' })}>
           Hold
         </button>
       </div>
@@ -88,7 +88,7 @@
         {#if bindings?.outputs.gas[selector]}
           <div class="setting">
             <div class="lbl">{name}<small>valve{selector < 3 ? ' and proportional pressure' : ''}</small></div>
-            <button class="btn btn-warn deadman held" disabled={!readiness.outputs.ok} onpointerdown={(event) => hold(event, { kind: 'gas', selector, pressure: gasPressure })}>
+            <button class="btn btn-warn deadman" disabled={!readiness.outputs.ok} onpointerdown={(event) => hold(event, { kind: 'gas', selector, pressure: gasPressure })}>
               Hold
             </button>
           </div>

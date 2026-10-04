@@ -17,9 +17,8 @@
 html, body { height: 100%; margin: 0; }
 body { overflow: hidden; font: var(--t-base)/1.4 var(--font); color: var(--ink); background: var(--bg); overscroll-behavior: none; user-select: none; }
 input, button, textarea, select, code, pre, kbd, samp { font: inherit; color: inherit; }
-/* Controls answer at once and never open a long-press callout or zoom on a double tap.
-   The prefixed user-select is what iOS reads; inheriting the unprefixed property is not enough on a button. */
-button, [role="button"], a { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; touch-action: manipulation; }
+/* Controls answer at once and never open a long-press callout or zoom on a double tap. */
+button, [role="button"], a { -webkit-touch-callout: none; touch-action: manipulation; }
 strong, b { font-weight: 600; }
 small { font-size: var(--t-sm); }
 summary { min-height: 44px; display: flex; align-items: center; gap: 8px; cursor: pointer; }
@@ -91,8 +90,6 @@ h3 { font-size: var(--t-sm); font-weight: 700; margin: 0; color: var(--ink-3); t
 .hold-btn.hold-early { box-shadow: 0 0 0 2px var(--danger); }
 /* Hold-to-run controls stop on release, so a drift must never become a scroll. */
 .deadman { touch-action: none; }
-/* Held controls are not ordinary buttons. iOS WebKit selects a button's label on a long press and then stops delivering touches. */
-.held, .held * { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; touch-action: none; }
 /* Why a control is unavailable, on screen: touch screens show no tooltips. */
 .gate-reason { margin: 6px 0 0; font-size: var(--t-sm); line-height: 1.4; color: var(--ink-2); }
 .skipped-files { margin: 0 0 12px; padding: 4px 14px; border: 1px solid var(--warn); border-radius: 12px; background: var(--warn-soft); font-size: var(--t-sm); }
